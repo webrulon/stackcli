@@ -11,9 +11,6 @@ import difflib
 import re
 import os
 
-_no_eol = "\ No newline at end of file"
-_hdr_pat = re.compile("^@@ -(\d+),?(\d+)? \+(\d+),?(\d+)? @@$")
-
 def commit(init, comment = ''):
 	# get new files
 	new_files, new_lm, old_files, old_lm = init.getListtoCompare()
@@ -126,6 +123,7 @@ def computeDiff(bin1,bin2):
 	Get unified string diff between two strings. Trims top two lines.
 	Returns empty string if strings are identical.
 	"""
+	_no_eol = "\ No newline at end of file"
 	diffs = difflib.unified_diff(bin1.splitlines(True),bin2.splitlines(True),n=0)
 	try: 
 		_,_ = next(diffs),next(diffs)
@@ -133,12 +131,12 @@ def computeDiff(bin1,bin2):
 		pass
 	return ''.join([d if d[-1] == '\n' else d+'\n'+_no_eol+'\n' for d in diffs])
 
-
 def applyDiff(bin1,patch):
 	s = s.splitlines(True)
 	p = patch.splitlines(True)
 	t = ''
 	i = sl = 0
+	_hdr_pat = re.compile("^@@ -(\d+),?(\d+)? \+(\d+),?(\d+)? @@$")
 	(midx,sign) = (1,'+') if not revert else (3,'-')
 	while i < len(p) and p[i].startswith(("---","+++")): 
 		i += 1 # skip header lines
@@ -293,7 +291,7 @@ def printHistory(init):
 			cmit = json.load(init.storage.loadFileGlobal(commit))
 			print('-- '+cmit['comment']+' by '+cmit['source'])
 			idx += 1
-			if idx > 3:
+			if idx > 4:
 				print('-- ('+str(len(history[str(i)]['commits'])-idx)+' more changes not showed)')
 				break
 
@@ -306,7 +304,7 @@ def printDiff(init, v2, v1, file=''):
 	init.storage.resetBuffer()
 
 	v2 = int(v2)
-	v1 = int(v1)
+	v1 = int(v1) 
 
 	if file == '':
 		# prints history
@@ -342,7 +340,7 @@ def printStatus(init):
 	metapath = init.prefix_meta+'current.json'
 	current = json.load(init.storage.loadFileGlobal(metapath))
 	init.storage.resetBuffer()
-	print('List of files in last commit:\n')
+	print('List of files in last commit:')
 	for i in range(len(current['keys'])):
 		print('\t-- '+current['keys'][i] + '\tlast modified: '+str(current['lm'][i]))
 

@@ -2,6 +2,7 @@ from src.core.init import Initializer
 from src.core.core import *
 from src.user.user import User
 from src.user.license.license import License
+from src.storage.classes.s3 import S3Bucket
 from src.storage.classes.gcs import GCSBucket
 from src.storage.classes.local import Local
 from pathlib import Path
@@ -52,15 +53,16 @@ class CLI(object):
 		if do:
 			# builds a config file
 			config = {}
+			storage = input('Specify your storage location (path or URI): ')
 			print('initializing dataset in ' + storage.lower())
 			if storage == None:
-				storage = input('Specify your storage location (path or URI): ')
+				pass
 			if 's3' in storage.lower():
 				bucket_data = storage.split("/")[1:]
 				config['bucket'] = bucket_data[1]
 				config['dataset'] = bucket_data[2]+'/'
 				config['type'] = 's3'
-			elif 'gcs' in storage.lower():
+			elif 'gs' in storage.lower():
 				bucket_data = storage.split("/")[1:]
 				config['bucket'] = bucket_data[1]
 				config['dataset'] = bucket_data[2]+'/'
@@ -116,8 +118,9 @@ class CLI(object):
 			print('reset complete')
 		return True
 
-	def revert(self, version):
-		revert(self.Initializer, int(version))
+	def revert(self, version=0):
+		assert(version != '')
+		revertCommit(self.Initializer, int(version))
 		return True
 
 	def revertFile(self, key, version):
@@ -137,7 +140,7 @@ class CLI(object):
 if __name__ == '__main__':
 	# parses arguments
 	parser = argparse.ArgumentParser(description='Stack command-line interface.')
-	parser.add_argument("command", nargs='?', help="Command to call(init, add, remove, commit, revert, history, diff, reset)", type=str, default='init')
+	parser.add_argument("command", nargs='?', help="Command to call(init, add, remove, commit, revert, history, diff, reset)", type=str, default='status')
 	parser.add_argument("options", nargs='*', help="options for the command-line (path, versions)", type=str, default=[''])
 	args = parser.parse_args()
 

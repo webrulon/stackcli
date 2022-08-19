@@ -1,11 +1,10 @@
+import sys
+sys.path.append( '../..' )
 import webbrowser
 from nylas import APIClient
-import dotenv
+from dotenv import *
 
-dotenv.config()
-NYLAS_KEY_1 = process.env.NYLAS_KEY_1
-NYLAS_KEY_2 = process.env.NYLAS_KEY_2
-NYLAS_KEY_3 = process.env.NYLAS_KEY_3
+config = dotenv_values()
 
 class Communications(object):
 	"""docstring for Communications"""
@@ -13,9 +12,9 @@ class Communications(object):
 		super(Communications, self).__init__()
 		self.email = user.email
 		self.nylas = APIClient(
-			NYLAS_KEY_1,
-			NYLAS_KEY_2,
-			NYLAS_KEY_3)
+			config['NYLAS_KEY_1'],
+			config['NYLAS_KEY_2'],
+			config['NYLAS_KEY_3'])
 
 	def requestSupport(self):
 		webbrowser.open('https://calendly.com/eigen-team/eigen-team')

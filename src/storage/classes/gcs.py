@@ -94,7 +94,7 @@ class GCSBucket(object):
 	def removeFileGlobal(self,filename):
 		# deletes files in path
 		if filename[-1] == '/':
-			for blob in self.client.list_blobs(self.BUCKET_NAME, prefix=path, delimiter=None):
+			for blob in self.client.list_blobs(self.BUCKET_NAME, prefix=filename, delimiter=None):
 				blob.delete()
 			self.resetBuffer()
 		else:
@@ -106,10 +106,9 @@ class GCSBucket(object):
 		return self.loadFileGlobal(self.dataset+filename)
 
 	def loadFileGlobal(self,filename):
-		file_obj = io.BytesIO()
 		blob = self.bucket.blob(filename)
-		blob.download_to_file(file_obj)
-		return file_obj
+		file_obj = blob.download_as_string()
+		return io.BytesIO(file_obj)
 
 	def loadFileMetadata(self,filename,debug=False):
 		blob = self.bucket.get_blob(self.dataset + filename)
@@ -151,20 +150,23 @@ class GCSBucket(object):
 		keys = []
 		last_m = []
 
-		blobs = self.client.list_blobs(self.BUCKET_NAME, prefix=self.dataset, delimiter=None)
+		blobs = self.client.list_blobs(self.BUCKET_NAME, prefix=path, delimiter=None)
 
 		# loads each file
 		for blob in blobs:
 			if blob.name[-1] != '/':
 				keys.append(blob.name)
-				last_m.append(blob.timeStorageClassUpdated.strftime("%m/%d/%Y, %H:%M:%S"))
+				last_m.append(blob.updated.strftime("%m/%d/%Y, %H:%M:%S"))
 			
 		return keys, last_m
 
 	def checkIfEmpty(self,path):
 		# checks the number of files in a directory
 		blobs = self.client.list_blobs(self.BUCKET_NAME, prefix=path, delimiter=None)
-		return (len(blobs) == 0)
+		idx = 0
+		for b in blobs:
+			idx = idx + 1
+		return (idx == 0)
 
 	def listFilesinDataset(self):
 		# lists all the files in the main path of the dataset

@@ -1,15 +1,16 @@
+import sys
+sys.path.append( '../../../' )
 import pymongo
 import urllib 
-import dotenv
+from dotenv import *
 
-dotenv.config()
-MONGO_API_KEY = process.env.MONGO_API_KEY
+config = dotenv_values()
 
 class MongoClient(object):
 	"""docstring for Database"""
 	def __init__(self):
 		super(MongoClient, self).__init__()
-		uri = "mongodb+srv://baceituno:"+urllib.parse.quote(MONGO_API_KEY)+"@cluster0.utuloy2.mongodb.net/?retryWrites=true&w=majority"
+		uri = "mongodb+srv://baceituno:"+urllib.parse.quote(config['MONGODB_API_KEY'])+"@cluster0.utuloy2.mongodb.net/?retryWrites=true&w=majority"
 		self.client = pymongo.MongoClient(uri)
 		self.client.test
 
