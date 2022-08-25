@@ -51,8 +51,10 @@ def commit(init, comment = ''):
 					'type'	: 'modified',
 					'date'	: new_lm[idx],
 					'source': username,
-					'comment' : 'modified '+ f_relative+comment,
+					'comment' : 'modified '+ f_relative + comment,
 				}
+
+				print('-- modified '+ f_relative)
 
 				toadd.append(f_relative)
 
@@ -74,6 +76,8 @@ def commit(init, comment = ''):
 				'source': username,
 				'comment' : 'removed '+ f_relative+comment,
 			}
+
+			print('-- removed '+ f_relative)
 
 			toremove.append(f_relative)
 
@@ -105,12 +109,15 @@ def commit(init, comment = ''):
 				'comment' : 'added '+ f+comment,
 			}
 
+			print('-- added '+ f)			
+
 			toadd.append(f)
 
 			commitpath = init.prefix_commit + f + '/' + str(n).zfill(10)
 			commits.append(commitpath)
 			init.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
 	init.storage.resetBuffer()	
+
 	# updates the current version in .stack
 	if len(commits):
 		init.copyCurrentCommit(toadd,toremove)
@@ -171,7 +178,6 @@ def storeDiff(storage, diff_path, key_old, key_new):
 
 	# diff surrogate, save latest snapshot
 	storage.copyFileGlobal(key_new,diff_path)
-	storage.resetBuffer()
 	return True
 
 def updateHistory(init,commits):
@@ -179,6 +185,7 @@ def updateHistory(init,commits):
 	metapath = init.prefix_meta+'history.json'
 	history = json.load(init.storage.loadFileGlobal(metapath))
 	init.storage.resetBuffer()
+
 	# adds to the latest commits
 	time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 	history[str(len(history)+1)] = {'commits': commits, 'date': time}
@@ -222,7 +229,6 @@ def revertFile(init, key, version):
 	diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 	init.storage.copyFileGlobal(diff,key)
 	print('reverted file ' + key + ' to version ' + str(version))
-	init.storage.resetBuffer()
 	return True
 
 def revertCommit(init, target_version):
@@ -235,6 +241,8 @@ def revertCommit(init, target_version):
 			cmit = json.load(init.storage.loadFileGlobal(commit_))
 			if cmit['type'] != 'remove':
 				revertFile(init,cmit['key'],cmit['version'])
+			else:
+				revertFile(init,cmit['key'],cmit['version']-1)
 	init.storage.resetBuffer()
 	return True
 

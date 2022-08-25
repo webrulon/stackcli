@@ -30,8 +30,8 @@ class GCSBucket(object):
 			print('3) Go to your new service account/keys')
 			print('4) Create a new key in .json format')
 			print('5) go to terminal and type \'export GOOGLE_APPLICATION_CREDENTIALS=KEY_PATH\'')
-			return self.connectBucket()
-		
+			return False
+
 		# checks if the bucket exists
 		print('Connecting to your bucket...')
 		buckets = self.client.list_buckets()

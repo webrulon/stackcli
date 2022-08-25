@@ -12,9 +12,11 @@ import argparse
 
 class CLI(object):
 	"""docstring for CLI"""
-	def __init__(self):
+	def __init__(self, reset=False):
 		super(CLI, self).__init__()
-		if Path(str(Path.home())+'/config.stack').exists():
+		if reset:
+			self.Initializer = None
+		elif Path(str(Path.home())+'/config.stack').exists():
 			file2 = open(str(Path.home())+'/config.stack', 'rb')
 			config = pickle.load(file2)
 			file2.close()
@@ -86,10 +88,20 @@ class CLI(object):
 		add(self.Initializer,[path],subpath)
 		return True
 
+	def pull_all(self,version = 'current'):
+		print('downloading files from last commit')
+		metapath = self.Initializer.prefix_meta + 'current.json'
+		current = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+		pull(self.Initializer, current['keys'], version)
+		return True
+
 	def pull(self, file, version = 'current'):
-		if not self.Initializer.storage.dataset in file:
-			file = self.Initializer.storage.dataset + file
-		pull(self.Initializer, [file], version)
+		if file == '.' or file == 'all':
+			return self.pull_all(version)
+		else:
+			if not self.Initializer.storage.dataset in file:
+				file = self.Initializer.storage.dataset + file
+			pull(self.Initializer, [file], version)
 		return True
 
 	def status(self):
@@ -128,6 +140,8 @@ class CLI(object):
 			revertFile(self.Initializer, key, int(version))
 		else:
 			revertFile(self.Initializer, self.Initializer.storage.dataset+key, int(version))
+		self.Initializer.storage.resetBuffer()
+
 		return True
 
 	def history(self):
@@ -135,6 +149,12 @@ class CLI(object):
 
 	def diff(self, v1, v0, file=''):
 		printDiff(self.Initializer, v1, v0, file)
+		return True
+
+	def logout(self):
+		print('loging you out of ' + self.Initializer.storage.type + '://' + self.Initializer.storage.BUCKET_NAME + '/' + self.Initializer.storage.dataset)
+		import os
+		os.remove(str(Path.home())+'/config.stack')
 		return True
 
 if __name__ == '__main__':
@@ -145,9 +165,16 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	# starts a command line tool
-	cli = CLI()
-
+	try:
+		cli = CLI()
+	except:
+		import os
+		os.remove(str(Path.home())+'/config.stack')
+		cli = CLI()
+		cli.init()
+ 
 	if args.command == 'init':
+		print(args.options)
 		if args.options[0] == '.':
 			cli.init()
 		else:
@@ -197,3 +224,5 @@ if __name__ == '__main__':
 
 	elif args.command == 'history':
 		cli.history()
+	elif args.command == 'logout':
+		cli.logout()

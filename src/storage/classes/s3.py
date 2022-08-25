@@ -160,8 +160,13 @@ class S3Bucket(object):
 			for obj in self.bucket.objects.filter(Prefix=filename):
 				self.s3t.delete(self.BUCKET_NAME, obj.key)
 			self.resetBuffer()
+		elif filename[-1] == '*':
+			for obj in self.bucket.objects.filter(Prefix=filename[:-1]):
+				self.s3t.delete(self.BUCKET_NAME, obj.key)
+			self.resetBuffer()
 		else:
 			self.s3t.delete(self.BUCKET_NAME, filename)
+			
 		return True
 
 	def loadFile(self,filename):
