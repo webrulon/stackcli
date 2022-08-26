@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "stackcli" # should be "stackai"
+version = "0.1.0"
+description = ""
+authors = ["Toni Rosinol <arosinol@getstack.ai>"]
+readme = "README.md"
+
+[tool.poetry.scripts]
+stackcli = "stack_api.api_cli:app" # should be "stackai" instead of stackcli, note it needs to  be the same than `name' above
+
+[tool.poetry.dependencies]
+python = "^3.10"
+typer = {extras = ["all"], version = "^0.6.1"}
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

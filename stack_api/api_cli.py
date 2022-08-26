@@ -1,4 +1,4 @@
-import api_core
+import stack_api.api_core as api_core
 
 import typer
 from pathlib import Path
