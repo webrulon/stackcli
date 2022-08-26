@@ -1,4 +1,3 @@
-
 from src.core.init import Initializer
 from src.core.core import *
 from src.storage.classes.s3 import S3Bucket
@@ -169,6 +168,27 @@ class API(object):
 
         return file_array
 
+    def commits_version(self, version = 2, l = 5, page = 0):
+        metapath = self.Initializer.prefix_meta+'history.json'
+        history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        self.Initializer.storage.resetBuffer()
+
+        response = {}
+        idx = 0
+
+        # goes over the commits
+        for commit in history[str(version)]['commits']:
+            # reads each file version
+            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+            self.Initializer.storage.resetBuffer()
+            response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(version)]['date'], 'comment': cmit['comment']}
+            print('added something...')
+            idx = idx + 1
+            if idx >= int(l):
+                break
+
+        return response
+
     def status(self):
         metapath = self.Initializer.prefix_meta+'current.json'
         return json.load(self.Initializer.storage.loadFileGlobal(metapath))
@@ -221,22 +241,6 @@ class API(object):
     def history(self):
         metapath = self.Initializer.prefix_meta+'history.json'
         return json.load(self.Initializer.storage.loadFileGlobal(metapath))
-
-    def commits_version(self, version = 0):
-        metapath = self.Initializer.prefix_meta+'history.json'
-        history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
-        self.Initializer.storage.resetBuffer()
-
-        response = {}
-        idx = 0
-        # goes over the commits
-        for commit in history[str(version)]['commits']:
-            # reads each file version
-            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
-            response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(version)]['date'], 'comment': cmit['comment']}
-            idx = idx + 1
-        self.Initializer.storage.resetBuffer()
-        return response
 
     def lastNcommits(self, n = 0):
         metapath = self.Initializer.prefix_meta+'history.json'

@@ -2,6 +2,9 @@ import api_core
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+import pickle
+from api_core import API
 
 # API Definition
 app = FastAPI()
@@ -10,7 +13,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],  
+    allow_headers=["*"], 
 )
 
 # checks if local files are installed
@@ -43,6 +46,13 @@ async def uri_api():
 async def history_api():
     try:
         return api_core.history()
+    except:
+        return {}
+
+@app.get("/commits_version")
+async def commits_version_api(version=2,l=5, page=0):
+    try:
+        return api_core.commits_version(version, l, page)
     except:
         return {}
 
