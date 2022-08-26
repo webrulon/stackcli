@@ -7,6 +7,9 @@ node_modules
 cdk.out
 .env
 
+# Poetry stuff
+poetry.lock
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
