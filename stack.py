@@ -78,6 +78,9 @@ class CLI(object):
 			pickle.dump(config,file)
 			file.close()
 
+			if not self.Initializer.verify_setup():
+				self.Initializer.setupDataset()
+
 			# creates dataset
 			return True
 
@@ -108,6 +111,9 @@ class CLI(object):
 		printStatus(self.Initializer)
 		return True
 
+	def start_check(self):
+		return self.Initializer.start_check()
+
 	def remove(self, key, subpath=''):
 		if len(subpath)>1:
 			if subpath[-1] != '/':
@@ -117,6 +123,7 @@ class CLI(object):
 
 	def commit(self, comment=''):
 		print(comment)
+
 		commit(self.Initializer, comment)
 		print('commit done!')
 		return True

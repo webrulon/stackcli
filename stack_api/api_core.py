@@ -1,3 +1,5 @@
+import sys
+sys.path.append( '..' )
 from src.core.init import Initializer
 from src.core.core import *
 from src.storage.classes.s3 import S3Bucket
@@ -104,6 +106,9 @@ class API(object):
         else:
             return False
 
+    def start_check(self):
+        return self.Initializer.start_check()
+
     def getURI(self):
         return {'storage': self.storage_name, 'dataset': self.dataset_name}
 
@@ -189,7 +194,7 @@ class API(object):
             commit = history[str(int(version)+1)]['commits'][i]
             cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             self.Initializer.storage.resetBuffer()
-            response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(version)]['date'], 'comment': cmit['comment']}
+            response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(int(version)+1)]['date'], 'comment': cmit['comment']}
             idx = idx + 1
             if idx >= int(l):
                 break
@@ -219,20 +224,22 @@ class API(object):
         except:
             return {}
 
+    def check_if_setup(self):
+        
+        self.Initializer.setupDataset()
+        print('setup complete!')
+        return True
+
     def reset(self):
         self.Initializer.removeSetup()
         self.Initializer.setupDataset()
-        print('reset complete')
+        print('setup complete!')
         return True
 
     def revert(self, version=0):
-        try:
-            assert(version != '')
-            revertCommit(self.Initializer, int(version))
-            commit(self.Initializer, 'reverted to version' + str(version))
-            return True
-        except:
-            return False
+        assert(version != '')
+        revertCommit(self.Initializer, int(version))
+        commit(self.Initializer, 'reverted to version' + str(version))
 
     def revertFile(self, key, version):
         try: 

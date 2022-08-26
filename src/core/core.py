@@ -208,11 +208,21 @@ def add(init, files=[], location='?'):
 def remove(init, files=[], location='?'):
 	if location == '?':
 		location = ''
-	
+
 	# adds each file
 	for file in files:
 		print('removing file '+location+file+'...')
 		init.storage.removeFile(location+file)
+	return True
+
+def removeGlobal(init, files=[], location='?'):
+	if location == '?':
+		location = ''
+
+	# adds each file
+	for file in files:
+		print('removing file '+location+file+'...')
+		init.storage.removeFileGlobal(location+file)
 	return True
 
 def removeDiff(init, key, version):
@@ -235,18 +245,19 @@ def revertCommit(init, target_version):
 	# finds the commit version
 	metapath = init.prefix_meta+'history.json'
 	history = json.load(init.storage.loadFileGlobal(metapath))
-
-	for i in range(len(history),target_version-1,-1):
+	
+	for i in range(len(history),int(target_version),-1):
+		# print(i)
 		for commit_ in history[str(i)]['commits']:
 			cmit = json.load(init.storage.loadFileGlobal(commit_))
+			init.storage.resetBuffer()
 			if cmit['type'] == 'add':
-				remove(init, [cmit['key']])
+				removeGlobal(init, [cmit['key']])
 			elif cmit['type'] == 'remove':
-				revertFile(init,cmit['key'],cmit['version']-1)
+				revertFile(init,cmit['key'],cmit['version'])
 			else:
 				revertFile(init,cmit['key'],cmit['version'])
-				
-	init.storage.resetBuffer()
+			init.storage.resetBuffer()
 	return True
 
 def pull(init, files=[],version='current'):

@@ -38,6 +38,34 @@ class Initializer(object):
 			self.storage.removeFileGlobal('.stack/')
 		return True
 
+	def start_check(self):
+		# checks if the dataset exists
+		if not self.verify_setup():
+			print('no .stack/ folder found! creating one...')
+			self.setupDataset()
+		else:
+			print('setup is ok!')
+		return True
+
+	def verify_setup(self):
+		# verifies if a setup .stack/ directory exists
+		if self.storage.checkIfEmpty(self.prefix_meta):
+			return False
+
+		if self.storage.checkIfEmpty(self.prefix_curr):
+			print('no diffs metadata found')
+			return False
+
+		if self.storage.checkIfEmpty(self.prefix_diffs):
+			print('no diffs found')
+			return False
+
+		if self.storage.checkIfEmpty(self.prefix_commit):
+			print('no commits metada found')
+			return False
+
+		return True
+
 	def setupDataset(self):
 		# performs all key operations
 		self.copyCurrent()

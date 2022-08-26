@@ -1,5 +1,4 @@
 import api_core
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -19,11 +18,13 @@ app.add_middleware(
 # checks if local files are installed
 try:
     api_core = API()
+    api_core.start_check()
 except:
     import os
     os.remove(str(Path.home())+'/config.stack')
     api_core = API()
     api_core.init()
+    api_core.start_check()
 
 # End-points
 
@@ -51,10 +52,10 @@ async def history_api():
 
 @app.get("/commits_version")
 async def commits_version_api(version=1,l=5, page=0):
-    try:
-        return api_core.commits_version(version, l, page)
-    except:
-        return {}
+    # try:
+    return api_core.commits_version(version, l, page)
+    # except:
+    #     return {}
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
@@ -111,7 +112,7 @@ async def diff_file_api(file,v2,v1):
     return ''
 
 @app.get("/revert")
-async def revert_api(version):
+async def revert_api(version=0):
     return {'success': api_core.revert(version)}
 
 @app.get("/revert_file")

@@ -241,7 +241,8 @@ class S3Bucket(object):
 		summary = self.bucket.objects.filter(Prefix=path)
 		count = 0
 		for obj in summary:
-			count += 1
+			if obj.key[-1] != '/':
+				count += 1
 		return (count == 0)
 
 	def listFilesinDataset(self):
