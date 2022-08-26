@@ -239,10 +239,13 @@ def revertCommit(init, target_version):
 	for i in range(len(history),target_version-1,-1):
 		for commit_ in history[str(i)]['commits']:
 			cmit = json.load(init.storage.loadFileGlobal(commit_))
-			if cmit['type'] != 'remove':
-				revertFile(init,cmit['key'],cmit['version'])
-			else:
+			if cmit['type'] == 'add':
+				remove(init, [cmit['key']])
+			elif cmit['type'] == 'remove':
 				revertFile(init,cmit['key'],cmit['version']-1)
+			else:
+				revertFile(init,cmit['key'],cmit['version'])
+				
 	init.storage.resetBuffer()
 	return True
 

@@ -50,7 +50,7 @@ async def history_api():
         return {}
 
 @app.get("/commits_version")
-async def commits_version_api(version=2,l=5, page=0):
+async def commits_version_api(version=1,l=5, page=0):
     try:
         return api_core.commits_version(version, l, page)
     except:
@@ -77,7 +77,7 @@ async def status_api():
     except:
         return {}
 
-@app.post("/commit")
+@app.get("/commit_req")
 async def commit_api(comment=''):
     return {'success': api_core.commit(comment)}
 

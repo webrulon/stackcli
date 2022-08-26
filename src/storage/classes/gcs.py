@@ -174,7 +174,7 @@ class GCSBucket(object):
 
 	def copyFile(self,filepath,full_target_name):
 		# adding new file
-		return copyFileGlobal(self.dataset+filepath,self.dataset+full_target_name)
+		return self.copyFileGlobal(self.dataset+filepath,self.dataset+full_target_name)
 
 	def copyFileGlobal(self,filepath,full_target_name):
 		source_blob = self.bucket.blob(filepath)
