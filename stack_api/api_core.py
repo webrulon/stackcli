@@ -169,6 +169,10 @@ class API(object):
         return file_array
 
     def commits_version(self, version = 2, l = 5, page = 0):
+        assert(int(l) > 0)
+        assert(int(version) >= 0)
+        assert(int(page) >= 0)
+
         metapath = self.Initializer.prefix_meta+'history.json'
         history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
         self.Initializer.storage.resetBuffer()
@@ -176,9 +180,13 @@ class API(object):
         response = {}
         idx = 0
 
+        i_p = int(page)*int(l)
+        i_f = min((int(page)+1)*int(l),len(history[str(version)]['commits']))
+
         # goes over the commits
-        for commit in history[str(version)]['commits']:
+        for i in range(i_p, i_f):
             # reads each file version
+            commit = history[str(version)]['commits'][i]
             cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             self.Initializer.storage.resetBuffer()
             response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(version)]['date'], 'comment': cmit['comment']}
