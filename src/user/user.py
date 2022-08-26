@@ -20,11 +20,10 @@ class User(object):
 		password = maskpass.askpass(prompt="Enter password: ", mask="#")
 
 		user_id = self.mongo_client.findInCollection(self.user_col,{'username' : username})
-		
+
 		# should be only once
-		l = 0
+		l = len(user_id)
 		for x in user_id:
-			l = l + 1
 			ref = x['password']
 			email = x['email']
 
@@ -50,7 +49,7 @@ class User(object):
 		password2 = maskpass.askpass(prompt="Enter password again: ", mask="#")
 
 		email = input("Enter your e-mail: ")
-		email2 = input("Enter your e-mail gain: ")
+		email2 = input("Enter your e-mail again: ")
 
 		if not email == email2:
 			print('emails do not match...')
@@ -123,6 +122,6 @@ def main():
 	usr.createUser()
 	usr.loginUser()
 	usr.deleteUser()
-	
+
 if __name__ == '__main__':
 	main()
