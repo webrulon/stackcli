@@ -242,19 +242,24 @@ def revertFile(init, key, version):
 	return True
 
 def revertCommit(init, target_version):
+	if int(target_version) == 0:
+		return False
+
 	# finds the commit version
 	metapath = init.prefix_meta+'history.json'
 	history = json.load(init.storage.loadFileGlobal(metapath))
 	
+	print('we have this')
+
 	for i in range(len(history),int(target_version),-1):
-		# print(i)
+		print('checking version' + str(i))
 		for commit_ in history[str(i)]['commits']:
 			cmit = json.load(init.storage.loadFileGlobal(commit_))
 			init.storage.resetBuffer()
 			if cmit['type'] == 'add':
 				removeGlobal(init, [cmit['key']])
 			elif cmit['type'] == 'remove':
-				revertFile(init,cmit['key'],cmit['version'])
+				revertFile(init,cmit['key'],cmit['version']-1)
 			else:
 				revertFile(init,cmit['key'],cmit['version'])
 			init.storage.resetBuffer()

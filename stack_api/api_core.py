@@ -186,15 +186,15 @@ class API(object):
         idx = 0
 
         i_p = int(page)*int(l)
-        i_f = min((int(page)+1)*int(l),len(history[str(int(version)+1)]['commits']))
+        i_f = min((int(page)+1)*int(l),len(history[str(int(version))]['commits']))
 
         # goes over the commits
         for i in range(i_p, i_f):
             # reads each file version
-            commit = history[str(int(version)+1)]['commits'][i]
+            commit = history[str(int(version))]['commits'][i]
             cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             self.Initializer.storage.resetBuffer()
-            response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(int(version)+1)]['date'], 'comment': cmit['comment']}
+            response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(int(version))]['date'], 'comment': cmit['comment']}
             idx = idx + 1
             if idx >= int(l):
                 break
