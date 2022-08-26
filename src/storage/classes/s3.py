@@ -30,13 +30,13 @@ class S3Bucket(object):
 		home_dir = str(Path.home())
 		if not os.path.isfile(home_dir+'/.aws/credentials'):
 
-			print("AWS is not setup in this machine. Please follow the following steups:")
+			print("AWS is not setup in this machine. Please follow the following setups:")
 			print('\n')
-			print("1) Go to https://console.aws.amazon.com/iamv2/") 
+			print("1) Go to https://console.aws.amazon.com/iamv2/")
 			print("2) Choose 'Users' and click on 'Add user'.")
 			print("3) Give the user a name (for example, StackBot).")
 			print("4) Check 'Enable programmatic access'.")
-			print("5) go to 'Set permissions', click 'Attach Existing Policies'.") 
+			print("5) go to 'Set permissions', click 'Attach Existing Policies'.")
 			print("6) Check 'AmazonS3FullAccess'")
 			print('\n')
 			print('Please copy your keys...')
@@ -80,7 +80,7 @@ class S3Bucket(object):
 			config = configparser.ConfigParser()
 			config.read(home_dir+'/.aws/config')
 			self.credentials['region'] = config['default']['region']
-		
+
 		print('Connecting to your bucket...')
 		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])
 		self.resetBuffer()
@@ -137,7 +137,7 @@ class S3Bucket(object):
 		if filepath[-1] == '/':
 			for root,dirs,files in os.walk(filepath):
 				for file in files:
-					self.s3t.upload(os.path.join(root,file),self.BUCKET_NAME,self.dataset+subpath+file)	
+					self.s3t.upload(os.path.join(root,file),self.BUCKET_NAME,self.dataset+subpath+file)
 			self.resetBuffer()
 		else:
 			self.s3t.upload(filepath,self.BUCKET_NAME,self.dataset+subpath+os.path.basename(filepath))
@@ -166,7 +166,7 @@ class S3Bucket(object):
 			self.resetBuffer()
 		else:
 			self.s3t.delete(self.BUCKET_NAME, filename)
-			
+
 		return True
 
 	def loadFile(self,filename):
@@ -176,7 +176,7 @@ class S3Bucket(object):
 		return self.resource.meta.client.get_object(Bucket=self.BUCKET_NAME,Key=filename)['Body']
 
 	def loadFileMetadata(self,filename,debug=False):
-		# gets the metadata		
+		# gets the metadata
 		obj = self.resource.Object(self.BUCKET_NAME,self.dataset+filename).get()
 
 		metadata = {
@@ -231,7 +231,7 @@ class S3Bucket(object):
 				if obj['Key'][-1] != '/':
 					keys.append(obj['Key'])
 					last_m.append(obj["LastModified"].strftime("%m/%d/%Y, %H:%M:%S"))
-			
+
 			return keys, last_m
 		else:
 			return [],[]
@@ -307,7 +307,7 @@ def main():
 	print(cloud.loadDataset())
 
 	cloud.listFilesinDataset()
-	
+
 	cloud.copyFile('extra/image3.png','extra/image4.png')
 	cloud.listFilesinPath('')
 	print('success')
