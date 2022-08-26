@@ -226,6 +226,22 @@ class API(object):
         metapath = self.Initializer.prefix_meta+'history.json'
         return json.load(self.Initializer.storage.loadFileGlobal(metapath))
 
+    def commits_version(self, version = 0):
+        metapath = self.Initializer.prefix_meta+'history.json'
+        history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        self.Initializer.storage.resetBuffer()
+
+        response = {}
+        idx = 0
+        # goes over the commits
+        for commit in history[str(version)]['commits']:
+            # reads each file version
+            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+            response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(version)]['date'], 'comment': cmit['comment']}
+            idx = idx + 1
+        self.Initializer.storage.resetBuffer()
+        return response
+
     def lastNcommits(self, n = 0):
         metapath = self.Initializer.prefix_meta+'history.json'
         history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
@@ -300,6 +316,13 @@ async def uri_api():
 async def history_api():
     try:
         return api.history()
+    except:
+        return {}
+
+@app.get("/commits_version")
+async def commits_version_api(n=0):
+    try:
+        return api.commits_version(n)
     except:
         return {}
 
