@@ -2,3 +2,6 @@ pymongo
 python-dotenv
 fastapi
 typer
+boto3
+maskpass
+google-cloud-datastore
