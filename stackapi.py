@@ -135,6 +135,44 @@ class API(object):
             pull(self.Initializer, [file], version)
         return True
 
+    def pull_file(self, file, version = 'current'):
+        if not self.Initializer.storage.dataset in file:
+            file = self.Initializer.storage.dataset + file
+        
+        if version == 'current':
+            # saves each file
+            for key in files:
+                binary = self.Initializer.storage.loadFileGlobal(key)
+        else:
+            gtfo = False
+            # finds the commit of interest
+            metapath = self.Initializer.prefix_meta+'history.json'
+            history = self.Initializer.load(self.Initializer.storage.loadFileGlobal(metapath))
+            for key in files:
+                if key[-1] == '/':
+                    print('Do not pull directories')
+                    return False
+                for i in range(len(history),int(version)-1,-1):
+                    for commit in history[str(i)]['commits']:
+                        # reads each file version
+                        cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                        if str(cmit['version']) == version and cmit['key'] == key:
+                            if cmit['type'] != 'remove':
+                                key = self.Initializer.prefix_diffs + key + '/' + str(cmit['version']).zfill(10)
+                                binary = self.Initializer.storage.loadFileGlobal(key).read()
+                                self.Initializer.storage.resetBuffer()
+                            gtfo = True
+                        if gtfo:
+                            break
+                if gtfo:
+                    gtfo = False
+                    break
+
+        self.Initializer.storage.resetBuffer()
+        file_array = {binary: binary, key: file}
+
+        return file_array
+
     def status(self):
         metapath = self.Initializer.prefix_meta+'current.json'
         return json.load(self.Initializer.storage.loadFileGlobal(metapath))
@@ -272,6 +310,13 @@ async def last_n_commits_api(n=5):
     except:
         return {}
 
+@app.get("/last_commits_from_hist_api")
+async def last_commits_from_hist_api(n=1):
+    try:
+        return api.getHistoryCommits(n)
+    except:
+        return {}
+
 @app.get("/status")
 async def status_api():
     try:
@@ -290,9 +335,12 @@ async def get_commit_meta_api(commit):
     except:
         return {}
 
-@app.get("/pull")
-async def pull_api(file):
-    return ''
+@app.get("/pull_api")
+async def pull_file_api(file):
+    try:
+        return api.storage.pull_file(file)
+    except:
+        return {}
 
 @app.get("/pull_metadata")
 async def pull_metadata_api(file):
