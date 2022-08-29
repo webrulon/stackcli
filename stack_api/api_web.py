@@ -18,19 +18,32 @@ app.add_middleware(
 # checks if local files are installed
 try:
     api_core = API()
-    api_core.start_check()
+    initialized = api_core.start_check()
+    assert(initialized)
 except:
-    import os
-    os.remove(str(Path.home())+'/config.stack')
+    try:
+        import os
+        os.remove(str(Path.home())+'/config.stack')
+    except:
+        print('no config file')
     api_core = API()
-    api_core.init()
-    api_core.start_check()
+    initilized = api_core.init()
+    
+    if initilized:
+        api_core.start_check()
 
 # End-points
 
 @app.get("/init")
-async def init(uri):
-    return {'success': api_core.init(uri)}
+async def init(uri=''):
+    try:
+        api_core.init(uri)
+        api_core.connect_post_api()
+        api_core.start_check()
+
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.get("/connect")
 async def connect(dataset):
@@ -52,10 +65,10 @@ async def history_api():
 
 @app.get("/commits_version")
 async def commits_version_api(version=1,l=5, page=0):
-    # try:
-    return api_core.commits_version(version, l, page)
-    # except:
-    #     return {}
+    try:
+        return api_core.commits_version(version, l, page)
+    except:
+        return {}
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):

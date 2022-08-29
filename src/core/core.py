@@ -200,7 +200,7 @@ def add(init, files=[], location='?'):
 	
 	# adds each file
 	for file in files:
-		print('adding file '+file+'...')
+		print('adding'+file+'...')
 		init.storage.addFile(file, '', location)
 	init.storage.resetBuffer()
 	return True

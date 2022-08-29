@@ -20,6 +20,7 @@ class API(object):
             file2.close()
             self.storage_name = config['storage']
             self.dataset_name = config['dataset']
+            print(config)
             if config['type'] == 'local':
                 cloud = Local()
                 cloud.createDataset(config['dataset'])
@@ -36,48 +37,80 @@ class API(object):
                 self.Initializer = Initializer(cloud)
             else:
                 self.Initializer = None
-        else:
-            self.Initializer = None
         
     def init(self, storage = None):
-        # builds a config file
-        try: 
-            config = {}
-            print('initializing dataset in ' + storage.lower())
+        # builds a config file       
+        if Path(str(Path.home())+'/config.stack').exists():
+            config = {} 
             if storage == None:
-                pass
+                return False
             if 's3' in storage.lower():
                 bucket_data = storage.split("/")[1:]
                 config['bucket'] = bucket_data[1]
-                config['dataset'] = bucket_data[2]+'/'
+                config['dataset'] = ''.join(bucket_data[2:])+'/'
                 config['type'] = 's3'
             elif 'gs' in storage.lower():
                 bucket_data = storage.split("/")[1:]
                 config['bucket'] = bucket_data[1]
-                config['dataset'] = bucket_data[2]+'/'
+                config['dataset'] = ''.join(bucket_data[2:])+'/'
                 config['type'] = 'gcs'
             else:
                 config['dataset'] = storage
                 config['type'] = 'local'
             config['storage'] = storage
+            print(config)
+            print(bucket_data)
+
             # stores the config file
+
+            print('initializing dataset in ' + storage.lower())
+
             file = open(str(Path.home())+'/config.stack', 'wb')
             pickle.dump(config,file)
             file.close()
-
             # creates dataset
             return True
-        except:
+        else:
+            print('creating config file')
+            config = {'storage': ''}
+            file = open(str(Path.home())+'/config.stack', 'wb')
+            pickle.dump(config,file)
+            file.close()
             return False
 
-    def connectDataset(self, dataset):
+    def connect_post_api(self):
+        file2 = open(str(Path.home())+'/config.stack', 'rb')
+        config = pickle.load(file2)
+        file2.close()
+        self.storage_name = config['storage']
+        self.dataset_name = config['dataset']
+        print(config)
+        if config['type'] == 'local':
+            cloud = Local()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 's3':
+            cloud = S3Bucket(config['bucket'])
+            cloud.connectBucket()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 'gcs':
+            cloud = GCSBucket(config['bucket'])
+            cloud.connectBucket()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        else:
+            self.Initializer = None
+        return True
+
+    def connectDataset(self, storage=None):
         # checks if another dataset exists
         # builds a config file
         if Path(str(Path.home())+'/config.stack').exists():
             file2 = open(str(Path.home())+'/config.stack', 'rb')
             config = pickle.load(file2)
             
-            print('initializing dataset in ' + dataset)
+            print('initializing dataset in ' + storage.lower())
             config['dataset'] = storage
             # stores the config file
             file = open(str(Path.home())+'/config.stack', 'wb')
@@ -98,8 +131,6 @@ class API(object):
                 cloud.connectBucket()
                 cloud.createDataset(config['dataset'])
                 self.Initializer = Initializer(cloud)
-            else:
-                self.Initializer = None
 
             # creates dataset
             return True
@@ -107,7 +138,10 @@ class API(object):
             return False
 
     def start_check(self):
-        return self.Initializer.start_check()
+        try:
+            return self.Initializer.start_check()
+        except:
+            return False
 
     def getURI(self):
         return {'storage': self.storage_name, 'dataset': self.dataset_name}

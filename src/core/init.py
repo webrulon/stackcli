@@ -12,6 +12,7 @@ class Initializer(object):
 		super(Initializer, self).__init__()
 		self.storage = storage
 		self.dataset = storage.loadDataset()
+		self.user = user
 		
 		# prefixes
 		if self.storage.type == 'local':
@@ -25,7 +26,7 @@ class Initializer(object):
 			self.prefix_commit = '.stack/'+self.storage.dataset+'commits/'
 			self.prefix_diffs = '.stack/'+self.storage.dataset+'diffs/'
 
-		self.user = user
+		self.start_check()
 
 	def defineSchema(self):
 		# defines the dataset schema for exporting and visualizing
