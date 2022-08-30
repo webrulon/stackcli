@@ -1,5 +1,5 @@
 import api_core
-from fastapi import FastAPI
+from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import pickle
@@ -71,6 +71,14 @@ async def history_api():
         return api_core.history()
     except:
         return {}
+
+@app.post("/add_file/")
+async def add_file_api(file: UploadFile = File(description="A file read as UploadFile")):
+    try:
+        api_core.add_file_api(file.name, file.read())
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.get("/commits_version")
 async def commits_version_api(version=1,l=5, page=0):
@@ -173,14 +181,6 @@ async def revert_key_version_api(key, version=-1):
     except:
         return {'sucess': False}
 
-
-@app.get("/diff")
-async def diff_api(v2,v1):
-    return ''
-
-@app.get("/diff_key")
-async def diff_key_api(file,v2,v1):
-    return ''
 
 @app.get("/revert")
 async def revert_api(version=0):

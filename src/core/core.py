@@ -205,6 +205,16 @@ def add(init, files=[], location='?'):
 	init.storage.resetBuffer()
 	return True
 
+def add_from_finary(init, filename='', binary='', location='?'):
+	if location == '?':
+		location = ''
+	
+	# adds each file
+	print('adding'+filename+'...')
+	init.storage.addFileFromBinary(filename, binary)
+	init.storage.resetBuffer()
+	return True
+
 def remove(init, files=[], location='?'):
 	if location == '?':
 		location = ''

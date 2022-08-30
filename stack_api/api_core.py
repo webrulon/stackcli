@@ -185,6 +185,16 @@ class API(object):
         else:
             return False
 
+    
+    def uploadFile(self, filename='', binary=''):
+        try:
+            assert(filename != '')
+            assert(binary != '')
+            add_from_finary(filename, binary)
+            return True
+        except:
+            return False
+
     def start_check(self):
         try:
             return self.Initializer.start_check()
