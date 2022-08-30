@@ -75,7 +75,7 @@ async def history_api():
 @app.post("/add_file/")
 async def add_file_api(file: UploadFile = File(description="A file read as UploadFile")):
     try:
-        api_core.add_file_api(file.name, file.read())
+        api_core.upload_file_binary(file.filename, file.file)
         return {'success': True}
     except:
         return {'success': False}

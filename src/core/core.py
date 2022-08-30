@@ -298,7 +298,7 @@ def get_key_history(init, key):
 
 	print('we have this')
 	changes = {}
-	k = 0
+	k = 1
 	for i in range(1,len(history)+1):
 		for commit_ in history[str(i)]['commits']:
 			cmit = json.load(init.storage.loadFileGlobal(commit_))
