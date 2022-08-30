@@ -35,19 +35,28 @@ except:
 # End-points
 
 @app.get("/init")
-async def init(uri=''):
+async def init(uri='', name='My Dataset'):
     try:
         api_core.init(uri)
-        api_core.connect_post_api()
+        api_core.connect_post_api(name)
         api_core.start_check()
-
         return {'success': True}
     except:
         return {'success': False}
 
-@app.get("/connect")
-async def connect(dataset):
-    return {'success': api_core.connectDataset(dataset)}
+@app.get("/disconnect")
+async def disconnect_api(uri=''):
+    try: 
+        return {'success': api_core.disconnectDataset(uri)}
+    except:
+        return {'success': False}
+
+@app.get("/get_datasets")
+async def get_datasets_api():
+    try:
+        return api_core.get_datasets()
+    except:
+        return {}
 
 @app.get("/uri")
 async def uri_api():
@@ -67,6 +76,13 @@ async def history_api():
 async def commits_version_api(version=1,l=5, page=0):
     try:
         return api_core.commits_version(version, l, page)
+    except:
+        return {}
+
+@app.get("/key_versions")
+async def key_versions_api(key='',l=5, page=0):
+    try:
+        return api_core.key_versions(key, l, page)
     except:
         return {}
 
@@ -105,9 +121,9 @@ async def get_commit_meta_api(commit):
 @app.get("/pull_api")
 async def pull_file_api(file):
     try:
-        return api_core.storage.pull_file(file)
+        return {'file': api_core.storage.pull_file(file)}
     except:
-        return {}
+        return {'file': ''}
 
 @app.get("/pull_metadata")
 async def pull_metadata_api(file):
@@ -116,18 +132,56 @@ async def pull_metadata_api(file):
     except:
         return {}
 
+@app.get("/remove_key")
+async def remove_key_api(key):
+    try:
+        api_core.remove(key)
+        return {'sucess': True}
+    except:
+        return {'sucess': False}
+
+@app.get("/remove_commit")
+async def remove_commit(version):
+    try:
+        api_core.remove_commit(version)
+        return {'sucess': True}
+    except:
+        return {'sucess': False}
+
+@app.get("/full_remove_key")
+async def full_remove_key_api(key):
+    try:
+        api_core.remove_full(key)
+        return {'sucess': True}
+    except:
+        return {'sucess': False}
+
+@app.get("/remove_key_version")
+async def remove_key_diff_api(key, version=-1):
+    try:
+        api_core.remove_key_diff(key, version)
+        return {'sucess': True}
+    except:
+        return {'sucess': False}
+
+@app.get("/revert_key_version")
+async def revert_key_version_api(key, version=-1):
+    try:
+        api_core.revert_file(key, version)
+        api_core.commit('reverted file ' + key)
+        return {'sucess': True}
+    except:
+        return {'sucess': False}
+
+
 @app.get("/diff")
 async def diff_api(v2,v1):
     return ''
 
-@app.get("/diff_file")
-async def diff_file_api(file,v2,v1):
+@app.get("/diff_key")
+async def diff_key_api(file,v2,v1):
     return ''
 
 @app.get("/revert")
 async def revert_api(version=0):
     return {'success': api_core.revert(version)}
-
-@app.get("/revert_file")
-async def revert_file_api(file,version):
-    return {'success': api_core.revert(file, version)}

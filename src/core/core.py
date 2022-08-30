@@ -225,7 +225,22 @@ def removeGlobal(init, files=[], location='?'):
 		init.storage.removeFileGlobal(location+file)
 	return True
 
-def removeDiff(init, key, version):
+
+def remove_full(init, key):
+	# diff location
+	n_versions = init.getLatestDiffNumber(key)
+	init.storage.removeFile(key)
+	for version in range(1,n_versions+1):
+		diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
+
+		# generates an empty diff
+		init.storage.addFileFromBinaryGlobal(diff,io.BytesIO("".encode('ascii')))
+		init.storage.resetBuffer()
+
+	return True
+
+
+def remove_diff(init, key, version):
 	# diff location
 	diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 
@@ -264,6 +279,29 @@ def revertCommit(init, target_version):
 				revertFile(init,cmit['key'],cmit['version'])
 			init.storage.resetBuffer()
 	return True
+
+def get_key_history(init, key):
+	# finds the commit version
+	metapath = init.prefix_meta+'history.json'
+	history = json.load(init.storage.loadFileGlobal(metapath))
+	n = init.getLatestDiffNumber(key)
+
+	print('we have this')
+	changes = {}
+	k = 0
+	for i in range(1,len(history)+1):
+		for commit_ in history[str(i)]['commits']:
+			cmit = json.load(init.storage.loadFileGlobal(commit_))
+			init.storage.resetBuffer()
+
+			if cmit['key'] == key:
+				changes[k] = {'commit': i, 'date': history[str(i)]['date'], 'version': k}
+				k += 1
+				break
+		if k >= n:
+			break 
+	return changes
+
 
 def pull(init, files=[],version='current'):
 

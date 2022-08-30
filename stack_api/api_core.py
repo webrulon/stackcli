@@ -12,6 +12,10 @@ class API(object):
     """docstring for CLI"""
     def __init__(self, reset=False):
         super(API, self).__init__()
+        if not Path(str(Path.home())+'/datasets.stack').exists():
+            file = open(str(Path.home())+'/datasets.stack', 'wb')
+            pickle.dump(config,file)
+            file.close()
         if reset:
             self.Initializer = None
         elif Path(str(Path.home())+'/config.stack').exists():
@@ -78,13 +82,39 @@ class API(object):
             file.close()
             return False
 
-    def connect_post_api(self):
+    def get_datasets(self):
+        file1 = open(str(Path.home())+'/datasets.stack', 'rb')
+        datasets = pickle.load(file1)
+        file1.close()
+        return datasets
+    
+    def connect_post_api(self, name='My Dataset'):
         file2 = open(str(Path.home())+'/config.stack', 'rb')
         config = pickle.load(file2)
         file2.close()
+
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
         print(config)
+
+        try: 
+            file1 = open(str(Path.home())+'/datasets.stack', 'rb')
+            datasets = pickle.load(file1)
+            file1.close()
+        except:
+            datasets = {}
+
+        is_not_there = True
+        for s in datasets.keys():
+            if datasets[s]['storage'] == self.storage_name:
+                is_not_there = False
+
+        if is_not_there:
+            file1 = open(str(Path.home())+'/datasets.stack', 'wb')
+            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
+            pickle.dump(datasets,file1)
+            file1.close()
+
         if config['type'] == 'local':
             cloud = Local()
             cloud.createDataset(config['dataset'])
@@ -102,6 +132,24 @@ class API(object):
         else:
             self.Initializer = None
         return True
+
+    def disconnectDataset(self, storage=''):
+        assert(len(storage) > 1)
+        file1 = open(str(Path.home())+'/datasets.stack', 'rb')
+        datasets = pickle.load(file1)
+        file1.close()
+
+        print(datasets)
+        print(storage)
+
+        for s in datasets.keys():
+            if datasets[s]['storage'] == storage:
+                del datasets[s]
+                file1 = open(str(Path.home())+'/datasets.stack', 'wb')
+                pickle.dump(datasets,file1)
+                file1.close()
+                return True
+        return False
 
     def connectDataset(self, storage=None):
         # checks if another dataset exists
@@ -199,7 +247,7 @@ class API(object):
                         if gtfo:
                             break
                 if gtfo:
-                    gtfo = False
+                    gtfo = Falsfe
                     break
 
         self.Initializer.storage.resetBuffer()
@@ -230,10 +278,28 @@ class API(object):
             self.Initializer.storage.resetBuffer()
             response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(int(version))]['date'], 'comment': cmit['comment']}
             idx = idx + 1
-            if idx >= int(l):
-                break
 
-        return response
+        return {'commits': response, 'len': len(history[str(int(version))]['commits'])}
+
+    def key_versions(self, key = '', l = 5, page = 0):
+        assert(int(l) > 0)
+        assert(int(page) >= 0)
+
+        key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
+
+        response = {}
+        idx = 0
+
+        i_p = int(page)*int(l)
+        i_f = min((int(page)+1)*int(l),len(key_hist))
+
+        # goes over the commits
+        for i in range(i_p, i_f):
+            # reads each file version
+            response[idx] = key_hist[i]
+            idx = idx + 1
+
+        return {'commits': response, 'len': len(key_hist)}
 
     def status(self):
         metapath = self.Initializer.prefix_meta+'current.json'
@@ -244,6 +310,35 @@ class API(object):
             if subpath[-1] != '/':
                 subpath = subpath + '/'
         remove(self.Initializer,[key],subpath)
+        return True
+
+    def remove_commit(self, version = '-1'):
+        assert(int(version) >= 0)
+        
+        metapath = self.Initializer.prefix_meta+'history.json'
+        history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        self.Initializer.storage.resetBuffer()
+
+        for i in range(len(history[str(int(version))]['commits'])):
+            commit = history[str(int(version))]['commits'][i]
+            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+            self.Initializer.storage.resetBuffer()
+            removeGlobal(self.Initializer, [cmit['diff']])
+
+        return True
+
+    def remove_key_diff(self, key, version):
+        remove_diff(self.Initializer,self.Initializer.storage.dataset+key,int(version))
+        return True
+
+    def remove_key_full(self, key, version):
+        remove_full(self.Initializer,self.Initializer.storage.dataset+key)
+        return True
+
+    def commit(self, comment=''):
+        print(comment)
+        commit(self.Initializer, comment)
+        print('commit done!')
         return True
 
     def commit(self, comment=''):
@@ -275,7 +370,7 @@ class API(object):
         revertCommit(self.Initializer, int(version))
         commit(self.Initializer, 'reverted to version' + str(version))
 
-    def revertFile(self, key, version):
+    def revert_file(self, key, version):
         try: 
             if self.Initializer.storage.dataset in key:
                 revertFile(self.Initializer, key, int(version))
