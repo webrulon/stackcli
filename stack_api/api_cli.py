@@ -16,7 +16,6 @@ except:
 
 ### CLI End-points ###
 
-
 @app.command("init")
 def init(uri):
     return {'success': api.init(uri)}
@@ -66,7 +65,6 @@ def status_api():
     except:
         return {}
 
-
 @app.command("commit")
 def commit_api(comment=''):
     return {'success': api.commit(comment)}
@@ -79,14 +77,12 @@ def get_commit_meta_api(commit):
     except:
         return {}
 
-
 @app.command("pull_api")
 def pull_file_api(file):
     try:
         return api.storage.pull_file(file)
     except:
         return {}
-
 
 @app.command("pull_metadata")
 def pull_metadata_api(file):
@@ -95,11 +91,9 @@ def pull_metadata_api(file):
     except:
         return {}
 
-
 @app.command("diff")
 def diff_api(v2, v1):
     return ''
-
 
 @app.command("diff_file")
 def diff_file_api(file, v2, v1):

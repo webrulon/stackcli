@@ -172,8 +172,15 @@ class S3Bucket(object):
 	def loadFile(self,filename):
 		return self.loadFileGlobal(self.dataset+filename)
 
+	def loadFileBytes(self,filename, b_i, b_f):
+		return self.loadFileGlobalBytes(self.dataset+filename,b_i,b_f)
+
 	def loadFileGlobal(self,filename):
 		return self.resource.meta.client.get_object(Bucket=self.BUCKET_NAME,Key=filename)['Body']
+
+	def loadFileGlobalBytes(self,filename,b_i,b_f):
+		bytes_rage = 'bytes=' + str(bi) + '-' + str(b_f)
+		return self.resource.meta.client.get_object(Bucket=self.BUCKET_NAME,Key=filename,Range=bytes_rage)['Body']
 
 	def loadFileMetadata(self,filename,debug=False):
 		# gets the metadata

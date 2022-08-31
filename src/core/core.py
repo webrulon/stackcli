@@ -235,7 +235,6 @@ def removeGlobal(init, files=[], location='?'):
 		init.storage.removeFileGlobal(location+file)
 	return True
 
-
 def remove_full(init, key):
 	# diff location
 	n_versions = init.getLatestDiffNumber(key)
@@ -248,7 +247,6 @@ def remove_full(init, key):
 		init.storage.resetBuffer()
 
 	return True
-
 
 def remove_diff(init, key, version):
 	# diff location
@@ -298,7 +296,7 @@ def get_key_history(init, key):
 
 	print('we have this')
 	changes = {}
-	k = 1
+	k = 0
 	for i in range(1,len(history)+1):
 		for commit_ in history[str(i)]['commits']:
 			cmit = json.load(init.storage.loadFileGlobal(commit_))
@@ -311,7 +309,6 @@ def get_key_history(init, key):
 		if k >= n:
 			break 
 	return changes
-
 
 def pull(init, files=[],version='current'):
 

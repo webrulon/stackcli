@@ -105,10 +105,18 @@ class GCSBucket(object):
 	def loadFile(self,filename):
 		return self.loadFileGlobal(self.dataset+filename)
 
+	def loadFileBytes(self,filename,bi,bf):
+		return self.loadFileGlobalBytes(self.dataset+filename,bi,bf)
+
 	def loadFileGlobal(self,filename):
 		blob = self.bucket.blob(filename)
 		file_obj = blob.download_as_string()
 		return io.BytesIO(file_obj)
+
+	def loadFileGlobalBytes(self,filename,bi,bf):
+		blob = self.bucket.blob(filename)
+		file_obj = blob.download_as_string(start=bi,end=bf)
+		return io.BytesIO(file_obj)	
 
 	def loadFileMetadata(self,filename,debug=False):
 		blob = self.bucket.get_blob(self.dataset + filename)

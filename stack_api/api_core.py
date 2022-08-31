@@ -29,6 +29,8 @@ class API(object):
                 cloud = Local()
                 cloud.createDataset(config['dataset'])
                 self.Initializer = Initializer(cloud)
+                self.dataset_name = self.Initializer.storage.dataset
+                self.storage_name = self.Initializer.storage.dataset
             elif config['type'] == 's3':
                 cloud = S3Bucket(config['bucket'])
                 cloud.connectBucket()
@@ -62,9 +64,6 @@ class API(object):
                 config['dataset'] = storage
                 config['type'] = 'local'
             config['storage'] = storage
-            print(config)
-            print(bucket_data)
-
             # stores the config file
 
             print('initializing dataset in ' + storage.lower())
@@ -119,6 +118,8 @@ class API(object):
             cloud = Local()
             cloud.createDataset(config['dataset'])
             self.Initializer = Initializer(cloud)
+            self.dataset_name = self.Initializer.storage.dataset
+            self.storage_name = self.Initializer.storage.dataset
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.connectBucket()
@@ -160,14 +161,11 @@ class API(object):
             
             print('initializing dataset in ' + storage.lower())
             config['dataset'] = storage
-            # stores the config file
-            file = open(str(Path.home())+'/config.stack', 'wb')
-            pickle.dump(config,file)
-            file.close()
 
             if config['type'] == 'local':
                 cloud = Local()
                 cloud.createDataset(config['dataset'])
+                config['dataset'] = cloud.dataset
                 self.Initializer = Initializer(cloud)
             elif config['type'] == 's3':
                 cloud = S3Bucket(config['bucket'])
@@ -179,6 +177,11 @@ class API(object):
                 cloud.connectBucket()
                 cloud.createDataset(config['dataset'])
                 self.Initializer = Initializer(cloud)
+
+            # stores the config file
+            file = open(str(Path.home())+'/config.stack', 'wb')
+            pickle.dump(config,file)
+            file.close()
 
             # creates dataset
             return True
@@ -361,10 +364,17 @@ class API(object):
             return {}
 
     def check_if_setup(self):
-        
         self.Initializer.setupDataset()
         print('setup complete!')
         return True
+
+    def load_file_binary(self, file):
+        print('loading '+file+'...')
+        return self.Initializer.storage.loadFile(file)
+
+    def load_file_binary_bytes(self, file, bi, bf):
+        print('loading '+file+'...')
+        return self.Initializer.storage.loadFileBytes(file,bi,bf)
 
     def reset(self):
         self.Initializer.removeSetup()

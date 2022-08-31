@@ -1,9 +1,8 @@
-import api_core
-from fastapi import FastAPI, File, UploadFile
+import api_core as api_core
+from fastapi import FastAPI, File, UploadFile, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import pickle
-from api_core import API
 
 # API Definition
 app = FastAPI()
@@ -17,8 +16,8 @@ app.add_middleware(
 
 # checks if local files are installed
 try:
-    api_core = API()
-    initialized = api_core.start_check()
+    api = api_core.API()
+    initialized = api.start_check()
     assert(initialized)
 except:
     try:
@@ -26,124 +25,125 @@ except:
         os.remove(str(Path.home())+'/config.stack')
     except:
         print('no config file')
-    api_core = API()
-    initilized = api_core.init()
+    api = api_core.API()
+    initilized = api.init()
     
     if initilized:
-        api_core.start_check()
+        api.start_check()
 
 # End-points
-
 @app.get("/init")
 async def init(uri='', name='My Dataset'):
     try:
-        api_core.init(uri)
-        api_core.connect_post_api(name)
-        api_core.start_check()
+        api.init(uri)
+        api.connect_post_api(name)
+        api.start_check()
         return {'success': True}
     except:
         return {'success': False}
 
+@app.get("/directories")
+async def directories():
+    from pathlib import Path
+    print(str(Path.home()))
+    print(str(os.path.abspath('.')))
+    return {'success': True}
+
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
     try: 
-        return {'success': api_core.disconnectDataset(uri)}
+        return {'success': api.disconnectDataset(uri)}
     except:
         return {'success': False}
 
 @app.get("/get_datasets")
 async def get_datasets_api():
     try:
-        return api_core.get_datasets()
+        return api.get_datasets()
     except:
         return {}
 
 @app.get("/uri")
 async def uri_api():
     try:
-        return api_core.getURI()
+        return api.getURI()
     except:
         return {}
 
 @app.get("/history")
 async def history_api():
     try:
-        return api_core.history()
+        return api.history()
     except:
         return {}
 
 @app.post("/add_file/")
 async def add_file_api(file: UploadFile = File(description="A file read as UploadFile")):
     try:
-        api_core.upload_file_binary(file.filename, file.file)
-        return {'success': True}
+        api.upload_file_binary(file.filename, file.file)
+        api.commit('')
+        return {'success': api.upload_file_binary(file.filename, file.file)}
     except:
         return {'success': False}
 
 @app.get("/commits_version")
 async def commits_version_api(version=1,l=5, page=0):
     try:
-        return api_core.commits_version(version, l, page)
+        return api.commits_version(version, l, page)
     except:
         return {}
 
 @app.get("/key_versions")
 async def key_versions_api(key='',l=5, page=0):
     try:
-        return api_core.key_versions(key, l, page)
+        return api.key_versions(key, l, page)
     except:
         return {}
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
     try:
-        return api_core.lastNcommits(n)
+        return api.lastNcommits(n)
     except:
         return {}
 
 @app.get("/last_commits_from_hist_api")
 async def last_commits_from_hist_api(n=1):
     try:
-        return api_core.getHistoryCommits(n)
+        return api.getHistoryCommits(n)
     except:
         return {}
 
 @app.get("/status")
 async def status_api():
     try:
-        return api_core.status()
+        return api.status()
     except:
         return {}
 
 @app.get("/commit_req")
 async def commit_api(comment=''):
-    return {'success': api_core.commit(comment)}
+    return {'success': api.commit(comment)}
 
 @app.get("/get_commit_metadata")
 async def get_commit_meta_api(commit):
     try:
-        return api_core.loadCommitMetadata(commit)
+        return api.loadCommitMetadata(commit)
     except:
         return {}
 
-@app.get("/pull_api")
+@app.get("/pull_file_api")
 async def pull_file_api(file):
     try:
-        return {'file': api_core.storage.pull_file(file)}
+        return Response(content=api.load_file_binary(file),filename=file)
     except:
-        return {'file': ''}
-
-@app.get("/pull_metadata")
-async def pull_metadata_api(file):
-    try:
-        return api_core.storage.loadFileMetadata(file)
-    except:
-        return {}
+        return Response(content='',filename='failure')
 
 @app.get("/remove_key")
 async def remove_key_api(key):
     try:
-        api_core.remove(key)
+        api.remove(key)
+        api.commit('')
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -151,7 +151,7 @@ async def remove_key_api(key):
 @app.get("/remove_commit")
 async def remove_commit(version):
     try:
-        api_core.remove_commit(version)
+        api.remove_commit(version)
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -159,7 +159,8 @@ async def remove_commit(version):
 @app.get("/full_remove_key")
 async def full_remove_key_api(key):
     try:
-        api_core.remove_full(key)
+        api.remove_full(key)
+        api.commit('')
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -167,7 +168,7 @@ async def full_remove_key_api(key):
 @app.get("/remove_key_version")
 async def remove_key_diff_api(key, version=-1):
     try:
-        api_core.remove_key_diff(key, version)
+        api.remove_key_diff(key, version)
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -175,13 +176,12 @@ async def remove_key_diff_api(key, version=-1):
 @app.get("/revert_key_version")
 async def revert_key_version_api(key, version=-1):
     try:
-        api_core.revert_file(key, version)
-        api_core.commit('reverted file ' + key)
+        api.revert_file(key, version)
+        api.commit('reverted file ' + key)
         return {'sucess': True}
     except:
         return {'sucess': False}
 
-
 @app.get("/revert")
 async def revert_api(version=0):
-    return {'success': api_core.revert(version)}
+    return {'success': api.revert(version)}

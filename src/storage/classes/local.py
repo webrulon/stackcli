@@ -12,7 +12,12 @@ class Local(object):
 
 	def createDataset(self,location):
 		# transforms to absolute path
-		location = str(Path(location).absolute())
+		if location[0] == '~':
+			if len(location) > 1:
+				location = str(Path.home())+location[1:]
+			else:
+				location = str(Path.home())
+		location = str(os.path.abspath(location))
 		print('Initializing dataset at '+location)
 		if location[-1] != '/':
 			location = location + '/'
@@ -74,8 +79,17 @@ class Local(object):
 	def loadFile(self,filename):
 		return self.loadFileGlobal(self.dataset+filename)
 
+	def loadFileBytes(self,filename,bi,bf):
+		return self.loadFileGlobal(self.dataset+filename,bi,bf)
+
 	def loadFileGlobal(self,filename):
 		return open(filename,'rb')
+
+	def loadFileGlobalBytes(self,filename,bi,bf):
+		f = open(filename, "rb")
+		f.seek(bi)
+		data = f.read(bf-bi)
+		return data
 
 	def loadFileMetadata(self,filename):
 		path = self.dataset+filename
