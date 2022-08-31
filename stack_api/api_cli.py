@@ -50,7 +50,7 @@ def remove(key, subpath=''):
     return True
 
 
-@app.get("/full_remove")
+@app.command("/full_remove")
 def full_remove_key_api(key):
     try:
         api_core.remove_full(key)
