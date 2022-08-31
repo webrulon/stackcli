@@ -66,7 +66,7 @@ class API(object):
             config['storage'] = storage
             # stores the config file
 
-            print('initializing dataset in ' + storage.lower())
+            print('Initializing dataset in ' + storage.lower())
 
             file = open(str(Path.home())+'/config.stack', 'wb')
             pickle.dump(config,file)
@@ -74,7 +74,7 @@ class API(object):
             # creates dataset
             return True
         else:
-            print('creating config file')
+            print('Creating config file')
             config = {'storage': ''}
             file = open(str(Path.home())+'/config.stack', 'wb')
             pickle.dump(config,file)

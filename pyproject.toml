@@ -9,7 +9,7 @@ readme = "README.md"
 stackcli = "stack_api.api_cli:app" # should be "stackai" instead of stackcli, note it needs to  be the same than `name' above
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.7"
 typer = {extras = ["all"], version = "^0.6.1"}
 
 [tool.poetry.dev-dependencies]

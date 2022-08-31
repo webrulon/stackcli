@@ -3,22 +3,59 @@ import stack_api.api_core as api_core
 import typer
 from pathlib import Path
 
+from src.core.core import *
+
 app = typer.Typer()
 
 # Checks if local files are installed
 try:
     api = api_core.API()
+    initialized = api.start_check()
+    assert(initialized)
 except:
-    import os
-    os.remove(str(Path.home()) + '/config.stack')
+    try:
+        import os
+        os.remove(str(Path.home())+'/config.stack')
+    except:
+        print('no config file')
     api = api_core.API()
-    api.init()
+    initilized = api.init()
+    
+    if initilized:
+        api.start_check()
 
 ### CLI End-points ###
 
 @app.command("init")
 def init(uri):
     return {'success': api.init(uri)}
+
+
+@app.command("add")
+def add(path, subpath=''):
+    if len(subpath)>1:
+        if subpath[-1] != '/':
+            subpath = subpath + '/'
+    add(api.Initializer,[path],subpath)
+    return True
+
+
+@app.command("remove")
+def remove(key, subpath=''):
+    if len(subpath)>1:
+        if subpath[-1] != '/':
+            subpath = subpath + '/'
+    remove(api.Initializer,[key],subpath)
+    return True
+
+
+@app.command("/full_remove")
+def full_remove_key_api(key):
+    try:
+        api_core.remove_full(key)
+        print(f"Removed: {key}")
+    except:
+        print(f"Unable to remove: {key}")
 
 
 @app.command("connect")
@@ -28,47 +65,29 @@ def connect(dataset):
 
 @app.command("uri")
 def uri_api():
-    try:
-        return api.getURI()
-    except:
-        return {}
+    uri = api.getURI()
+    print(uri)
 
 
 @app.command("history")
 def history_api():
-    try:
-        return api.history()
-    except:
-        return {}
-
-
-@app.command("last_n_commits")
-def last_n_commits_api(n=5):
-    try:
-        return api.lastNcommits(n)
-    except:
-        return {}
-
-
-@app.command("last_commits_from_hist_api")
-def last_commits_from_hist_api(n=1):
-    try:
-        return api.getHistoryCommits(n)
-    except:
-        return {}
+	printHistory(api.Initializer)
 
 
 @app.command("status")
 def status_api():
     try:
-        return api.status()
+        status = api.status()
+        print(status)
     except:
-        return {}
+        return Exception
 
 @app.command("commit")
 def commit_api(comment=''):
+    # TODO: do we need to print something?
     return {'success': api.commit(comment)}
 
+<<<<<<< HEAD
 
 @app.command("get_commit_metadata")
 def get_commit_meta_api(commit):
@@ -78,12 +97,16 @@ def get_commit_meta_api(commit):
         return {}
 
 @app.command("pull_api")
+=======
+@app.command("pull")
+>>>>>>> 27f51fab12fc98da936bbdf67af042299ca4017b
 def pull_file_api(file):
     try:
         return api.storage.pull_file(file)
     except:
         return {}
 
+<<<<<<< HEAD
 @app.command("pull_metadata")
 def pull_metadata_api(file):
     try:
@@ -98,16 +121,20 @@ def diff_api(v2, v1):
 @app.command("diff_file")
 def diff_file_api(file, v2, v1):
     return ''
+=======
+
+@app.command("diff")
+def diff_api(v1, v0, file=''):
+    printDiff(api.Initializer, v1, v0, file)
+    return True
+>>>>>>> 27f51fab12fc98da936bbdf67af042299ca4017b
 
 
 @app.command("revert")
-def revert_api(version):
-    return {'success': api.revert(version)}
-
-
-@app.command("revert_file")
-def revert_file_api(file, version):
-    return {'success': api.revert(file, version)}
+def revert_api(version=0):
+    assert(version != '')
+    revertCommit(api.Initializer, int(version))
+    return True
 
 
 if __name__ == "__main__":
