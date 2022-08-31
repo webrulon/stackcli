@@ -87,47 +87,18 @@ def commit_api(comment=''):
     # TODO: do we need to print something?
     return {'success': api.commit(comment)}
 
-<<<<<<< HEAD
-
-@app.command("get_commit_metadata")
-def get_commit_meta_api(commit):
-    try:
-        return api.loadCommitMetadata(commit)
-    except:
-        return {}
-
-@app.command("pull_api")
-=======
 @app.command("pull")
->>>>>>> 27f51fab12fc98da936bbdf67af042299ca4017b
 def pull_file_api(file):
     try:
         return api.storage.pull_file(file)
     except:
         return {}
 
-<<<<<<< HEAD
-@app.command("pull_metadata")
-def pull_metadata_api(file):
-    try:
-        return api.storage.loadFileMetadata(file)
-    except:
-        return {}
-
-@app.command("diff")
-def diff_api(v2, v1):
-    return ''
-
-@app.command("diff_file")
-def diff_file_api(file, v2, v1):
-    return ''
-=======
 
 @app.command("diff")
 def diff_api(v1, v0, file=''):
     printDiff(api.Initializer, v1, v0, file)
     return True
->>>>>>> 27f51fab12fc98da936bbdf67af042299ca4017b
 
 
 @app.command("revert")
