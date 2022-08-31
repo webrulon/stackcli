@@ -41,13 +41,3 @@ s3transfer==0.3.7
 urllib3==1.26.11
 uvicorn==0.17.6
 uvloop==0.16.0
-=======
-pymongo
-python-dotenv
-fastapi
-typer
-boto3
-maskpass
-google-cloud-datastore
-poetry
->>>>>>> 27f51fab12fc98da936bbdf67af042299ca4017b

@@ -44,6 +44,7 @@ async def init(uri='', name='My Dataset'):
 
 @app.get("/directories")
 async def directories():
+    import os
     from pathlib import Path
     print(str(Path.home()))
     print(str(os.path.abspath('.')))
