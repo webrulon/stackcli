@@ -7,30 +7,26 @@
 
 ### Build a test dataset
 
-1. Make a directory: `mk test_dataset`
+1. Make a directory: `mkdir test_dataset`
 2. Go to the directory: `cd test_dataset`
-3. Download an image of Einstein: `wget https://upload.wikimedia.org/wikipedia/en/8/86/Einstein_tongue.jpg -O einstein.jpg`
+3. Download an image of Einstein: `curl -o einstein.jpg https://upload.wikimedia.org/wikipedia/en/8/86/Einstein_tongue.jpg`
 
 
 ### Try Stack's Command Line Tool (CLI)
 
-1. Init stack: ```stackcli init . ``` (note the dot at the end)
+1. Init stack in the current directory: ```stackcli init . ``` (note the dot at the end)
 2. Add a file to track: `stackcli add einstein.jpg`
 3. Commit your changes: `stackcli commit`
 4. Check status: `stackcli status`
 5. See history of changes: `stackcli history`
 6. Remove the file: `stackcli remove einstein.jpg`
-7. Revert your changes: `stackcli revert`
+7. Revert your changes: `stackcli revert 1`
 8. You should see Einstein in your directory again!
 
 
 # Stack Dev (Ignore if you are just a user)
 
 ### Features to implement
-
-### For stack status
-
--[ ] Even if there are no changes, it would be great that  `stack status` returns something.
 
 ### Publish to TestPy
 
