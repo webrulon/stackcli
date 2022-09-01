@@ -2,7 +2,6 @@ import api_core as api_core
 from fastapi import FastAPI, File, UploadFile, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-from pydantic import BaseModel
 
 # API Definition
 app = FastAPI()
@@ -45,8 +44,8 @@ async def init(uri='', name='My Dataset'):
 @app.post("/init_web/")
 async def init_web(data: dict):
     try:
-        api.init(data.uri)
-        api.connect_post_web(data.name, {'keys': init.keys})
+        api.init(data['uri'])
+        api.connect_post_web(data['name'], data)
         api.start_check()
         return {'success': True}
     except:
@@ -55,8 +54,7 @@ async def init_web(data: dict):
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
     try:
-        api.upload_license_key(file.file)
-        api.commit('')
+        api.set_gs_key(file.file)
         return {'success': True}
     except:
         return {'success': False}

@@ -20,6 +20,8 @@ class GCSBucket(object):
 
 	def connectBucket(self):
 		# creates a client 
+		key_path = str(Path.home())+'/.gs_key'
+		os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
 		try:		
 			self.client = storage.Client()
 		except:
@@ -27,8 +29,7 @@ class GCSBucket(object):
 			print('1) Create a service account here: https://console.cloud.google.com/projectselector/iam-admin/serviceaccounts/create')
 			print('2) Give it access to Cloud Storage')
 			print('3) Go to your new service account/keys')
-			print('4) Create a new key in .json format')
-			print('5) go to terminal and type \'export GOOGLE_APPLICATION_CREDENTIALS=KEY_PATH\'')
+			print('4) Create a new key in .json format and save it as ~/.gs_key')
 			return False
 
 		# checks if the bucket exists
@@ -57,15 +58,19 @@ class GCSBucket(object):
 				return self.connectBucket()
 		return True
 
-	def connect_bucket_api(self,keys_dict):
+	def connect_bucket_api(self,binary):
 		# reads the gs_key
+		print('creating key file')
 		key_path = str(Path.home())+'/.gs_key'
 		binary_file = open(key_path, "wb")
-		binary_file.write(keys_dict['bin'])
+		binary_file.write(binary.read())
 		binary_file.close()
 
 		# sets env variable for google cloud
-		os.system("export GOOGLE_APPLICATION_CREDENTIALS="+key_path)
+		print('exporting key')	
+		os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
+
+		print('connecting to client')
 		try:
 			self.client = storage.Client()
 		except:

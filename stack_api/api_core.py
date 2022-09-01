@@ -25,7 +25,6 @@ class API(object):
             file2.close()
             self.storage_name = config['storage']
             self.dataset_name = config['dataset']
-            print(config)
             if config['type'] == 'local':
                 cloud = Local()
                 cloud.createDataset(config['dataset'])
@@ -82,7 +81,7 @@ class API(object):
             file.close()
             return False
 
-    def get_gs_key(file):
+    def set_gs_key(self, file):
         print('adding key file')
         self.key_bin = file
         return True
@@ -92,8 +91,24 @@ class API(object):
         datasets = pickle.load(file1)
         file1.close()
         return datasets
+
+    def print_datasets(self):
+        file1 = open(str(Path.home())+'/datasets.stack', 'rb')
+        datasets = pickle.load(file1)
+        file1.close()
+
+        if len(datasets.keys()) > 0:
+            for s in datasets.keys():
+                print('-- '+datasets[s]['name']+' in '+datasets[s]['storage'])
+            print('')
+            print('run \'stackcli connect [dataset_uri]\' to connect one of these datasets')
+        else:
+            print('no datasets to show')
+        return True
     
-    def connect_post_web(self, name='My Dataset', key_file={}):
+    def connect_post_web(self, name='My Dataset', keys={}):
+        
+        print('connecting to '+name)
         file2 = open(str(Path.home())+'/config.stack', 'rb')
         config = pickle.load(file2)
         file2.close()
@@ -128,12 +143,59 @@ class API(object):
             self.storage_name = self.Initializer.storage.dataset
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
-            cloud.connect_bucket_api(key_file)
+            cloud.connect_bucket_api(keys)
             cloud.createDataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
-            cloud.connect_bucket_api(key_file)
+            cloud.connect_bucket_api(self.key_bin)
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        else:
+            self.Initializer = None
+        return True
+
+    def connect_post_cli(self):
+        file2 = open(str(Path.home())+'/config.stack', 'rb')
+        config = pickle.load(file2)
+        file2.close()
+
+        self.storage_name = config['storage']
+        self.dataset_name = config['dataset']
+        
+        try: 
+            file1 = open(str(Path.home())+'/datasets.stack', 'rb')
+            datasets = pickle.load(file1)
+            file1.close()
+        except:
+            datasets = {}
+
+        is_not_there = True
+        for s in datasets.keys():
+            if datasets[s]['storage'] == self.storage_name:
+                is_not_there = False
+
+        if is_not_there:
+            name = input('please give a name to your dataset: ')
+            file1 = open(str(Path.home())+'/datasets.stack', 'wb')
+            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
+            pickle.dump(datasets,file1)
+            file1.close()
+
+        if config['type'] == 'local':
+            cloud = Local()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+            self.dataset_name = self.Initializer.storage.dataset
+            self.storage_name = self.Initializer.storage.dataset
+        elif config['type'] == 's3':
+            cloud = S3Bucket(config['bucket'])
+            cloud.connectBucket()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 'gcs':
+            cloud = GCSBucket(config['bucket'])
+            cloud.connectBucket()
             cloud.createDataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         else:
@@ -147,8 +209,7 @@ class API(object):
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
-        print(config)
-
+        
         try: 
             file1 = open(str(Path.home())+'/datasets.stack', 'rb')
             datasets = pickle.load(file1)
@@ -193,8 +254,7 @@ class API(object):
         datasets = pickle.load(file1)
         file1.close()
 
-        print(datasets)
-        print(storage)
+        print('disconnecting from ' + storage)
 
         for s in datasets.keys():
             if datasets[s]['storage'] == storage:
@@ -273,10 +333,12 @@ class API(object):
 
     def pull(self, file, version = 'current'):
         if file == '.' or file == 'all':
+            print('downloading all contents')
             return self.pull_all(version)
         else:
             if not self.Initializer.storage.dataset in file:
                 file = self.Initializer.storage.dataset + file
+                print('downloading ' + file)
             pull(self.Initializer, [file], version)
         return True
 
@@ -399,13 +461,6 @@ class API(object):
         return True
 
     def commit(self, comment=''):
-        print(comment)
-        commit(self.Initializer, comment)
-        print('commit done!')
-        return True
-
-    def commit(self, comment=''):
-        print(comment)
         commit(self.Initializer, comment)
         print('commit done!')
         return True

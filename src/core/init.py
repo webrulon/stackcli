@@ -13,7 +13,6 @@ class Initializer(object):
 		self.storage = storage
 		self.dataset = storage.loadDataset()
 		self.user = user
-		self.key_bin = None
 		
 		# prefixes
 		if self.storage.type == 'local':
@@ -45,8 +44,6 @@ class Initializer(object):
 		if not self.verify_setup():
 			print('no .stack/ folder found! creating one...')
 			self.setupDataset()
-		else:
-			print('setup is ok!')
 		return True
 
 	def verify_setup(self):

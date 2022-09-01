@@ -272,7 +272,7 @@ def revertCommit(init, target_version):
 	metapath = init.prefix_meta+'history.json'
 	history = json.load(init.storage.loadFileGlobal(metapath))
 	
-	print('we have this')
+	print('reverting to version' + str(target_version))
 
 	for i in range(len(history),int(target_version),-1):
 		print('checking version' + str(i))
@@ -412,8 +412,12 @@ def printStatus(init):
 	metapath = init.prefix_meta+'current.json'
 	current = json.load(init.storage.loadFileGlobal(metapath))
 	init.storage.resetBuffer()
-	print('List of files in last commit:')
-	for i in range(len(current['keys'])):
-		print('\t-- '+current['keys'][i] + '\tlast modified: '+str(current['lm'][i]))
+	if len(current['keys']) > 0:
+		print('List of files in last commit:')
+		for i in range(len(current['keys'])):
+			print('\t-- '+current['keys'][i] + '\tlast modified: '+str(current['lm'][i]))
 
-	init.storage.resetBuffer()
+		init.storage.resetBuffer()
+	else:
+		print('everything is ok!')
+		print('please add or commit a file')

@@ -125,14 +125,27 @@ class S3Bucket(object):
 
 	def connect_bucket_api(self,keys_dict):
 		# checks if the credentials are in the computer
-		self.credentials['aws_access_key_id'] = keys_dict['aws_access_key_id']
-		self.credentials['aws_secret_access_key'] = keys_dict['aws_secret_access_key']
-		self.credentials['region'] = keys_dict['region']
+		self.credentials['aws_access_key_id'] = keys_dict['key1']
+		self.credentials['aws_secret_access_key'] = keys_dict['key2']
+		self.credentials['region'] = keys_dict['key3']
 
+		config = configparser.ConfigParser()
 		config['default'] = {}
 		config['default']['aws_access_key_id'] = self.credentials['aws_access_key_id']
 		config['default']['aws_secret_access_key'] = self.credentials['aws_secret_access_key']
 		config['default']['region'] = self.credentials['region']
+
+		print('saving credentials')
+		with open(str(Path.home())+'/.aws/credentials', 'w') as configfile:
+			config.write(configfile)
+
+		config = configparser.ConfigParser()
+		config['default'] = {}
+		config['default']['region'] = self.credentials['region']
+
+		print('saving config')
+		with open(str(Path.home())+'/.aws/config', 'w') as configfile:
+			config.write(configfile)
 
 		print('Connecting to your bucket...')
 		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])

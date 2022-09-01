@@ -12,6 +12,7 @@ try:
     api = api_core.API()
     initialized = api.start_check()
     assert(initialized)
+    print('everything is setup alright!')
 except:
     try:
         import os
@@ -27,12 +28,11 @@ except:
 ### CLI End-points ###
 
 @app.command("init")
-def init(uri):
+def init(uri: str):
     return {'success': api.init(uri)}
 
-
 @app.command("add")
-def add(path, subpath=''):
+def add_command(path: str, subpath: str=''):
     if len(subpath)>1:
         if subpath[-1] != '/':
             subpath = subpath + '/'
@@ -41,68 +41,81 @@ def add(path, subpath=''):
 
 
 @app.command("remove")
-def remove(key, subpath=''):
+def remove_command(key: str, subpath: str=''):
     if len(subpath)>1:
         if subpath[-1] != '/':
             subpath = subpath + '/'
     remove(api.Initializer,[key],subpath)
     return True
 
+# End-points
+@app.command("connect")
+def connect_cli(uri: str):
+    try:
+        api.init(uri)
+        api.connect_post_cli()
+        api.start_check()
+        return {'success': True}
+    except:
+        return {'success': False}
 
-@app.command("/full_remove")
-def full_remove_key_api(key):
+@app.command("disconnect")
+def disconnect_cli(uri: str):
+    try: 
+        return {'success': api.disconnectDataset(uri)}
+    except:
+        return {'success': False}
+
+@app.command("remove_full")
+def full_remove_key_api(key: str):
     try:
         api_core.remove_full(key)
         print(f"Removed: {key}")
     except:
         print(f"Unable to remove: {key}")
 
-
-@app.command("connect")
-def connect(dataset):
-    return {'success': api.connectDataset(dataset)}
-
-
 @app.command("uri")
 def uri_api():
     uri = api.getURI()
     print(uri)
 
-
 @app.command("history")
 def history_api():
 	printHistory(api.Initializer)
+
+@app.command("datasets")
+def dataset_api():
+    api.print_datasets()
 
 
 @app.command("status")
 def status_api():
     try:
-        status = api.status()
-        print(status)
+        printStatus(api.Initializer)
     except:
         return Exception
 
 @app.command("commit")
-def commit_api(comment=''):
+def commit_api(comment: str=''):
     # TODO: do we need to print something?
     return {'success': api.commit(comment)}
 
 @app.command("pull")
 def pull_file_api(file):
     try:
-        return api.storage.pull_file(file)
+        return api.pull(file)
     except:
         return {}
 
 
 @app.command("diff")
-def diff_api(v1, v0, file=''):
+def diff_api(v1: str, v0: str, file: str=''):
     printDiff(api.Initializer, v1, v0, file)
     return True
 
 
 @app.command("revert")
-def revert_api(version=0):
+def revert_api(version):
     assert(version != '')
     revertCommit(api.Initializer, int(version))
     return True
