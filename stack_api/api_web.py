@@ -1,8 +1,8 @@
 import api_core as api_core
-from fastapi import FastAPI, File, UploadFile, Response
+from fastapi import FastAPI, File, UploadFile, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-import pickle
+from pydantic import BaseModel
 
 # API Definition
 app = FastAPI()
@@ -38,6 +38,21 @@ async def init(uri='', name='My Dataset'):
         api.init(uri)
         api.connect_post_api(name)
         api.start_check()
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.post("/init_web/")
+async def init_web(data: dict):
+    try:
+        print(data)
+        print('binary: ')
+        print(data.bin)
+        print('end')
+        # print(file.file.read())
+        # api.init(data.uri)
+        # api.connect_post_web(data.name, {'keys': init.keys,'bin': init.file.read()})
+        # api.start_check()
         return {'success': True}
     except:
         return {'success': False}
@@ -83,7 +98,7 @@ async def add_file_api(file: UploadFile = File(description="A file read as Uploa
     try:
         api.upload_file_binary(file.filename, file.file)
         api.commit('')
-        return {'success': api.upload_file_binary(file.filename, file.file)}
+        return {'success': True}
     except:
         return {'success': False}
 

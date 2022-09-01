@@ -123,6 +123,32 @@ class S3Bucket(object):
 
 		return True
 
+	def connect_bucket_api(self,keys_dict):
+		# checks if the credentials are in the computer
+		self.credentials['aws_access_key_id'] = keys_dict['aws_access_key_id']
+		self.credentials['aws_secret_access_key'] = keys_dict['aws_secret_access_key']
+		self.credentials['region'] = keys_dict['region']
+
+		config['default'] = {}
+		config['default']['aws_access_key_id'] = self.credentials['aws_access_key_id']
+		config['default']['aws_secret_access_key'] = self.credentials['aws_secret_access_key']
+		config['default']['region'] = self.credentials['region']
+
+		print('Connecting to your bucket...')
+		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])
+		self.resetBuffer()
+
+		# checks if the target bucket exist
+		buckets = self.resource.buckets.all()
+
+		for bucket in buckets:
+			if bucket.name == self.BUCKET_NAME:
+				found = True
+				self.bucket = self.resource.Bucket(name=self.BUCKET_NAME)
+				return True
+
+		return False
+
 	def createDataset(self,location):
 		# assigns location
 		if location[-1] != '/':

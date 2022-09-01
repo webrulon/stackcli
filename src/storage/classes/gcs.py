@@ -14,8 +14,7 @@ class GCSBucket(object):
 		self.type = "gcs"
 		self.dataset = ""
 		self.BUCKET_NAME = BUCKET_NAME
-		self.credentials = {
-		}
+		self.credentials = {}
 		self.client = None
 		self.bucket = None
 
@@ -57,6 +56,29 @@ class GCSBucket(object):
 				self.BUCKET_NAME = input("Enter another bucket name: ")
 				return self.connectBucket()
 		return True
+
+	def connect_bucket_api(self,keys_dict):
+		# reads the gs_key
+		key_path = str(Path.home())+'/.gs_key'
+		binary_file = open(key_path, "wb")
+		binary_file.write(keys_dict['bin'])
+		binary_file.close()
+
+		# sets env variable for google cloud
+		os.system("export GOOGLE_APPLICATION_CREDENTIALS="+key_path)
+		try:
+			self.client = storage.Client()
+		except:
+			return False
+
+		# checks if the bucket exists
+		print('Connecting to your bucket...')
+		buckets = self.client.list_buckets()
+		for bucket in buckets:
+			if bucket.name == self.BUCKET_NAME:
+				self.bucket = self.client.get_bucket(self.BUCKET_NAME)
+				return True
+		return False
 
 	def createDataset(self,location):
 		# assigns location

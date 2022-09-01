@@ -87,6 +87,53 @@ class API(object):
         file1.close()
         return datasets
     
+    def connect_post_web(self, name='My Dataset', key_file={}):
+        file2 = open(str(Path.home())+'/config.stack', 'rb')
+        config = pickle.load(file2)
+        file2.close()
+
+        self.storage_name = config['storage']
+        self.dataset_name = config['dataset']
+        print(config)
+
+        try: 
+            file1 = open(str(Path.home())+'/datasets.stack', 'rb')
+            datasets = pickle.load(file1)
+            file1.close()
+        except:
+            datasets = {}
+
+        is_not_there = True
+        for s in datasets.keys():
+            if datasets[s]['storage'] == self.storage_name:
+                is_not_there = False
+
+        if is_not_there:
+            file1 = open(str(Path.home())+'/datasets.stack', 'wb')
+            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
+            pickle.dump(datasets,file1)
+            file1.close()
+
+        if config['type'] == 'local':
+            cloud = Local()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+            self.dataset_name = self.Initializer.storage.dataset
+            self.storage_name = self.Initializer.storage.dataset
+        elif config['type'] == 's3':
+            cloud = S3Bucket(config['bucket'])
+            cloud.connect_bucket_api(key_file)
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 'gcs':
+            cloud = GCSBucket(config['bucket'])
+            cloud.connect_bucket_api(key_file)
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        else:
+            self.Initializer = None
+        return True
+
     def connect_post_api(self, name='My Dataset'):
         file2 = open(str(Path.home())+'/config.stack', 'rb')
         config = pickle.load(file2)
