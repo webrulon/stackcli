@@ -33,11 +33,14 @@ def init(uri: str):
 
 @app.command("add")
 def add_command(path: str, subpath: str=''):
-    if len(subpath)>1:
-        if subpath[-1] != '/':
-            subpath = subpath + '/'
-    add(api.Initializer,[path],subpath)
-    return True
+        try: 
+            if len(subpath)>1:
+            if subpath[-1] != '/':
+                subpath = subpath + '/'
+            add(api.Initializer,[path],subpath)
+            return True
+        except:
+            return Exception
 
 
 @app.command("remove")

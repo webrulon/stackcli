@@ -1,6 +1,8 @@
 import api_core as api_core
 from fastapi import FastAPI, File, UploadFile, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.responses import StreamingResponse
 from pathlib import Path
 
 # API Definition
@@ -47,7 +49,8 @@ async def init_web(data: dict):
         api.init(data['uri'])
         api.connect_post_web(data['name'], data)
         api.start_check()
-        return {'success': True}
+        json_compatible_item_data = jsonable_encoder(False)
+        return JSONResponse(content=json_compatible_item_data)
     except:
         return {'success': False}
 
@@ -153,7 +156,7 @@ async def get_commit_meta_api(commit):
 @app.get("/pull_file_api")
 async def pull_file_api(file):
     try:
-        return Response(content=api.load_file_binary(file),filename=file)
+        return StreamingResponse(api.load_file_binary(file), media_type="image/png")
     except:
         return Response(content='',filename='failure')
 

@@ -8,13 +8,12 @@
 ### Build a test dataset
 
 1. Make a directory: `mkdir test_dataset`
-2. Go to the directory: `cd test_dataset`
 3. Download an image of Einstein: `curl -o einstein.jpg https://upload.wikimedia.org/wikipedia/en/8/86/Einstein_tongue.jpg`
 
 
 ### Try Stack's Command Line Tool (CLI)
 
-1. Init stack in the current directory: ```stackcli init . ``` (note the dot at the end)
+1. Init stack in the current directory: ```stackcli init ./test_dataset ``` (note the dot at the beginning)
 2. Add a file to track: `stackcli add einstein.jpg`
 3. Commit your changes: `stackcli commit`
 4. Check status: `stackcli status`
