@@ -45,14 +45,18 @@ async def init(uri='', name='My Dataset'):
 @app.post("/init_web/")
 async def init_web(data: dict):
     try:
-        print(data)
-        print('binary: ')
-        print(data.bin)
-        print('end')
-        # print(file.file.read())
-        # api.init(data.uri)
-        # api.connect_post_web(data.name, {'keys': init.keys,'bin': init.file.read()})
-        # api.start_check()
+        api.init(data.uri)
+        api.connect_post_web(data.name, {'keys': init.keys})
+        api.start_check()
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.post("/init_gskey/")
+async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
+    try:
+        api.upload_license_key(file.file)
+        api.commit('')
         return {'success': True}
     except:
         return {'success': False}

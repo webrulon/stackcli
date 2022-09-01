@@ -12,6 +12,7 @@ class API(object):
     """docstring for CLI"""
     def __init__(self, reset=False):
         super(API, self).__init__()
+        self.key_bin = None
         if not Path(str(Path.home())+'/datasets.stack').exists():
             file = open(str(Path.home())+'/datasets.stack', 'wb')
             pickle.dump(config,file)
@@ -80,6 +81,11 @@ class API(object):
             pickle.dump(config,file)
             file.close()
             return False
+
+    def get_gs_key(file):
+        print('adding key file')
+        self.key_bin = file
+        return True
 
     def get_datasets(self):
         file1 = open(str(Path.home())+'/datasets.stack', 'rb')

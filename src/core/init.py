@@ -13,6 +13,7 @@ class Initializer(object):
 		self.storage = storage
 		self.dataset = storage.loadDataset()
 		self.user = user
+		self.key_bin = None
 		
 		# prefixes
 		if self.storage.type == 'local':
