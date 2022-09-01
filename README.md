@@ -35,7 +35,7 @@ https://typer.tiangolo.com/tutorial/package/
 1. Install package: `poetry install'
 2. Try CLI: find it first `which stackcli`
 3. Create a wheel package: `poetry build'
-4. Test wheel: `pip install --user /home/tonirv/Code/stackcli/dist'
+4. Test wheel: `pip install --user dist'
 5. Try the wheel: `stackcli`
 6. Publish it to TestPy: `poetry publish --build'
 7. Install from TestPyPI:
