@@ -38,6 +38,7 @@ def add_command(path: str, subpath: str=''):
             if subpath[-1] != '/':
                 subpath = subpath + '/'
             add(api.Initializer,[path],subpath)
+            api.commit('')
             return True
         except:
             return Exception
@@ -49,7 +50,7 @@ def remove_command(key: str, subpath: str=''):
         if subpath[-1] != '/':
             subpath = subpath + '/'
     remove(api.Initializer,[key],subpath)
-    return True
+    api.commit('')
 
 # End-points
 @app.command("connect")
@@ -74,6 +75,7 @@ def full_remove_key_api(key: str):
     try:
         api_core.remove_full(key)
         print(f"Removed: {key}")
+        api.commit('')
     except:
         print(f"Unable to remove: {key}")
 
@@ -98,8 +100,8 @@ def status_api():
     except:
         return Exception
 
-@app.command("commit")
-def commit_api(comment: str=''):
+@app.command("sync")
+def sync_api(comment: str=''):
     # TODO: do we need to print something?
     return {'success': api.commit(comment)}
 

@@ -219,7 +219,7 @@ def add(init, files=[], location='?'):
 	
 	# adds each file
 	for file in files:
-		print('adding'+file+'...')
+		print('adding '+file+'...')
 		init.storage.addFile(file, '', location)
 	init.storage.resetBuffer()
 	return True
@@ -229,7 +229,7 @@ def add_from_binary(init, filename='', binary='', location='?'):
 		location = ''
 	
 	# adds each file
-	print('adding'+filename+'...')
+	print('adding '+filename+'...')
 	init.storage.addFileFromBinary(filename, binary)
 	init.storage.resetBuffer()
 	return True
