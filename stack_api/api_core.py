@@ -63,7 +63,7 @@ class API(object):
             config['storage'] = storage
             # stores the config file
 
-            print('Initializing dataset in ' + storage.lower())
+            #print('Initializing dataset in ' + storage.lower())
 
             self.set_config(config)
             # creates dataset

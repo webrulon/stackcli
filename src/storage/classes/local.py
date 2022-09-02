@@ -18,7 +18,7 @@ class Local(object):
 			else:
 				location = str(Path.home())
 		location = str(os.path.abspath(location))
-		print('Initializing dataset at '+location)
+		#print('Initializing dataset at '+location)
 		if location[-1] != '/':
 			location = location + '/'
 		if not os.path.exists(location):

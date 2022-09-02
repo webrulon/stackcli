@@ -12,17 +12,16 @@ try:
     api = api_core.API()
     initialized = api.start_check()
     assert(initialized)
-    print('everything is setup alright!')
 except:
     try:
         import os
         os.remove(str(Path.home())+'/config.stack')
     except:
-        print('no config file')
+        print(f'Missing config file: {str(Path.home())+"/config.stack"}')
     api = api_core.API()
-    initilized = api.init()
+    initialized = api.init()
 
-    if initilized:
+    if initialized:
         api.start_check()
 
 ### CLI End-points ###
