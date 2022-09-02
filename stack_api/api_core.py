@@ -286,7 +286,7 @@ class API(object):
     def upload_file_binary(self, filename='', binary=''):
         assert(filename != '')
         assert(binary != '')
-        add_from_finary(self.Initializer, filename, binary)
+        add_from_binary(self.Initializer, filename, binary)
         return True
 
     def start_check(self):
@@ -390,20 +390,24 @@ class API(object):
     def key_versions(self, key = '', l = 5, page = 0):
         assert(int(l) > 0)
         assert(int(page) >= 0)
-
+        print('ww')
         key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
-
+        print(key_hist)
         response = {}
+        i_p = len(key_hist) - int(page)*int(l)-1
+        i_f = max(len(key_hist) - int(l)*(int(page)+1),0)-1
+
+        print(len(key_hist))
+        print(i_p)
+        print(i_f)
+
         idx = 0
 
-        i_p = int(page)*int(l)
-        i_f = min((int(page)+1)*int(l),len(key_hist))
-
         # goes over the commits
-        for i in range(i_p, i_f):
+        for i in range(i_p, i_f, -1):
             # reads each file version
             response[idx] = key_hist[i]
-            idx = idx + 1
+            idx = idx+1
 
         return {'commits': response, 'len': len(key_hist)}
 
