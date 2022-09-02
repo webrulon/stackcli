@@ -21,7 +21,7 @@ except:
         print('no config file')
     api = api_core.API()
     initilized = api.init()
-    
+
     if initilized:
         api.start_check()
 
@@ -33,10 +33,10 @@ def init(uri: str):
 
 @app.command("add")
 def add_command(path: str, subpath: str=''):
-        try: 
+        try:
             if len(subpath)>1:
-            if subpath[-1] != '/':
-                subpath = subpath + '/'
+                if subpath[-1] != '/':
+                    subpath = subpath + '/'
             add(api.Initializer,[path],subpath)
             api.commit('')
             return True
@@ -65,7 +65,7 @@ def connect_cli(uri: str):
 
 @app.command("disconnect")
 def disconnect_cli(uri: str):
-    try: 
+    try:
         return {'success': api.disconnectDataset(uri)}
     except:
         return {'success': False}
