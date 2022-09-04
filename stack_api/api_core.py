@@ -120,8 +120,7 @@ class API(object):
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
-        print(config)
-
+        
         try: 
             datasets = self.get_datasets()
         except:
@@ -390,16 +389,10 @@ class API(object):
     def key_versions(self, key = '', l = 5, page = 0):
         assert(int(l) > 0)
         assert(int(page) >= 0)
-        print('ww')
         key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
-        print(key_hist)
         response = {}
         i_p = len(key_hist) - int(page)*int(l)-1
         i_f = max(len(key_hist) - int(l)*(int(page)+1),0)-1
-
-        print(len(key_hist))
-        print(i_p)
-        print(i_f)
 
         idx = 0
 
@@ -447,7 +440,7 @@ class API(object):
 
     def commit(self, comment=''):
         commit(self.Initializer, comment)
-        print('commit done!')
+        print('sync done!')
         return True
 
     def loadCommitMetadata(self, commit_file):
