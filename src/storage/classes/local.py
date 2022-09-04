@@ -6,7 +6,6 @@ import time
 class Local(object):
 	"""docstring for Storage"""
 	def __init__(self):
-		# super(Storage, self).__init__()
 		self.type = "local"
 		self.dataset = "./"
 		self.credentials = {}
@@ -114,7 +113,6 @@ class Local(object):
 						'key' : path,
 						'last_modified' : time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getmtime(path))))
 					}
-					print(time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getmtime(path)))))
 					file_m.append(metadata)
 		return file_m
 

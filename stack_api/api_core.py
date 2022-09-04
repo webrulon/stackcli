@@ -1,3 +1,4 @@
+from operator import le
 import sys
 sys.path.append( '..' )
 from src.core.init import Initializer
@@ -391,15 +392,15 @@ class API(object):
         assert(int(page) >= 0)
         key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
         response = {}
-        i_p = len(key_hist) - int(page)*int(l)-1
-        i_f = max(len(key_hist) - int(l)*(int(page)+1),0)-1
+        i_p = len(key_hist) - int(page)*int(l)
+        i_f = max(len(key_hist) - int(l)*(int(page)+1),0)
 
         idx = 0
 
         # goes over the commits
         for i in range(i_p, i_f, -1):
             # reads each file version
-            response[idx] = key_hist[i]
+            response[idx] = key_hist[str(i)]
             idx = idx+1
 
         return {'commits': response, 'len': len(key_hist)}

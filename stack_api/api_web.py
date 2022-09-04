@@ -20,6 +20,7 @@ try:
     api = api_core.API()
     initialized = api.start_check()
     assert(initialized)
+    api.commit('')
 except:
     try:
         import os
