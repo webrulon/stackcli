@@ -173,6 +173,7 @@ async def remove_key_api(key):
 async def remove_commit(version):
     try:
         api.remove_commit(version)
+        api.commit('')
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -190,6 +191,7 @@ async def full_remove_key_api(key):
 async def remove_key_diff_api(key, version=-1):
     try:
         api.remove_key_diff(key, version)
+        api.commit('')
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -205,4 +207,9 @@ async def revert_key_version_api(key, version=-1):
 
 @app.get("/revert")
 async def revert_api(version=0):
-    return {'success': api.revert(version)}
+    try:
+        api.revert(version)
+        api.commit('reverted file ' + key)
+        return {'success': True}
+    except:
+        return {'success': False}
