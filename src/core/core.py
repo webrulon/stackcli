@@ -61,6 +61,7 @@ def commit(init, comment = ''):
 				commitpath = init.prefix_commit + f_relative + '/' + str(n).zfill(10)
 				commits.append(commitpath)
 				init.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+				updateFileHistory(init,f_relative,commit)
 		else:
 			# checks the latest diff and sets the new path
 			n = init.getLatestDiffNumber(f_relative) + 1
@@ -84,6 +85,8 @@ def commit(init, comment = ''):
 			commitpath = init.prefix_commit + f_relative + '/' + str(n).zfill(10)
 			commits.append(commitpath)
 			init.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+			updateFileHistory(init,f_relative,commit)
+
 	init.storage.resetBuffer()
 
 	old_rel_files = [x.replace(init.prefix_curr,"") for x in old_files]
@@ -116,6 +119,7 @@ def commit(init, comment = ''):
 			commitpath = init.prefix_commit + f + '/' + str(n).zfill(10)
 			commits.append(commitpath)
 			init.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+			updateFileHistory(init,f,commit)
 	init.storage.resetBuffer()	
 
 	# updates the current version in .stack
@@ -194,23 +198,38 @@ def updateHistory(init,commits):
 	init.storage.resetBuffer()
 	return True
 
+def updateFileHistory(init,key,commit):
+	# loads file global
+	metapath = init.prefix_history+key+'/history.json'
+	if self.storage.checkIfEmpty(init.prefix_history): 
+		history = {}
+		history[1] = commit
+	else:
+		history = json.load(init.storage.loadFileGlobal(metapath))
+		history[str(len(history)+1)] = commit
+		init.storage.resetBuffer()
+		
+	init.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
+	init.storage.resetBuffer()
+	return True
+
 def add(init, files=[], location='?'):
 	if location == '?':
 		location = ''
 	
 	# adds each file
 	for file in files:
-		print('adding'+file+'...')
+		print('adding '+file+'...')
 		init.storage.addFile(file, '', location)
 	init.storage.resetBuffer()
 	return True
 
-def add_from_finary(init, filename='', binary='', location='?'):
+def add_from_binary(init, filename='', binary='', location='?'):
 	if location == '?':
 		location = ''
 	
 	# adds each file
-	print('adding'+filename+'...')
+	print('adding '+filename+'...')
 	init.storage.addFileFromBinary(filename, binary)
 	init.storage.resetBuffer()
 	return True
@@ -290,25 +309,9 @@ def revertCommit(init, target_version):
 
 def get_key_history(init, key):
 	# finds the commit version
-	metapath = init.prefix_meta+'history.json'
+	metapath = init.prefix_history+key+'/history.json'
 	history = json.load(init.storage.loadFileGlobal(metapath))
-	n = init.getLatestDiffNumber(key)
-
-	print('we have this')
-	changes = {}
-	k = 0
-	for i in range(1,len(history)+1):
-		for commit_ in history[str(i)]['commits']:
-			cmit = json.load(init.storage.loadFileGlobal(commit_))
-			init.storage.resetBuffer()
-
-			if cmit['key'] == key:
-				changes[k] = {'commit': i, 'date': history[str(i)]['date'], 'version': k}
-				k += 1
-				break
-		if k >= n:
-			break 
-	return changes
+	return history
 
 def pull(init, files=[],version='current'):
 

@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.scripts]
-stackcli = "stack_api.api_cli:app" # should be "stackai" instead of stackcli, note it needs to  be the same than `name' above
+stack = "stack_api.api_cli:app"
 
 [tool.poetry.dependencies]
 python = "^3.7"
@@ -19,7 +19,7 @@ typer = {extras = ["all"], version = "^0.6.1"}
 boto3 = "^1.24.60"
 pymongo = "^4.2.0"
 python-dotenv = "^0.20.0"
-fastapi = "^0.80.0"
+fastapi = ">=0.80.0"
 maskpass = "^0.3.6"
 google-cloud-storage = "^2.5.0"
 google-cloud-datastore = "^2.8.1"

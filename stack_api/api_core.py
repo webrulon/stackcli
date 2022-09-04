@@ -13,16 +13,13 @@ class API(object):
     def __init__(self, reset=False):
         super(API, self).__init__()
         self.key_bin = None
+        self.Initializer = None
         if not Path(str(Path.home())+'/datasets.stack').exists():
-            file = open(str(Path.home())+'/datasets.stack', 'wb')
-            pickle.dump(config,file)
-            file.close()
+            self.set_datasets({})
         if reset:
             self.Initializer = None
         elif Path(str(Path.home())+'/config.stack').exists():
-            file2 = open(str(Path.home())+'/config.stack', 'rb')
-            config = pickle.load(file2)
-            file2.close()
+            config = self.get_config()
             self.storage_name = config['storage']
             self.dataset_name = config['dataset']
             if config['type'] == 'local':
@@ -66,19 +63,15 @@ class API(object):
             config['storage'] = storage
             # stores the config file
 
-            print('Initializing dataset in ' + storage.lower())
+            #print('Initializing dataset in ' + storage.lower())
 
-            file = open(str(Path.home())+'/config.stack', 'wb')
-            pickle.dump(config,file)
-            file.close()
+            self.set_config(config)
             # creates dataset
             return True
         else:
             print('Creating config file')
             config = {'storage': ''}
-            file = open(str(Path.home())+'/config.stack', 'wb')
-            pickle.dump(config,file)
-            file.close()
+            self.set_config(config)
             return False
 
     def set_gs_key(self, file):
@@ -86,16 +79,30 @@ class API(object):
         self.key_bin = file
         return True
 
+    def get_config(self):
+        file2 = open(str(Path.home())+'/config.stack', 'rb')
+        config = pickle.load(file2)
+        file2.close()
+        return config
+
+    def set_config(self, config):
+        file = open(str(Path.home())+'/config.stack', 'wb')
+        pickle.dump(config,file)
+        file.close()
+
     def get_datasets(self):
         file1 = open(str(Path.home())+'/datasets.stack', 'rb')
         datasets = pickle.load(file1)
         file1.close()
         return datasets
 
-    def print_datasets(self):
-        file1 = open(str(Path.home())+'/datasets.stack', 'rb')
-        datasets = pickle.load(file1)
+    def set_datasets(self, datasets):
+        file1 = open(str(Path.home())+'/datasets.stack', 'wb')
+        pickle.dump(datasets,file1)
         file1.close()
+
+    def print_datasets(self):
+        datasets = self.get_datasets()
 
         if len(datasets.keys()) > 0:
             for s in datasets.keys():
@@ -109,18 +116,13 @@ class API(object):
     def connect_post_web(self, name='My Dataset', keys={}):
         
         print('connecting to '+name)
-        file2 = open(str(Path.home())+'/config.stack', 'rb')
-        config = pickle.load(file2)
-        file2.close()
+        config = self.get_config()
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
-        print(config)
-
+        
         try: 
-            file1 = open(str(Path.home())+'/datasets.stack', 'rb')
-            datasets = pickle.load(file1)
-            file1.close()
+            datasets = self.get_datasets()
         except:
             datasets = {}
 
@@ -130,10 +132,8 @@ class API(object):
                 is_not_there = False
 
         if is_not_there:
-            file1 = open(str(Path.home())+'/datasets.stack', 'wb')
             datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
-            pickle.dump(datasets,file1)
-            file1.close()
+            self.set_datasets(datasets)
 
         if config['type'] == 'local':
             cloud = Local()
@@ -156,17 +156,13 @@ class API(object):
         return True
 
     def connect_post_cli(self):
-        file2 = open(str(Path.home())+'/config.stack', 'rb')
-        config = pickle.load(file2)
-        file2.close()
+        config = self.get_config()
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
         
         try: 
-            file1 = open(str(Path.home())+'/datasets.stack', 'rb')
-            datasets = pickle.load(file1)
-            file1.close()
+            datasets = self.get_datasets()
         except:
             datasets = {}
 
@@ -177,10 +173,8 @@ class API(object):
 
         if is_not_there:
             name = input('please give a name to your dataset: ')
-            file1 = open(str(Path.home())+'/datasets.stack', 'wb')
             datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
-            pickle.dump(datasets,file1)
-            file1.close()
+            self.set_datasets(datasets)
 
         if config['type'] == 'local':
             cloud = Local()
@@ -203,17 +197,13 @@ class API(object):
         return True
 
     def connect_post_api(self, name='My Dataset'):
-        file2 = open(str(Path.home())+'/config.stack', 'rb')
-        config = pickle.load(file2)
-        file2.close()
+        config = self.get_config()
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
         
         try: 
-            file1 = open(str(Path.home())+'/datasets.stack', 'rb')
-            datasets = pickle.load(file1)
-            file1.close()
+            datasets = self.get_datasets()
         except:
             datasets = {}
 
@@ -223,10 +213,8 @@ class API(object):
                 is_not_there = False
 
         if is_not_there:
-            file1 = open(str(Path.home())+'/datasets.stack', 'wb')
             datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
-            pickle.dump(datasets,file1)
-            file1.close()
+            self.set_datasets(datasets)
 
         if config['type'] == 'local':
             cloud = Local()
@@ -250,18 +238,13 @@ class API(object):
 
     def disconnectDataset(self, storage=''):
         assert(len(storage) > 1)
-        file1 = open(str(Path.home())+'/datasets.stack', 'rb')
-        datasets = pickle.load(file1)
-        file1.close()
-
+        datasets = self.get_datasets()
         print('disconnecting from ' + storage)
 
         for s in datasets.keys():
             if datasets[s]['storage'] == storage:
                 del datasets[s]
-                file1 = open(str(Path.home())+'/datasets.stack', 'wb')
-                pickle.dump(datasets,file1)
-                file1.close()
+                self.set_datasets(datasets)
                 return True
         return False
 
@@ -269,8 +252,7 @@ class API(object):
         # checks if another dataset exists
         # builds a config file
         if Path(str(Path.home())+'/config.stack').exists():
-            file2 = open(str(Path.home())+'/config.stack', 'rb')
-            config = pickle.load(file2)
+            config = self.get_config()
             
             print('initializing dataset in ' + storage.lower())
             config['dataset'] = storage
@@ -292,9 +274,7 @@ class API(object):
                 self.Initializer = Initializer(cloud)
 
             # stores the config file
-            file = open(str(Path.home())+'/config.stack', 'wb')
-            pickle.dump(config,file)
-            file.close()
+            self.set_config(config)
 
             # creates dataset
             return True
@@ -305,7 +285,7 @@ class API(object):
     def upload_file_binary(self, filename='', binary=''):
         assert(filename != '')
         assert(binary != '')
-        add_from_finary(self.Initializer, filename, binary)
+        add_from_binary(self.Initializer, filename, binary)
         return True
 
     def start_check(self):
@@ -409,20 +389,18 @@ class API(object):
     def key_versions(self, key = '', l = 5, page = 0):
         assert(int(l) > 0)
         assert(int(page) >= 0)
-
         key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
-
         response = {}
+        i_p = len(key_hist) - int(page)*int(l)-1
+        i_f = max(len(key_hist) - int(l)*(int(page)+1),0)-1
+
         idx = 0
 
-        i_p = int(page)*int(l)
-        i_f = min((int(page)+1)*int(l),len(key_hist))
-
         # goes over the commits
-        for i in range(i_p, i_f):
+        for i in range(i_p, i_f, -1):
             # reads each file version
             response[idx] = key_hist[i]
-            idx = idx + 1
+            idx = idx+1
 
         return {'commits': response, 'len': len(key_hist)}
 
@@ -462,7 +440,7 @@ class API(object):
 
     def commit(self, comment=''):
         commit(self.Initializer, comment)
-        print('commit done!')
+        print('sync done!')
         return True
 
     def loadCommitMetadata(self, commit_file):

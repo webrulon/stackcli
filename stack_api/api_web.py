@@ -1,6 +1,8 @@
 import api_core as api_core
 from fastapi import FastAPI, File, UploadFile, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.responses import StreamingResponse
 from pathlib import Path
 
 # API Definition
@@ -47,7 +49,8 @@ async def init_web(data: dict):
         api.init(data['uri'])
         api.connect_post_web(data['name'], data)
         api.start_check()
-        return {'success': True}
+        json_compatible_item_data = jsonable_encoder(False)
+        return JSONResponse(content=json_compatible_item_data)
     except:
         return {'success': False}
 
@@ -153,7 +156,7 @@ async def get_commit_meta_api(commit):
 @app.get("/pull_file_api")
 async def pull_file_api(file):
     try:
-        return Response(content=api.load_file_binary(file),filename=file)
+        return StreamingResponse(api.load_file_binary(file), media_type="image/png")
     except:
         return Response(content='',filename='failure')
 
@@ -170,6 +173,7 @@ async def remove_key_api(key):
 async def remove_commit(version):
     try:
         api.remove_commit(version)
+        api.commit('')
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -187,6 +191,7 @@ async def full_remove_key_api(key):
 async def remove_key_diff_api(key, version=-1):
     try:
         api.remove_key_diff(key, version)
+        api.commit('')
         return {'sucess': True}
     except:
         return {'sucess': False}
@@ -202,4 +207,9 @@ async def revert_key_version_api(key, version=-1):
 
 @app.get("/revert")
 async def revert_api(version=0):
-    return {'success': api.revert(version)}
+    try:
+        api.revert(version)
+        api.commit('reverted file ' + key)
+        return {'success': True}
+    except:
+        return {'success': False}

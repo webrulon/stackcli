@@ -12,17 +12,16 @@ try:
     api = api_core.API()
     initialized = api.start_check()
     assert(initialized)
-    print('everything is setup alright!')
 except:
     try:
         import os
         os.remove(str(Path.home())+'/config.stack')
     except:
-        print('no config file')
+        print(f'Missing config file: {str(Path.home())+"/config.stack"}')
     api = api_core.API()
-    initilized = api.init()
-    
-    if initilized:
+    initialized = api.init()
+
+    if initialized:
         api.start_check()
 
 ### CLI End-points ###
@@ -33,11 +32,15 @@ def init(uri: str):
 
 @app.command("add")
 def add_command(path: str, subpath: str=''):
-    if len(subpath)>1:
-        if subpath[-1] != '/':
-            subpath = subpath + '/'
-    add(api.Initializer,[path],subpath)
-    return True
+        try:
+            if len(subpath)>1:
+                if subpath[-1] != '/':
+                    subpath = subpath + '/'
+            add(api.Initializer,[path],subpath)
+            api.commit('')
+            return True
+        except:
+            return Exception
 
 
 @app.command("remove")
@@ -46,7 +49,7 @@ def remove_command(key: str, subpath: str=''):
         if subpath[-1] != '/':
             subpath = subpath + '/'
     remove(api.Initializer,[key],subpath)
-    return True
+    api.commit('')
 
 # End-points
 @app.command("connect")
@@ -61,7 +64,7 @@ def connect_cli(uri: str):
 
 @app.command("disconnect")
 def disconnect_cli(uri: str):
-    try: 
+    try:
         return {'success': api.disconnectDataset(uri)}
     except:
         return {'success': False}
@@ -71,6 +74,7 @@ def full_remove_key_api(key: str):
     try:
         api_core.remove_full(key)
         print(f"Removed: {key}")
+        api.commit('')
     except:
         print(f"Unable to remove: {key}")
 
@@ -95,8 +99,8 @@ def status_api():
     except:
         return Exception
 
-@app.command("commit")
-def commit_api(comment: str=''):
+@app.command("sync")
+def sync_api(comment: str=''):
     # TODO: do we need to print something?
     return {'success': api.commit(comment)}
 

@@ -19,11 +19,13 @@ class Initializer(object):
 			self.prefix_meta = str(Path.home())+'/.stack'+self.storage.dataset
 			self.prefix_curr = str(Path.home())+'/.stack'+self.storage.dataset+'current/'
 			self.prefix_commit = str(Path.home())+'/.stack'+self.storage.dataset+'commits/'
+			self.prefix_history = str(Path.home())+'/.stack'+self.storage.dataset+'history/'
 			self.prefix_diffs = str(Path.home())+'/.stack'+self.storage.dataset+'diffs/'
 		else:
 			self.prefix_meta = '.stack/'+self.storage.dataset
 			self.prefix_curr = '.stack/'+self.storage.dataset+'current/'
 			self.prefix_commit = '.stack/'+self.storage.dataset+'commits/'
+			self.prefix_history = '.stack/'+self.storage.dataset+'history/'
 			self.prefix_diffs = '.stack/'+self.storage.dataset+'diffs/'
 
 		self.start_check()
@@ -191,8 +193,17 @@ class Initializer(object):
 				'comment' : 'added '+ file['key'],
 			}
 
+			history = {}
+			history[1] = commit
+
 			commitpath = self.prefix_commit + file['key'] + '/' + str(1).zfill(10)
 			self.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+			init.storage.resetBuffer()
+
+			metapath = self.prefix_history+key+'/history.json'
+			self.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
+			self.storage.resetBuffer()
+		
 		self.storage.resetBuffer()
 		
 		return True
