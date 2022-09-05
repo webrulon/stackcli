@@ -154,11 +154,11 @@ async def get_commit_meta_api(commit):
         return {}
 
 @app.get("/pull_file_api")
-async def pull_file_api(file):
+async def pull_file_api(file, version='current'):
     try:
-        return StreamingResponse(api.load_file_binary(file), media_type="image/png")
+        return StreamingResponse(api.load_file_binary(file, version), media_type="image/png")
     except:
-        return Response(content='',filename='failure')
+        return Response(content='')
 
 @app.get("/remove_key")
 async def remove_key_api(key):

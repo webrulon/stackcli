@@ -326,6 +326,7 @@ class API(object):
         return True
 
     def pull_file(self, file, version = 'current'):
+        
         if not self.Initializer.storage.dataset in file:
             file = self.Initializer.storage.dataset + file
         
@@ -457,9 +458,17 @@ class API(object):
         print('setup complete!')
         return True
 
-    def load_file_binary(self, file):
-        print('loading '+file+'...')
-        return self.Initializer.storage.loadFile(file)
+    def load_file_binary(self, file, version='current'):
+        print('THIS IS THE VERSION ' + version)
+        if version=='current':
+            print('loading ' + file + '...')
+            return self.Initializer.storage.loadFile(file)
+        elif int(version) >= 1:
+            print('loading ' + file + ' version '+ version +'...')
+            path = self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10)
+            return self.Initializer.storage.loadFileGlobal(path)
+        else:
+            assert(False)
 
     def load_file_binary_bytes(self, file, bi, bf):
         print('loading '+file+'...')
@@ -474,7 +483,7 @@ class API(object):
     def revert(self, version=0):
         assert(version != '')
         revertCommit(self.Initializer, int(version))
-        commit(self.Initializer, 'reverted to version' + str(version))
+        commit(self.Initializer, 'reverted to version ' + str(version))
 
     def revert_file(self, key, version):
         try: 
