@@ -20,7 +20,6 @@ try:
     api = api_core.API()
     initialized = api.start_check()
     assert(initialized)
-    api.commit('')
 except:
     try:
         import os
@@ -29,7 +28,7 @@ except:
         print('no config file')
     api = api_core.API()
     initilized = api.init()
-    
+
     if initilized:
         api.start_check()
 

@@ -19,7 +19,7 @@ class API(object):
             self.set_datasets({})
         if reset:
             self.Initializer = None
-        elif Path(str(Path.home())+'/config.stack').exists():
+        elif Path(str(Path.home())+'/.config_stack').exists():
             config = self.get_config()
             self.storage_name = config['storage']
             self.dataset_name = config['dataset']
@@ -44,7 +44,9 @@ class API(object):
         
     def init(self, storage = None):
         # builds a config file       
-        if Path(str(Path.home())+'/config.stack').exists():
+        print(Path(str(Path.home())+'/.config_stack').exists())
+        print(Path(str(Path.home())+'/.config_stack'))
+        if Path(str(Path.home())+'/.config_stack').exists():
             config = {} 
             if storage == None:
                 return False
@@ -64,8 +66,8 @@ class API(object):
             config['storage'] = storage
             # stores the config file
 
-            #print('Initializing dataset in ' + storage.lower())
-
+            print('Initializing dataset in ' + storage.lower())
+            print(config)
             self.set_config(config)
             # creates dataset
             return True
@@ -81,13 +83,13 @@ class API(object):
         return True
 
     def get_config(self):
-        file2 = open(str(Path.home())+'/config.stack', 'rb')
+        file2 = open(str(Path.home())+'/.config_stack', 'rb')
         config = pickle.load(file2)
         file2.close()
         return config
 
     def set_config(self, config):
-        file = open(str(Path.home())+'/config.stack', 'wb')
+        file = open(str(Path.home())+'/.config_stack', 'wb')
         pickle.dump(config,file)
         file.close()
 
@@ -252,7 +254,7 @@ class API(object):
     def connectDataset(self, storage=None):
         # checks if another dataset exists
         # builds a config file
-        if Path(str(Path.home())+'/config.stack').exists():
+        if Path(str(Path.home())+'/.config_stack').exists():
             config = self.get_config()
             
             print('initializing dataset in ' + storage.lower())
@@ -516,8 +518,3 @@ class API(object):
     def diff(self, v1, v0, file=''):
         printDiff(self.Initializer, v1, v0, file)
         return True
-
-    def logout(self):
-        print('loging you out of ' + self.Initializer.storage.type + '://' + self.Initializer.storage.BUCKET_NAME + '/' + self.Initializer.storage.dataset)
-        import os
-        os.remove(str(Path.home())+'/config.stack')
