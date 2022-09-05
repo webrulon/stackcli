@@ -95,23 +95,21 @@ class Local(object):
 		path = self.dataset+filename
 		metadata = {
 			'key' : self.dataset+filename,
-			'date_loaded' : time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getmtime(path)))),
-			'date_added' : time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getctime(path)))),
-			'last_modified' : time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getmtime(path)))),
+			'date_loaded' : time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getmtime(path))),
+			'date_added' : time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getctime(path))),
+			'last_modified' : time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getmtime(path))),
 		}
-		print(time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getmtime(path)))))
 		return metadata
 
 	def loadDataset(self):
 		file_m = []
-		print()
 		for root, dirs, files in os.walk(self.dataset, topdown=False):
 			for name in files:
 				path = os.path.join(root, name)
 				if path[-1] != '/':
 					metadata = {
 						'key' : path,
-						'last_modified' : time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getmtime(path))))
+						'last_modified' : time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getmtime(path)))
 					}
 					file_m.append(metadata)
 		return file_m
@@ -127,8 +125,7 @@ class Local(object):
 		for root, dirs, files in os.walk(path, topdown=False):
 			for name in files:
 				keys.append(os.path.join(root, name))
-				last_m.append('abc')
-				print(time.strftime("%m/%d/%Y, %H:%M:%S", time.ctime(time.gmtime(os.path.getmtime(os.path.join(root, name))))))
+				last_m.append(time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getmtime(os.path.join(root, name)))))
 		return keys, last_m
 
 	def listFilesinDataset(self):
