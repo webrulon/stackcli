@@ -118,6 +118,14 @@ def diff_api(v1: str, v0: str, file: str=''):
     return True
 
 
+@app.command("diff_csv")
+def diff_csv(csv1: str, csv2: str):
+    from csv_diff import load_csv, compare
+    diff = compare(load_csv(open(csv1)), load_csv(open(csv2)))
+    print(diff)
+    return True
+
+
 @app.command("revert")
 def revert_api(version):
     assert(version != '')
