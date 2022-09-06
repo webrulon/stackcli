@@ -1,9 +1,12 @@
+import sys
+sys.path.append( '../../../' )
 import os
 import shutil
 from pathlib import Path
 import time
-
-path_home = '/localpath/' if False else str(Path.home())
+from src.comm.docker_ver import *
+path_home = '/localpath/' if docker_ver() else str(Path.home())
+ref_path = '/localpath/' if docker_ver() else ''
 
 class Local(object):
 	"""docstring for Storage"""
@@ -21,6 +24,13 @@ class Local(object):
 				location = path_home
 		if location[0] != '/':
 			location = str(os.path.abspath(location))
+
+			if ref_path == '/localpath/':
+				location = ref_path + location
+		else:
+			if ref_path == '/localpath/':
+				location = ref_path + '/' + location
+
 		#print('Initializing dataset at '+location)
 		if location[-1] != '/':
 			location = location + '/'

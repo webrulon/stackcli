@@ -1,4 +1,6 @@
-import api_core as api_core
+import sys
+sys.path.append( '..' )
+import stack_api.api_core as api_core
 from fastapi import FastAPI, File, UploadFile, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -16,8 +18,8 @@ app.add_middleware(
     allow_headers=["*"], 
 )
 
-docker = False
-path_home = '/localpath/' if docker else str(Path.home())
+from src.comm.docker_ver import *
+path_home = '/localpath/' if docker_ver() else str(Path.home())
 
 # checks if local files are installed
 try:

@@ -6,7 +6,8 @@ from datetime import datetime
 import time
 from pathlib import Path
 
-path_home = '/localpath/' if False else str(Path.home())
+from src.comm.docker_ver import *
+path_home = '/localpath/' if docker_ver() else str(Path.home())
 
 class Initializer(object):
 	"""docstring for Initializer"""

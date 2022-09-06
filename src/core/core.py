@@ -203,7 +203,7 @@ def updateHistory(init,commits):
 def updateFileHistory(init,key,commit):
 	# loads file global
 	metapath = init.prefix_history+key+'/history.json'
-	if init.storage.checkIfEmpty(init.prefix_history): 
+	if init.storage.checkIfEmpty(init.prefix_history+key+'/'): 
 		history = {}
 		history[1] = commit
 	else:

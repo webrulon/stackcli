@@ -7,9 +7,6 @@ from src.core.core import *
 
 app = typer.Typer()
 
-docker = False
-path_home = '/localpath/' if docker else str(Path.home())
-
 # Checks if local files are installed
 try:
     api = api_core.API()
