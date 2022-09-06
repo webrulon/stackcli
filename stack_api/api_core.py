@@ -27,20 +27,26 @@ class API(object):
             self.set_config({})
         else:
             config = self.get_config()
-            self.storage_name = config['storage']
-            self.dataset_name = config['dataset']
-            if config['type'] == 'local':
+            try:
+                self.storage_name = config['storage']
+                self.dataset_name = config['dataset']
+                ctype = config['type']
+            except:
+                config = self.set_config({})
+                ctype = ''
+
+            if ctype == 'local':
                 cloud = Local()
                 cloud.createDataset(config['dataset'])
                 self.Initializer = Initializer(cloud)
                 self.dataset_name = self.Initializer.storage.dataset
                 self.storage_name = self.Initializer.storage.dataset
-            elif config['type'] == 's3':
+            elif ctype == 's3':
                 cloud = S3Bucket(config['bucket'])
                 cloud.connectBucket()
                 cloud.createDataset(config['dataset'])
                 self.Initializer = Initializer(cloud)
-            elif config['type'] == 'gcs':
+            elif ctype == 'gcs':
                 cloud = GCSBucket(config['bucket'])
                 cloud.connectBucket()
                 cloud.createDataset(config['dataset'])
