@@ -1,5 +1,5 @@
 import stack_api.api_core as api_core
-
+from src.comm.docker_ver import *
 import typer
 from pathlib import Path
 
