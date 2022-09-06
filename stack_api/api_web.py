@@ -1,7 +1,10 @@
-import api_core as api_core
+import sys
+sys.path.append( '..' )
+import stack_api.api_core as api_core
 from fastapi import FastAPI, File, UploadFile, Response, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from starlette.responses import StreamingResponse
 from pathlib import Path
 
@@ -15,6 +18,9 @@ app.add_middleware(
     allow_headers=["*"], 
 )
 
+from src.comm.docker_ver import *
+path_home = '/localpath/' if docker_ver() else str(Path.home())
+
 # checks if local files are installed
 try:
     api = api_core.API()
@@ -23,7 +29,7 @@ try:
 except:
     try:
         import os
-        os.remove(str(Path.home())+'/config.stack')
+        os.remove(path_home+'/.config_stack')
     except:
         print('no config file')
     api = api_core.API()
@@ -49,10 +55,11 @@ async def init_web(data: dict):
         api.init(data['uri'])
         api.connect_post_web(data['name'], data)
         api.start_check()
-        json_compatible_item_data = jsonable_encoder(False)
+        json_compatible_item_data = jsonable_encoder(True)
         return JSONResponse(content=json_compatible_item_data)
     except:
-        return {'success': False}
+        json_compatible_item_data = jsonable_encoder(False)
+        return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
@@ -66,7 +73,7 @@ async def init_gskey(file: UploadFile = File(description="A file read as UploadF
 async def directories():
     import os
     from pathlib import Path
-    print(str(Path.home()))
+    print(path_home)
     print(str(os.path.abspath('.')))
     return {'success': True}
 
