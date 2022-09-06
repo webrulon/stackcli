@@ -3,6 +3,8 @@ import shutil
 from pathlib import Path
 import time
 
+path_home = '/localpath/' if False else str(Path.home())
+
 class Local(object):
 	"""docstring for Storage"""
 	def __init__(self):
@@ -14,10 +16,11 @@ class Local(object):
 		# transforms to absolute path
 		if location[0] == '~':
 			if len(location) > 1:
-				location = str(Path.home())+location[1:]
+				location = path_home+location[1:]
 			else:
-				location = str(Path.home())
-		location = str(os.path.abspath(location))
+				location = path_home
+		if location[0] != '/':
+			location = str(os.path.abspath(location))
 		#print('Initializing dataset at '+location)
 		if location[-1] != '/':
 			location = location + '/'

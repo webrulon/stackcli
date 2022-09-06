@@ -11,6 +11,8 @@ import difflib
 import re
 import os
 
+docker = False
+
 def commit(init, comment = ''):
 	# get new files
 	new_files, new_lm, old_files, old_lm = init.getListtoCompare()

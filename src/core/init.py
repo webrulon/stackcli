@@ -6,6 +6,8 @@ from datetime import datetime
 import time
 from pathlib import Path
 
+path_home = '/localpath/' if False else str(Path.home())
+
 class Initializer(object):
 	"""docstring for Initializer"""
 	def __init__(self, storage ,user=None):
@@ -16,11 +18,11 @@ class Initializer(object):
 		
 		# prefixes
 		if self.storage.type == 'local':
-			self.prefix_meta = str(Path.home())+'/.stack'+self.storage.dataset
-			self.prefix_curr = str(Path.home())+'/.stack'+self.storage.dataset+'current/'
-			self.prefix_commit = str(Path.home())+'/.stack'+self.storage.dataset+'commits/'
-			self.prefix_history = str(Path.home())+'/.stack'+self.storage.dataset+'history/'
-			self.prefix_diffs = str(Path.home())+'/.stack'+self.storage.dataset+'diffs/'
+			self.prefix_meta = path_home+'/.stack'+self.storage.dataset
+			self.prefix_curr = path_home+'/.stack'+self.storage.dataset+'current/'
+			self.prefix_commit = path_home+'/.stack'+self.storage.dataset+'commits/'
+			self.prefix_history = path_home+'/.stack'+self.storage.dataset+'history/'
+			self.prefix_diffs = path_home+'/.stack'+self.storage.dataset+'diffs/'
 		else:
 			self.prefix_meta = '.stack/'+self.storage.dataset
 			self.prefix_curr = '.stack/'+self.storage.dataset+'current/'
@@ -36,7 +38,7 @@ class Initializer(object):
 
 	def removeSetup(self):
 		if self.storage.type == 'local':
-			self.storage.removeFileGlobal(str(Path.home())+'/.stack/')
+			self.storage.removeFileGlobal(path_home+'/.stack/')
 		else:
 			self.storage.removeFileGlobal('.stack/')
 		return True
@@ -44,7 +46,6 @@ class Initializer(object):
 	def start_check(self):
 		# checks if the dataset exists
 		if not self.verify_setup():
-			print('no .stack/ subfolder found! creating one...')
 			self.setupDataset()
 		return True
 
@@ -54,15 +55,12 @@ class Initializer(object):
 			return False
 
 		if self.storage.checkIfEmpty(self.prefix_curr):
-			print('no diffs metadata found')
 			return False
 
 		if self.storage.checkIfEmpty(self.prefix_diffs):
-			print('no diffs found')
 			return False
 
 		if self.storage.checkIfEmpty(self.prefix_commit):
-			print('no commits metada found')
 			return False
 
 		return True
@@ -70,13 +68,10 @@ class Initializer(object):
 	def setupDataset(self):
 		# performs all key operations
 		self.copyCurrent()
-		print('current copied')
 		self.setupDiffs()
-		print('diff generated')
 		self.setupCommits()
-		print('commits copied')
 		self.setupHistory()
-		print('history generated')
+		
 		return True
 
 	def copyCurrent(self):
@@ -95,7 +90,6 @@ class Initializer(object):
 		print('loading dataset list')
 		metapath = self.prefix_meta + 'current.json'
 		keys, lm = self.storage.loadDatasetList()
-		print(lm)
 		current = {'keys': keys, 'lm': lm}
 		self.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
 		self.storage.resetBuffer()

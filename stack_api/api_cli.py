@@ -1,4 +1,4 @@
-import stack_api.api_core as api_core
+import api_core as api_core
 
 import typer
 from pathlib import Path
@@ -6,6 +6,9 @@ from pathlib import Path
 from src.core.core import *
 
 app = typer.Typer()
+
+docker = False
+path_home = '/localpath/' if docker else str(Path.home())
 
 # Checks if local files are installed
 try:
@@ -15,9 +18,10 @@ try:
 except:
     try:
         import os
-        os.remove(str(Path.home())+'/config.stack')
+        os.remove(path_home+'/config.stack')
     except:
-        print(f'Missing config file: {str(Path.home())+"/config.stack"}')
+        print(f'Stack has not been installed yet!')
+        print(f'setting-up Stack...')
     api = api_core.API()
     initialized = api.init()
 

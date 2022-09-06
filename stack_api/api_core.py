@@ -9,17 +9,19 @@ from src.storage.classes.local import Local
 from pathlib import Path
 import pickle
 
+path_home = '/localpath/' if False else str(Path.home())
+
 class API(object):
     """docstring for CLI"""
     def __init__(self, reset=False):
         super(API, self).__init__()
         self.key_bin = None
         self.Initializer = None
-        if not Path(str(Path.home())+'/datasets.stack').exists():
+        if not Path(path_home+'/datasets.stack').exists():
             self.set_datasets({})
         if reset:
             self.Initializer = None
-        elif Path(str(Path.home())+'/.config_stack').exists():
+        elif Path(path_home+'/.config_stack').exists():
             config = self.get_config()
             self.storage_name = config['storage']
             self.dataset_name = config['dataset']
@@ -44,9 +46,7 @@ class API(object):
         
     def init(self, storage = None):
         # builds a config file       
-        print(Path(str(Path.home())+'/.config_stack').exists())
-        print(Path(str(Path.home())+'/.config_stack'))
-        if Path(str(Path.home())+'/.config_stack').exists():
+        if Path(path_home+'/.config_stack').exists():
             config = {} 
             if storage == None:
                 return False
@@ -67,7 +67,6 @@ class API(object):
             # stores the config file
 
             print('Initializing dataset in ' + storage.lower())
-            print(config)
             self.set_config(config)
             # creates dataset
             return True
@@ -78,29 +77,28 @@ class API(object):
             return False
 
     def set_gs_key(self, file):
-        print('adding key file')
         self.key_bin = file
         return True
 
     def get_config(self):
-        file2 = open(str(Path.home())+'/.config_stack', 'rb')
+        file2 = open(path_home+'/.config_stack', 'rb')
         config = pickle.load(file2)
         file2.close()
         return config
 
     def set_config(self, config):
-        file = open(str(Path.home())+'/.config_stack', 'wb')
+        file = open(path_home+'/.config_stack', 'wb')
         pickle.dump(config,file)
         file.close()
 
     def get_datasets(self):
-        file1 = open(str(Path.home())+'/datasets.stack', 'rb')
+        file1 = open(path_home+'/datasets.stack', 'rb')
         datasets = pickle.load(file1)
         file1.close()
         return datasets
 
     def set_datasets(self, datasets):
-        file1 = open(str(Path.home())+'/datasets.stack', 'wb')
+        file1 = open(path_home+'/datasets.stack', 'wb')
         pickle.dump(datasets,file1)
         file1.close()
 
@@ -240,7 +238,7 @@ class API(object):
         return True
 
     def disconnectDataset(self, storage=''):
-        assert(len(storage) > 1)
+        assert(len(storage) > 0)
         datasets = self.get_datasets()
         print('disconnecting from ' + storage)
 
@@ -254,10 +252,12 @@ class API(object):
     def connectDataset(self, storage=None):
         # checks if another dataset exists
         # builds a config file
-        if Path(str(Path.home())+'/.config_stack').exists():
+        if Path(path_home+'/.config_stack').exists():
             config = self.get_config()
             
-            print('initializing dataset in ' + storage.lower())
+            if config['dataset'] != storage:
+                print('connecting to dataset')
+
             config['dataset'] = storage
 
             if config['type'] == 'local':
