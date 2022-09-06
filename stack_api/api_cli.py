@@ -131,6 +131,7 @@ def diff_csv(csv1: str, csv2: str):
 def revert_api(version):
     assert(version != '')
     revertCommit(api.Initializer, int(version))
+    api.commit('')
     return True
 
 
