@@ -20,7 +20,7 @@ class Initializer(object):
 		# prefixes
 		if self.storage.type == 'local':
 			if not docker_ver():
-				surrogate_dataset = self.storage.dataset.replace('', '/localpath/')
+				surrogate_dataset = self.storage.dataset.replace(self.storage.dataset, '/localpath/')
 			else:
 				surrogate_dataset = self.storage.dataset
 
