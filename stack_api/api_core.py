@@ -22,7 +22,10 @@ class API(object):
             self.set_datasets({})
         if reset:
             self.Initializer = None
-        elif Path(path_home+'/.config_stack').exists():
+        
+        if not Path(path_home+'/.config_stack').exists():
+            self.set_config({})
+        else Path(path_home+'/.config_stack').exists():
             config = self.get_config()
             self.storage_name = config['storage']
             self.dataset_name = config['dataset']
