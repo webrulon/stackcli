@@ -25,7 +25,7 @@ class API(object):
         
         if not Path(path_home+'/.config_stack').exists():
             self.set_config({})
-        else Path(path_home+'/.config_stack').exists():
+        else:
             config = self.get_config()
             self.storage_name = config['storage']
             self.dataset_name = config['dataset']
