@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stackcli" # should be "stackai"
-version = "0.1.3"
+version = "0.1.5"
 description = ""
 authors = ["Toni Rosinol <arosinol@getstack.ai>"]
 readme = "README.md"
