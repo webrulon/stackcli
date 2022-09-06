@@ -15,7 +15,7 @@ try:
 except:
     try:
         import os
-        os.remove(path_home+'/config.stack')
+        os.remove(path_home+'/.config_stack')
     except:
         print(f'Stack has not been installed yet!')
         print(f'setting-up Stack...')

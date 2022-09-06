@@ -5,7 +5,10 @@ from google.cloud import storage
 import maskpass
 import io
 from pathlib import Path
-
+import sys
+sys.path.append( '../../../' )
+from src.comm.docker_ver import *
+path_home = '/localpath/' if docker_ver() else str(Path.home())
 
 class GCSBucket(object):
 	"""docstring for Storage"""
@@ -20,7 +23,7 @@ class GCSBucket(object):
 
 	def connectBucket(self):
 		# creates a client 
-		key_path = str(Path.home())+'/.gs_key'
+		key_path = path_home+'/.gs_key'
 		os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
 		try:		
 			self.client = storage.Client()
@@ -61,7 +64,7 @@ class GCSBucket(object):
 	def connect_bucket_api(self,binary):
 		# reads the gs_key
 		print('creating key file')
-		key_path = str(Path.home())+'/.gs_key'
+		key_path = path_home+'/.gs_key'
 		binary_file = open(key_path, "wb")
 		binary_file.write(binary.read())
 		binary_file.close()

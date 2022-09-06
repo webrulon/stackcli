@@ -25,11 +25,8 @@ class Local(object):
 		if location[0] != '/':
 			location = str(os.path.abspath(location))
 
-			if ref_path == '/localpath/':
-				location = ref_path + location
-		else:
-			if ref_path == '/localpath/':
-				location = ref_path + '/' + location
+		if ref_path == '/localpath/':
+			location = ref_path + '/' + location
 
 		#print('Initializing dataset at '+location)
 		if location[-1] != '/':

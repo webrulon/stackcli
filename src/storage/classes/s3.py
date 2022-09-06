@@ -7,7 +7,10 @@ import configparser
 import maskpass
 import io
 from pathlib import Path
-
+import sys
+sys.path.append( '../../../' )
+from src.comm.docker_ver import *
+path_home = '/localpath/' if docker_ver() else str(Path.home())
 
 class S3Bucket(object):
 	"""docstring for Storage"""
@@ -27,7 +30,7 @@ class S3Bucket(object):
 
 	def connectBucket(self):
 		# checks if the credentials are in the computer
-		home_dir = str(Path.home())
+		home_dir = path_home
 		if not os.path.isfile(home_dir+'/.aws/credentials'):
 
 			print("AWS is not setup in this machine. Please follow the following setups:")
@@ -136,7 +139,7 @@ class S3Bucket(object):
 		config['default']['region'] = self.credentials['region']
 
 		print('saving credentials')
-		with open(str(Path.home())+'/.aws/credentials', 'w') as configfile:
+		with open(path_home+'/.aws/credentials', 'w') as configfile:
 			config.write(configfile)
 
 		config = configparser.ConfigParser()
@@ -144,7 +147,7 @@ class S3Bucket(object):
 		config['default']['region'] = self.credentials['region']
 
 		print('saving config')
-		with open(str(Path.home())+'/.aws/config', 'w') as configfile:
+		with open(path_home+'/.aws/config', 'w') as configfile:
 			config.write(configfile)
 
 		print('Connecting to your bucket...')

@@ -9,7 +9,8 @@ from src.storage.classes.local import Local
 from pathlib import Path
 import pickle
 
-path_home = '/localpath/' if False else str(Path.home())
+from src.comm.docker_ver import *
+path_home = '/localpath/' if docker_ver() else str(Path.home())
 
 class API(object):
     """docstring for CLI"""

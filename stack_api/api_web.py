@@ -29,7 +29,7 @@ try:
 except:
     try:
         import os
-        os.remove(path_home+'/config.stack')
+        os.remove(path_home+'/.config_stack')
     except:
         print('no config file')
     api = api_core.API()
