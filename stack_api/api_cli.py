@@ -29,6 +29,9 @@ except:
 
 @app.command("init")
 def init(uri: str):
+    if docker_ver():
+        if uri[0] == '.':
+            uri = uri[1:]
     return {'success': api.init(uri)}
 
 @app.command("add")
