@@ -17,16 +17,20 @@ class Local(object):
 
 	def createDataset(self,location):
 		# transforms to absolute path
-		if location[0] == '~':
-			if len(location) > 1:
-				location = path_home+location[1:]
+		
+		if docker_ver():
+			if location[0] == '/':
+				location = ref_path + location[1:]
 			else:
-				location = path_home
-		if location[0] != '/':
-			location = str(os.path.abspath(location))
-
-		if ref_path == '/localpath/':
-			location = ref_path + '/' + location
+				location = ref_path + location
+		else:
+			if location[0] == '~':
+				if len(location) > 1:
+					location = path_home+location[1:]
+				else:
+					location = path_home
+			if location[0] != '/':
+				location = str(os.path.abspath(location))
 
 		#print('Initializing dataset at '+location)
 		if location[-1] != '/':

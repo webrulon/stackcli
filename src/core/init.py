@@ -24,11 +24,11 @@ class Initializer(object):
 			else:
 				surrogate_dataset = self.storage.dataset
 
-			self.prefix_meta = path_home+'/.stack' +  surrogate_dataset
-			self.prefix_curr = path_home+'/.stack' +  surrogate_dataset + 'current/'
-			self.prefix_commit = path_home+'/.stack' + surrogate_dataset + 'commits/'
-			self.prefix_history = path_home+'/.stack' + surrogate_dataset + 'history/'
-			self.prefix_diffs = path_home+'/.stack' + surrogate_dataset + 'diffs/'
+			self.prefix_meta = path_home + '/.stack' +  surrogate_dataset
+			self.prefix_curr = path_home + '/.stack' +  surrogate_dataset + 'current/'
+			self.prefix_commit = path_home + '/.stack' + surrogate_dataset + 'commits/'
+			self.prefix_history = path_home + '/.stack' + surrogate_dataset + 'history/'
+			self.prefix_diffs = path_home + '/.stack' + surrogate_dataset + 'diffs/'
 		else:
 			self.prefix_meta = '.stack/'+self.storage.dataset
 			self.prefix_curr = '.stack/'+self.storage.dataset+'current/'
