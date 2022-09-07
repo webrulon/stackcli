@@ -37,14 +37,15 @@ except:
 # End-points
 @app.post("/init_web/")
 async def init_web(data: dict):
-    api.init(data['uri'])
-    api.connect_post_web(data['name'], data)
-    api.start_check()
-    json_compatible_item_data = jsonable_encoder(True)
-    return JSONResponse(content=json_compatible_item_data)
-    # except:
-    #     json_compatible_item_data = jsonable_encoder(False)
-    #     return JSONResponse(content=json_compatible_item_data)
+    try:
+        api.init(data['uri'])
+        api.connect_post_web(data['name'], data)
+        api.start_check()
+        json_compatible_item_data = jsonable_encoder(True)
+        return JSONResponse(content=json_compatible_item_data)
+    except:
+        json_compatible_item_data = jsonable_encoder(False)
+        return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):

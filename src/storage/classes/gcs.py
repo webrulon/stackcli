@@ -52,18 +52,9 @@ class GCSBucket(object):
 			self.bucket = self.client.get_bucket(self.BUCKET_NAME)
 		else:			
 			if verbose:
+				print('could not find your desired bucket')
 				print('connection failed')
 				raise Exception('Could not find your desired bucket')
-			# print('Do you want to creat a bucket with the name '+self.BUCKET_NAME+"?")
-			# yn = input("[Y/n]: ")
-			# if yn == "y" or yn == "Y":
-			# 	self.bucket = self.client.create_bucket(self.BUCKET_NAME)
-			# else:
-			# 	print('pick another bucket from this list:')
-			# 	for bucket in buckets:
-			# 		print("-" + bucket.name)
-			# 	self.BUCKET_NAME = input("Enter another bucket name: ")
-			# 	return self.connectBucket()
 		return True
 
 	def connect_bucket_api(self,binary):

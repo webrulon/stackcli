@@ -223,7 +223,6 @@ class Initializer(object):
 		diff_path, _ = self.storage.loadListInPath(self.prefix_diffs + key.replace(self.storage.prefix_ignore,'') + '/')
 		
 		# gets the list in number
-		print(diff_path)
 		diff_path = [int(x.replace(self.prefix_diffs + key.replace(self.storage.prefix_ignore,'') + '/','')) for x in diff_path]
 		
 		if len(diff_path):

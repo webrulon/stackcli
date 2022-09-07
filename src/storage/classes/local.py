@@ -51,8 +51,9 @@ class Local(object):
 			self.dataset = location
 
 		if not os.path.exists(location):
+			print('dataset directory does not exist')
 			print('failed to connect')
-			raise Exception('dataset directory does not exist!')
+			raise Exception('dataset directory does not exist')
 
 		return False
 

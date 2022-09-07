@@ -115,6 +115,7 @@ class S3Bucket(object):
 
 		if found == False:
 			if verbose:
+				print('could not find your desired bucket')
 				print('connection failed')
 				raise Exception('Could not find your desired bucket')
 			# print('Do you want to creat a bucket with the name '+self.BUCKET_NAME+"?")
