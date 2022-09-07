@@ -18,6 +18,8 @@ class S3Bucket(object):
 		# self = Cloud().__init__()
 		self.type = "s3"
 		self.dataset = ""
+		self.raw_location = ""
+		self.prefix_ignore = ''
 		self.BUCKET_NAME = BUCKET_NAME
 		self.credentials = {
 			"aws_access_key_id": "",
@@ -28,7 +30,7 @@ class S3Bucket(object):
 		self.s3t = None
 		self.bucket = None
 
-	def connectBucket(self):
+	def connectBucket(self, verbose=False):
 		# checks if the credentials are in the computer
 		home_dir = path_home
 		if not os.path.isfile(home_dir+'/.aws/credentials'):
@@ -66,7 +68,7 @@ class S3Bucket(object):
 		# checks if the config is there
 		if not os.path.isfile(home_dir+'/.aws/config'):
 			print('Please select your region (https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region)')
-			print('[Press enter for us-east-2')
+			print('[Press enter for us-east-2]')
 
 			self.credentials['region'] = input("region: ")
 
@@ -84,7 +86,8 @@ class S3Bucket(object):
 			config.read(home_dir+'/.aws/config')
 			self.credentials['region'] = config['default']['region']
 
-		print('Connecting to your bucket...')
+		if verbose:
+			print('Connecting to your bucket...')
 		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])
 		self.resetBuffer()
 
@@ -111,20 +114,22 @@ class S3Bucket(object):
 		# creates a new bucket or picks another bucket
 
 		if found == False:
-			print('Could not find your desired bucket...')
-			print('Do you want to creat a bucket with the name '+self.BUCKET_NAME+"?")
-			yn = input("[Y/n]: ")
-			if yn == "y" or yn == "Y":
-				bucket = self.resource.create_bucket(Bucket=self.BUCKET_NAME, CreateBucketConfiguration={'LocationConstraint': self.credentials['region']})
-			else:
-				print('pick another bucket from this list:')
-				for bucket in buckets:
-					print("-" + bucket.name)
-				self.BUCKET_NAME = input("Enter another bucket name: ")
-				return self.connectBucket()
-		self.bucket = self.resource.Bucket(name=self.BUCKET_NAME)
+			if verbose:
+				print('connection failed')
+				raise Exception('Could not find your desired bucket')
+			# print('Do you want to creat a bucket with the name '+self.BUCKET_NAME+"?")
+			# if yn == "y" or yn == "Y":
+			# 	bucket = self.resource.create_bucket(Bucket=self.BUCKET_NAME, CreateBucketConfiguration={'LocationConstraint': self.credentials['region']})
+			# else:
+			# 	print('pick another bucket from this list:')
+			# 	for bucket in buckets:
+			# 		print("-" + bucket.name)
+			# 	self.BUCKET_NAME = input("Enter another bucket name: ")
+			# 	return self.connectBucket()
+		else:
+			self.bucket = self.resource.Bucket(name=self.BUCKET_NAME)
 
-		return True
+		return found
 
 	def connect_bucket_api(self,keys_dict):
 		# checks if the credentials are in the computer
@@ -170,6 +175,7 @@ class S3Bucket(object):
 		if location[-1] != '/':
 			location = location + '/'
 		self.dataset = location
+		self.raw_location = location
 		return True
 
 	def addFile(self,filepath,target_name='',subpath=''):

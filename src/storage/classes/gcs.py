@@ -16,12 +16,14 @@ class GCSBucket(object):
 		# self = Cloud().__init__()
 		self.type = "gcs"
 		self.dataset = ""
+		self.raw_location = ""
+		self.prefix_ignore = ''
 		self.BUCKET_NAME = BUCKET_NAME
 		self.credentials = {}
 		self.client = None
 		self.bucket = None
 
-	def connectBucket(self):
+	def connectBucket(self, verbose=False):
 		# creates a client 
 		key_path = path_home+'/.gs_key'
 		os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
@@ -36,7 +38,8 @@ class GCSBucket(object):
 			return False
 
 		# checks if the bucket exists
-		print('Connecting to your bucket...')
+		if verbose:
+			print('Connecting to your bucket...')
 		buckets = self.client.list_buckets()
 		found = False
 		for bucket in buckets:
@@ -48,17 +51,19 @@ class GCSBucket(object):
 		if found:
 			self.bucket = self.client.get_bucket(self.BUCKET_NAME)
 		else:			
-			print('Could not find your desired bucket...')
-			print('Do you want to creat a bucket with the name '+self.BUCKET_NAME+"?")
-			yn = input("[Y/n]: ")
-			if yn == "y" or yn == "Y":
-				self.bucket = self.client.create_bucket(self.BUCKET_NAME)
-			else:
-				print('pick another bucket from this list:')
-				for bucket in buckets:
-					print("-" + bucket.name)
-				self.BUCKET_NAME = input("Enter another bucket name: ")
-				return self.connectBucket()
+			if verbose:
+				print('connection failed')
+				raise Exception('Could not find your desired bucket')
+			# print('Do you want to creat a bucket with the name '+self.BUCKET_NAME+"?")
+			# yn = input("[Y/n]: ")
+			# if yn == "y" or yn == "Y":
+			# 	self.bucket = self.client.create_bucket(self.BUCKET_NAME)
+			# else:
+			# 	print('pick another bucket from this list:')
+			# 	for bucket in buckets:
+			# 		print("-" + bucket.name)
+			# 	self.BUCKET_NAME = input("Enter another bucket name: ")
+			# 	return self.connectBucket()
 		return True
 
 	def connect_bucket_api(self,binary):
@@ -93,6 +98,7 @@ class GCSBucket(object):
 		if location[-1] != '/':
 			location = location + '/'
 		self.dataset = location
+		self.raw_location = location
 		return True
 
 	def addFile(self,filepath,target_name='',subpath=''):

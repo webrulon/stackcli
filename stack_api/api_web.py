@@ -25,41 +25,26 @@ path_home = '/localpath/' if docker_ver() else str(Path.home())
 try:
     api = api_core.API()
     initialized = api.start_check()
-    assert(initialized)
+    api.commit('',False)
 except:
-    try:
-        import os
-        os.remove(path_home+'/.config_stack')
-    except:
-        print('no config file')
+    print('no config file')
     api = api_core.API()
-    initilized = api.init()
+    initilized = api.start_check()
 
     if initilized:
         api.start_check()
 
 # End-points
-@app.get("/init")
-async def init(uri='', name='My Dataset'):
-    try:
-        api.init(uri)
-        api.connect_post_api(name)
-        api.start_check()
-        return {'success': True}
-    except:
-        return {'success': False}
-
 @app.post("/init_web/")
 async def init_web(data: dict):
-    try:
-        api.init(data['uri'])
-        api.connect_post_web(data['name'], data)
-        api.start_check()
-        json_compatible_item_data = jsonable_encoder(True)
-        return JSONResponse(content=json_compatible_item_data)
-    except:
-        json_compatible_item_data = jsonable_encoder(False)
-        return JSONResponse(content=json_compatible_item_data)
+    api.init(data['uri'])
+    api.connect_post_web(data['name'], data)
+    api.start_check()
+    json_compatible_item_data = jsonable_encoder(True)
+    return JSONResponse(content=json_compatible_item_data)
+    # except:
+    #     json_compatible_item_data = jsonable_encoder(False)
+    #     return JSONResponse(content=json_compatible_item_data)
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
@@ -130,10 +115,10 @@ async def key_versions_api(key='',l=5, page=0):
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
-    try:
-        return api.lastNcommits(n)
-    except:
-        return {}
+    # try:
+    return api.lastNcommits(n)
+    # except:
+    #     return {}
 
 @app.get("/last_commits_from_hist_api")
 async def last_commits_from_hist_api(n=1):
@@ -216,7 +201,7 @@ async def revert_key_version_api(key, version=-1):
 async def revert_api(version=0):
     try:
         api.revert(version)
-        api.commit('reverted file ' + key)
+        api.commit('reverted dataset to version ' + version)
         return {'success': True}
     except:
         return {'success': False}

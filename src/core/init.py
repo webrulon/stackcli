@@ -20,15 +20,15 @@ class Initializer(object):
 		# prefixes
 		if self.storage.type == 'local':
 			if not docker_ver():
-				surrogate_dataset = self.storage.dataset.replace(self.storage.dataset, '/localpath/')
+				surrogate_dataset = self.storage.dataset.replace(path_home, 'localpath')
 			else:
 				surrogate_dataset = self.storage.dataset
 
-			self.prefix_meta = path_home + '/.stack' +  surrogate_dataset
-			self.prefix_curr = path_home + '/.stack' +  surrogate_dataset + 'current/'
-			self.prefix_commit = path_home + '/.stack' + surrogate_dataset + 'commits/'
-			self.prefix_history = path_home + '/.stack' + surrogate_dataset + 'history/'
-			self.prefix_diffs = path_home + '/.stack' + surrogate_dataset + 'diffs/'
+			self.prefix_meta = path_home + '/.stack/' +  surrogate_dataset
+			self.prefix_curr = path_home + '/.stack/' +  surrogate_dataset + 'current/'
+			self.prefix_commit = path_home + '/.stack/' + surrogate_dataset + 'commits/'
+			self.prefix_history = path_home + '/.stack/' + surrogate_dataset + 'history/'
+			self.prefix_diffs = path_home + '/.stack/' + surrogate_dataset + 'diffs/'
 		else:
 			self.prefix_meta = '.stack/'+self.storage.dataset
 			self.prefix_curr = '.stack/'+self.storage.dataset+'current/'
@@ -89,11 +89,11 @@ class Initializer(object):
 			self.storage.removeFile(self.prefix_curr)
 			self.dataset = self.storage.loadDataset()
 			for file in self.dataset:
-				self.storage.copyFileGlobal(file['key'],self.prefix_curr+file['key'])	
+				if not '.DS_STORE' in file['key']:
+					self.storage.copyFileGlobal(file['key'],self.prefix_curr+file['key'])	
 		self.storage.resetBuffer()
 
 		# saves the metadata of the backup
-		print('loading dataset list')
 		metapath = self.prefix_meta + 'current.json'
 		keys, lm = self.storage.loadDatasetList()
 		current = {'keys': keys, 'lm': lm}
@@ -117,7 +117,7 @@ class Initializer(object):
 
 		# saves the metadata of the backup
 		metapath = self.prefix_meta + 'current.json'
-		print('loading dataset list')
+		
 		keys, lm = self.storage.loadDatasetList()
 		current = {'keys': keys, 'lm': lm}
 		self.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
@@ -131,7 +131,7 @@ class Initializer(object):
 		# stores the diffs of the first commit
 		for file in self.dataset:
 			# TODO: let's name the diffs with just numbering for now
-			diff = self.prefix_diffs + file['key'] + '/' + str(1).zfill(10)
+			diff = self.prefix_diffs + file['key'].replace(self.storage.prefix_ignore,'') + '/' + str(1).zfill(10)
 			self.storage.copyFileGlobal(file['key'],diff)		
 		return True
 
@@ -146,7 +146,16 @@ class Initializer(object):
 		"""
 		commits = []
 		for file in self.dataset:
-			commitpath = self.prefix_commit + file['key'] + '/' + str(1).zfill(10)
+			
+			if self.storage.type == 'local':
+				if docker_ver():
+					prefix_commit = '.stack' + self.storage.dataset + 'commits/'
+				else:
+					prefix_commit = self.prefix_commit.replace(path_home,'')
+			else:
+				prefix_commit = self.prefix_commit
+
+			commitpath = prefix_commit + file['key'].replace(self.storage.prefix_ignore,'') + '/' + str(1).zfill(10)
 			commits.append(commitpath)
 
 		time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -182,7 +191,7 @@ class Initializer(object):
 		for file in self.dataset:
 			# gets the address of the diff
 			# TODO: let's name the diffs with just numbering for now
-			diff = self.prefix_diffs + file['key'] + '/' + str(1).zfill(10)
+			diff = self.prefix_diffs + file['key'].replace(self.storage.prefix_ignore,'') + '/' + str(1).zfill(10)
 
 			commit = {
 				'key'	: file['key'],
@@ -196,12 +205,12 @@ class Initializer(object):
 
 			history = {}
 			history[1] = commit
-			commitpath = self.prefix_commit + file['key'] + '/' + str(1).zfill(10)
+			commitpath = self.prefix_commit + file['key'].replace(self.storage.prefix_ignore,'') + '/' + str(1).zfill(10)
 			self.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
 			
 			self.storage.resetBuffer()
 			
-			histpath = self.prefix_history + file['key'] + '/history.json'
+			histpath = self.prefix_history + file['key'].replace(self.storage.prefix_ignore,'') + '/history.json'
 			self.storage.addFileFromBinaryGlobal(histpath,io.BytesIO(json.dumps(history).encode('ascii')))
 			self.storage.resetBuffer()
 
@@ -211,10 +220,11 @@ class Initializer(object):
 
 	def getLatestDiffNumber(self, key):
 		# checks all the diffs
-		diff_path, _ = self.storage.loadListInPath(self.prefix_diffs + key + '/')
+		diff_path, _ = self.storage.loadListInPath(self.prefix_diffs + key.replace(self.storage.prefix_ignore,'') + '/')
 		
 		# gets the list in number
-		diff_path = [int(x.replace(self.prefix_diffs + key + '/','')) for x in diff_path]
+		print(diff_path)
+		diff_path = [int(x.replace(self.prefix_diffs + key.replace(self.storage.prefix_ignore,'') + '/','')) for x in diff_path]
 		
 		if len(diff_path):
 			return max(diff_path)

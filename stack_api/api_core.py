@@ -18,38 +18,41 @@ class API(object):
         super(API, self).__init__()
         self.key_bin = None
         self.Initializer = None
+        self.config = None
         if not Path(path_home+'/datasets.stack').exists():
             self.set_datasets({})
         if reset:
             self.Initializer = None
         
         if not Path(path_home+'/.config_stack').exists():
-            self.set_config({})
+            self.config = {}
+            self.set_config()
         else:
-            config = self.get_config()
+            self.config = self.get_config()
             try:
-                self.storage_name = config['storage']
-                self.dataset_name = config['dataset']
-                ctype = config['type']
+                self.storage_name = self.config['storage']
+                self.dataset_name = self.config['dataset']
+                ctype = self.config['type']
             except:
-                config = self.set_config({})
+                self.config = {'storage': ''}
+                self.set_config()
                 ctype = ''
 
             if ctype == 'local':
                 cloud = Local()
-                cloud.createDataset(config['dataset'])
+                cloud.createDataset(self.config['dataset'])
                 self.Initializer = Initializer(cloud)
-                self.dataset_name = self.Initializer.storage.dataset
-                self.storage_name = self.Initializer.storage.dataset
+                self.dataset_name = self.config['storage']
+                self.storage_name = self.config['dataset']
             elif ctype == 's3':
-                cloud = S3Bucket(config['bucket'])
+                cloud = S3Bucket(self.config['bucket'])
                 cloud.connectBucket()
-                cloud.createDataset(config['dataset'])
+                cloud.createDataset(self.config['dataset'])
                 self.Initializer = Initializer(cloud)
             elif ctype == 'gcs':
-                cloud = GCSBucket(config['bucket'])
+                cloud = GCSBucket(self.config['bucket'])
                 cloud.connectBucket()
-                cloud.createDataset(config['dataset'])
+                cloud.createDataset(self.config['dataset'])
                 self.Initializer = Initializer(cloud)
             else:
                 self.Initializer = None
@@ -71,19 +74,32 @@ class API(object):
                 config['dataset'] = ''.join(bucket_data[2:])+'/'
                 config['type'] = 'gcs'
             else:
+                if storage[0] == '/':
+                    storage = storage[1:]
+                if storage[-1] == '/':
+                    storage = storage[:-1]
                 config['dataset'] = storage
                 config['type'] = 'local'
             config['storage'] = storage
             # stores the config file
 
-            print('Initializing dataset in ' + storage.lower())
-            self.set_config(config)
+            # print('Initializing dataset in ' + storage.lower())
+            self.config = config
             # creates dataset
             return True
         else:
-            print('Creating config file')
             config = {'storage': ''}
-            self.set_config(config)
+            self.config = config
+            return False
+
+    def init_config(self):
+        # builds a config file       
+        if Path(path_home+'/.config_stack').exists():
+            return True
+        else:
+            config = {'storage': ''}
+            self.config = config
+            self.set_config()
             return False
 
     def set_gs_key(self, file):
@@ -94,11 +110,12 @@ class API(object):
         file2 = open(path_home+'/.config_stack', 'rb')
         config = pickle.load(file2)
         file2.close()
+        self.config = config
         return config
 
-    def set_config(self, config):
+    def set_config(self):
         file = open(path_home+'/.config_stack', 'wb')
-        pickle.dump(config,file)
+        pickle.dump(self.config,file)
         file.close()
 
     def get_datasets(self):
@@ -116,10 +133,11 @@ class API(object):
         datasets = self.get_datasets()
 
         if len(datasets.keys()) > 0:
+            print('List of remote datasets:\n')
             for s in datasets.keys():
                 print('-- '+datasets[s]['name']+' in '+datasets[s]['storage'])
             print('')
-            print('run \'stackcli connect [dataset_uri]\' to connect one of these datasets')
+            print('run \'stack connect [dataset_uri]\' to connect one of these datasets')
         else:
             print('no datasets to show')
         return True
@@ -127,7 +145,7 @@ class API(object):
     def connect_post_web(self, name='My Dataset', keys={}):
         
         print('connecting to '+name)
-        config = self.get_config()
+        config = self.config
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
@@ -148,10 +166,8 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
-            cloud.createDataset(config['dataset'])
+            cloud.createDataset(config['dataset'],verbose=True)
             self.Initializer = Initializer(cloud)
-            self.dataset_name = self.Initializer.storage.dataset
-            self.storage_name = self.Initializer.storage.dataset
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.connect_bucket_api(keys)
@@ -164,14 +180,32 @@ class API(object):
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
+        self.set_config()
         return True
 
     def connect_post_cli(self):
-        config = self.get_config()
+        config = self.config
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
-        
+
+        if config['type'] == 'local':
+            cloud = Local()
+            cloud.createDataset(config['dataset'], verbose=True)
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 's3':
+            cloud = S3Bucket(config['bucket'])
+            cloud.connectBucket(verbose=True)
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 'gcs':
+            cloud = GCSBucket(config['bucket'])
+            cloud.connectBucket(verbose=True)
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        else:
+            self.Initializer = None
+
         try: 
             datasets = self.get_datasets()
         except:
@@ -186,29 +220,11 @@ class API(object):
             name = input('please give a name to your dataset: ')
             datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
             self.set_datasets(datasets)
-
-        if config['type'] == 'local':
-            cloud = Local()
-            cloud.createDataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
-            self.dataset_name = self.Initializer.storage.dataset
-            self.storage_name = self.Initializer.storage.dataset
-        elif config['type'] == 's3':
-            cloud = S3Bucket(config['bucket'])
-            cloud.connectBucket()
-            cloud.createDataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
-        elif config['type'] == 'gcs':
-            cloud = GCSBucket(config['bucket'])
-            cloud.connectBucket()
-            cloud.createDataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
-        else:
-            self.Initializer = None
+        self.set_config()
         return True
 
     def connect_post_api(self, name='My Dataset'):
-        config = self.get_config()
+        config = self.config
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
@@ -229,10 +245,10 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
-            cloud.createDataset(config['dataset'])
+            cloud.createDataset(config['dataset'], verbose=True)
             self.Initializer = Initializer(cloud)
-            self.dataset_name = self.Initializer.storage.dataset
-            self.storage_name = self.Initializer.storage.dataset
+            self.dataset_name = config['dataset']
+            self.storage_name = config['storage']
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.connectBucket()
@@ -245,6 +261,7 @@ class API(object):
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
+        self.set_config()
         return True
 
     def disconnectDataset(self, storage=''):
@@ -257,44 +274,9 @@ class API(object):
                 del datasets[s]
                 self.set_datasets(datasets)
                 return True
+        print('run \'stack datasets\' to see other available datasets')
         return False
 
-    def connectDataset(self, storage=None):
-        # checks if another dataset exists
-        # builds a config file
-        if Path(path_home+'/.config_stack').exists():
-            config = self.get_config()
-            
-            if config['dataset'] != storage:
-                print('connecting to dataset')
-
-            config['dataset'] = storage
-
-            if config['type'] == 'local':
-                cloud = Local()
-                cloud.createDataset(config['dataset'])
-                config['dataset'] = cloud.dataset
-                self.Initializer = Initializer(cloud)
-            elif config['type'] == 's3':
-                cloud = S3Bucket(config['bucket'])
-                cloud.connectBucket()
-                cloud.createDataset(config['dataset'])
-                self.Initializer = Initializer(cloud)
-            elif config['type'] == 'gcs':
-                cloud = GCSBucket(config['bucket'])
-                cloud.connectBucket()
-                cloud.createDataset(config['dataset'])
-                self.Initializer = Initializer(cloud)
-
-            # stores the config file
-            self.set_config(config)
-
-            # creates dataset
-            return True
-        else:
-            return False
-
-    
     def upload_file_binary(self, filename='', binary=''):
         assert(filename != '')
         assert(binary != '')
@@ -308,7 +290,7 @@ class API(object):
             return False
 
     def getURI(self):
-        return {'storage': self.storage_name, 'dataset': self.dataset_name}
+        return {'storage': self.storage_name, 'dataset': self.Initializer.storage.prefix_ignore+self.dataset_name, 'storage_dataset': self.Initializer.storage.dataset}
 
     def add(self, path, subpath=''):
         if len(subpath)>1:
@@ -356,10 +338,13 @@ class API(object):
                 for i in range(len(history),int(version)-1,-1):
                     for commit in history[str(i)]['commits']:
                         # reads each file version
-                        cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                        if self.Initializer.storage.type == 'local':
+                            cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+                        else:
+                            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
                         if str(cmit['version']) == version and cmit['key'] == key:
                             if cmit['type'] != 'remove':
-                                key = self.Initializer.prefix_diffs + key + '/' + str(cmit['version']).zfill(10)
+                                key = self.Initializer.prefix_diffs + key.replace(self.Initializer.storage.prefix_ignore,'') + '/' + str(cmit['version']).zfill(10)
                                 binary = self.Initializer.storage.loadFileGlobal(key).read()
                                 self.Initializer.storage.resetBuffer()
                             gtfo = True
@@ -393,7 +378,10 @@ class API(object):
         for i in range(i_p, i_f):
             # reads each file version
             commit = history[str(int(version))]['commits'][i]
-            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+            if self.Initializer.storage.type == 'local':
+                cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+            else:
+                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             self.Initializer.storage.resetBuffer()
             response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(int(version))]['date'], 'comment': cmit['comment']}
             idx = idx + 1
@@ -438,7 +426,10 @@ class API(object):
 
         for i in range(len(history[str(int(version))]['commits'])):
             commit = history[str(int(version))]['commits'][i]
-            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+            if self.Initializer.storage.type == 'local':
+                cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+            else:
+                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             self.Initializer.storage.resetBuffer()
             removeGlobal(self.Initializer, [cmit['diff']])
 
@@ -452,9 +443,13 @@ class API(object):
         remove_full(self.Initializer,self.Initializer.storage.dataset+key)
         return True
 
-    def commit(self, comment=''):
-        commit(self.Initializer, comment)
-        print('sync done!')
+    def commit(self, comment='',cmd=True):
+        res = commit(self.Initializer, comment)
+        if cmd:
+            if res: 
+                print('sync done!')
+            else:
+                print('already up-to-date')
         return True
 
     def loadCommitMetadata(self, commit_file):
@@ -469,13 +464,12 @@ class API(object):
         return True
 
     def load_file_binary(self, file, version='current'):
-        print('THIS IS THE VERSION ' + version)
         if version=='current':
             print('loading ' + file + '...')
             return self.Initializer.storage.loadFile(file)
         elif int(version) >= 1:
             print('loading ' + file + ' version '+ version +'...')
-            path = self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10)
+            path = self.Initializer.prefix_diffs + self.Initializer.storage.dataset.replace(self.Initializer.storage.prefix_ignore,'') + file.replace(self.Initializer.storage.prefix_ignore,'') + '/' + str(int(version)).zfill(10)
             return self.Initializer.storage.loadFileGlobal(path)
         else:
             assert(False)
@@ -523,7 +517,11 @@ class API(object):
         for i in range(len(history),0,-1):
             for commit in history[str(i)]['commits']:
                 # reads each file version
-                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                if self.Initializer.storage.type == 'local':
+                    cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+                else:
+                    cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+
                 response[idx] = {'source': cmit['source'], 'date': history[str(i)]['date'], 'comment': cmit['comment']}
 
                 idx += 1

@@ -13,32 +13,48 @@ class Local(object):
 	def __init__(self):
 		self.type = "local"
 		self.dataset = "./"
+		self.raw_location = ""
+		self.prefix_ignore = '' if docker_ver() else path_home
+		if not docker_ver:
+			if self.prefix_ignore[-1] != '/':
+				self.prefix_ignore = path_home + '/'
 		self.credentials = {}
 
-	def createDataset(self,location):
+	def createDataset(self,location,verbose=False):
 		# transforms to absolute path
-		
 		if docker_ver():
 			if location[0] == '/':
 				location = ref_path + location[1:]
+				self.raw_location = location
 			else:
 				location = ref_path + location
+				self.raw_location = location
 		else:
 			if location[0] == '~':
 				if len(location) > 1:
 					location = path_home+location[1:]
+					self.raw_location = location[1:]
 				else:
 					location = path_home
-			if location[0] != '/':
-				location = str(os.path.abspath(location))
+					self.raw_location = ''
+			if location[0] == '/':
+				location = path_home + location
+				self.raw_location = location
+			else:
+				location = path_home + '/' + location
+				self.raw_location = '/' + location
 
 		#print('Initializing dataset at '+location)
 		if location[-1] != '/':
 			location = location + '/'
+			self.raw_location = self.raw_location + '/'
+			self.dataset = location
+
 		if not os.path.exists(location):
-			os.makedirs(location)
-		self.dataset = location
-		return True
+			print('failed to connect')
+			raise Exception('dataset directory does not exist!')
+
+		return False
 
 	def checkIfEmpty(self,path):
 		if os.path.exists(path):
@@ -177,6 +193,7 @@ class Local(object):
 	def copyFileGlobal(self,filepath,full_target_name):
 		head_tail = os.path.split(filepath)
 		os.makedirs(os.path.dirname(full_target_name), exist_ok=True)
+
 		if filepath[-1] != '/':
 			shutil.copyfile(filepath, full_target_name)
 		return True
