@@ -12,7 +12,7 @@ import re
 import os
 from pathlib import Path
 from src.comm.docker_ver import *
-path_home = '/localpath/' if docker_ver() else str(Path.home())
+path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 def commit(init, comment = ''):
 	# get new files
@@ -64,13 +64,7 @@ def commit(init, comment = ''):
 
 				toadd.append(f_relative)
 
-				if init.storage.type == 'local':
-					if docker_ver():
-						prefix_commit = '.stack' + init.storage.dataset + 'commits/'
-					else:
-						prefix_commit = init.prefix_commit.replace(path_home,'')
-				else:
-					prefix_commit = init.prefix_commit
+				prefix_commit = init.prefix_commit
 				
 				commitpath = prefix_commit + f_relative.replace(init.storage.prefix_ignore,'') + '/' + str(n).zfill(10)
 				commits.append(commitpath)
@@ -97,13 +91,7 @@ def commit(init, comment = ''):
 
 			toremove.append(f_relative)
 
-			if init.storage.type == 'local':
-				if docker_ver():
-					prefix_commit = '.stack' + init.storage.dataset + 'commits/'
-				else:
-					prefix_commit = init.prefix_commit.replace(path_home,'')
-			else:
-				prefix_commit = init.prefix_commit
+			prefix_commit = init.prefix_commit
 
 			commitpath = prefix_commit + f_relative.replace(init.storage.prefix_ignore,'') + '/' + str(n).zfill(10)
 			commits.append(commitpath)
@@ -143,13 +131,7 @@ def commit(init, comment = ''):
 
 				toadd.append(f)
 
-				if init.storage.type == 'local':
-					if docker_ver():
-						prefix_commit = '.stack' + init.storage.dataset + 'commits/'
-					else:
-						prefix_commit = init.prefix_commit.replace(path_home,'')
-				else:
-					prefix_commit = init.prefix_commit
+				prefix_commit = init.prefix_commit
 
 				commitpath = prefix_commit + f.replace(init.storage.prefix_ignore,'') + '/' + str(n).zfill(10)
 				commits.append(commitpath)
@@ -163,7 +145,7 @@ def commit(init, comment = ''):
 		init.copyCurrentCommit(toadd,toremove)
 		updateHistory(init,commits)
 	init.storage.resetBuffer()
-	
+
 	return (len(commits) > 0)
 
 def computeDiff(bin1,bin2):
@@ -333,7 +315,7 @@ def revertCommit(init, target_version):
 	for i in range(len(history),int(target_version),-1):
 		for commit_ in history[str(i)]['commits']:
 			if init.storage.type == 'local':
-				cmit = json.load(init.storage.loadFileGlobal(path_home+commit_))
+				cmit = json.load(init.storage.loadFileGlobal(commit_))
 			else:
 				cmit = json.load(init.storage.loadFileGlobal(commit_))
 			init.storage.resetBuffer()
@@ -373,7 +355,7 @@ def pull(init, files=[],version='current'):
 				for commit in history[str(i)]['commits']:
 					# reads each file version
 					if init.storage.type == 'local':
-						cmit = json.load(init.storage.loadFileGlobal(path_home+commit))
+						cmit = json.load(init.storage.loadFileGlobal(commit))
 					else:
 						cmit = json.load(init.storage.loadFileGlobal(commit))
 					if str(cmit['version']) == version and cmit['key'] == key:
@@ -410,7 +392,7 @@ def printHistory(init):
 		for commit in history[str(i)]['commits']:
 			# reads each file version
 			if init.storage.type == 'local':
-				cmit = json.load(init.storage.loadFileGlobal(path_home+commit))
+				cmit = json.load(init.storage.loadFileGlobal(commit))
 			else:
 				cmit = json.load(init.storage.loadFileGlobal(commit))
 			print('-- '+cmit['comment']+' by '+cmit['source'])
@@ -442,7 +424,7 @@ def printDiff(init, v2, v1, file=''):
 			for commit in history[str(i)]['commits']:
 				# reads each file version
 				if init.storage.type == 'local':
-					cmit = json.load(init.storage.loadFileGlobal(path_home+commit))
+					cmit = json.load(init.storage.loadFileGlobal(commit))
 				else:
 					cmit = json.load(init.storage.loadFileGlobal(commit))
 				print('-- '+cmit['comment']+' by '+cmit['source'])
@@ -454,7 +436,7 @@ def printDiff(init, v2, v1, file=''):
 			for commit in history[str(i)]['commits']:
 				# reads each file version
 				if init.storage.type == 'local':
-					cmit = json.load(init.storage.loadFileGlobal(path_home+commit))
+					cmit = json.load(init.storage.loadFileGlobal(commit))
 				else:
 					cmit = json.load(init.storage.loadFileGlobal(commit))
 				# print(cmit['comment']+' by '+cmit['source'])

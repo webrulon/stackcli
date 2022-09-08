@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 sys.path.append( '../../../' )
 from src.comm.docker_ver import *
-path_home = '/localpath/' if docker_ver() else str(Path.home())
+path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 class S3Bucket(object):
 	"""docstring for Storage"""
@@ -118,15 +118,6 @@ class S3Bucket(object):
 				print('could not find your desired bucket')
 				print('connection failed')
 				raise Exception('Could not find your desired bucket')
-			# print('Do you want to creat a bucket with the name '+self.BUCKET_NAME+"?")
-			# if yn == "y" or yn == "Y":
-			# 	bucket = self.resource.create_bucket(Bucket=self.BUCKET_NAME, CreateBucketConfiguration={'LocationConstraint': self.credentials['region']})
-			# else:
-			# 	print('pick another bucket from this list:')
-			# 	for bucket in buckets:
-			# 		print("-" + bucket.name)
-			# 	self.BUCKET_NAME = input("Enter another bucket name: ")
-			# 	return self.connectBucket()
 		else:
 			self.bucket = self.resource.Bucket(name=self.BUCKET_NAME)
 

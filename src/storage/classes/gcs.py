@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 sys.path.append( '../../../' )
 from src.comm.docker_ver import *
-path_home = '/localpath/' if docker_ver() else str(Path.home())
+path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 class GCSBucket(object):
 	"""docstring for Storage"""

@@ -8,9 +8,9 @@ from src.storage.classes.gcs import GCSBucket
 from src.storage.classes.local import Local
 from pathlib import Path
 import pickle
-
+import os
 from src.comm.docker_ver import *
-path_home = '/localpath/' if docker_ver() else str(Path.home())
+path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 class API(object):
     """docstring for CLI"""
@@ -326,7 +326,7 @@ class API(object):
                     for commit in history[str(i)]['commits']:
                         # reads each file version
                         if self.Initializer.storage.type == 'local':
-                            cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+                            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
                         else:
                             cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
                         if str(cmit['version']) == version and cmit['key'] == key:
@@ -366,7 +366,7 @@ class API(object):
             # reads each file version
             commit = history[str(int(version))]['commits'][i]
             if self.Initializer.storage.type == 'local':
-                cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             else:
                 cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             self.Initializer.storage.resetBuffer()
@@ -414,7 +414,7 @@ class API(object):
         for i in range(len(history[str(int(version))]['commits'])):
             commit = history[str(int(version))]['commits'][i]
             if self.Initializer.storage.type == 'local':
-                cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             else:
                 cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
             self.Initializer.storage.resetBuffer()
@@ -505,7 +505,7 @@ class API(object):
             for commit in history[str(i)]['commits']:
                 # reads each file version
                 if self.Initializer.storage.type == 'local':
-                    cmit = json.load(self.Initializer.storage.loadFileGlobal(path_home+commit))
+                    cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
                 else:
                     cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
 

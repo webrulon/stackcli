@@ -5,8 +5,8 @@ import shutil
 from pathlib import Path
 import time
 from src.comm.docker_ver import *
-path_home = '/localpath/' if docker_ver() else str(Path.home())
-ref_path = '/localpath/' if docker_ver() else ''
+path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
+ref_path = os.getenv('LCP_DKR')+'/' if docker_ver() else ''
 
 class Local(object):
 	"""docstring for Storage"""
@@ -14,10 +14,7 @@ class Local(object):
 		self.type = "local"
 		self.dataset = "./"
 		self.raw_location = ""
-		self.prefix_ignore = '' if docker_ver() else path_home
-		if not docker_ver:
-			if self.prefix_ignore[-1] != '/':
-				self.prefix_ignore = path_home + '/'
+		self.prefix_ignore = ''
 		self.credentials = {}
 
 	def createDataset(self,location,verbose=False):
@@ -51,6 +48,7 @@ class Local(object):
 			self.dataset = location
 
 		if not os.path.exists(location):
+			print(location)
 			print('dataset directory does not exist')
 			print('failed to connect')
 			raise Exception('dataset directory does not exist')

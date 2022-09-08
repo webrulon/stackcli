@@ -36,8 +36,7 @@ def connect_cli(uri: str):
     
     try:
         if docker_ver():
-            if uri[0] == '.':
-                uri = uri[1:]
+            assert(False)
 
         api.init(uri)
         api.connect_post_cli()

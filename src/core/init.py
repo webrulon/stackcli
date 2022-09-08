@@ -5,9 +5,9 @@ import io
 from datetime import datetime
 import time
 from pathlib import Path
-
+import os
 from src.comm.docker_ver import *
-path_home = '/localpath/' if docker_ver() else str(Path.home())
+path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 class Initializer(object):
 	"""docstring for Initializer"""
@@ -19,10 +19,7 @@ class Initializer(object):
 		
 		# prefixes
 		if self.storage.type == 'local':
-			if not docker_ver():
-				surrogate_dataset = self.storage.dataset.replace(path_home, 'localpath')
-			else:
-				surrogate_dataset = self.storage.dataset
+			surrogate_dataset = self.storage.dataset
 
 			self.prefix_meta = path_home + '/.stack/' +  surrogate_dataset
 			self.prefix_curr = path_home + '/.stack/' +  surrogate_dataset + 'current/'
@@ -147,13 +144,7 @@ class Initializer(object):
 		commits = []
 		for file in self.dataset:
 			
-			if self.storage.type == 'local':
-				if docker_ver():
-					prefix_commit = '.stack' + self.storage.dataset + 'commits/'
-				else:
-					prefix_commit = self.prefix_commit.replace(path_home,'')
-			else:
-				prefix_commit = self.prefix_commit
+			prefix_commit = self.prefix_commit
 
 			commitpath = prefix_commit + file['key'].replace(self.storage.prefix_ignore,'') + '/' + str(1).zfill(10)
 			commits.append(commitpath)
