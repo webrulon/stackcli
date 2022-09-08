@@ -48,14 +48,12 @@ async def init_web(data: dict):
 
 @app.get("/connect/")
 async def connect(uri):
-    # try:
-    print('connecting')
-    api.init(uri)
-    api.connect_post_api()
-    print('worked')
-    return {'success': True}
-    # except:
-    #     return {'success': False}
+    try:
+        api.init(uri)
+        api.connect_post_api()
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
