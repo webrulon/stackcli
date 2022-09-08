@@ -85,7 +85,6 @@ def remove_command(file: str, target_subpath: str=''):
     remove(api.Initializer,[file],target_subpath)
     api.commit('', cmd=False)
 
-
 @app.command("disconnect")
 def disconnect_cli(uri: str):
     '''
@@ -137,10 +136,10 @@ def status_api():
     '''
         Prints the status of the dataset
     '''
-    # try:
-    printStatus(api.Initializer)
-    # except:
-    #     return Exception
+    try:
+        printStatus(api.Initializer)
+    except:
+        return Exception
 
 @app.command("sync")
 def sync_api(comment: str=''):

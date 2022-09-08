@@ -155,15 +155,6 @@ class API(object):
         except:
             datasets = {}
 
-        is_not_there = True
-        for s in datasets.keys():
-            if datasets[s]['storage'] == self.storage_name:
-                is_not_there = False
-
-        if is_not_there:
-            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
-            self.set_datasets(datasets)
-
         if config['type'] == 'local':
             cloud = Local()
             cloud.createDataset(config['dataset'],verbose=True)
@@ -180,6 +171,15 @@ class API(object):
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
+
+        is_not_there = True
+        for s in datasets.keys():
+            if datasets[s]['storage'] == self.storage_name:
+                is_not_there = False
+
+        if is_not_there:
+            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
+            self.set_datasets(datasets)
         self.set_config()
         return True
 
@@ -223,25 +223,11 @@ class API(object):
         self.set_config()
         return True
 
-    def connect_post_api(self, name='My Dataset'):
+    def connect_post_api(self):
         config = self.config
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
-        
-        try: 
-            datasets = self.get_datasets()
-        except:
-            datasets = {}
-
-        is_not_there = True
-        for s in datasets.keys():
-            if datasets[s]['storage'] == self.storage_name:
-                is_not_there = False
-
-        if is_not_there:
-            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
-            self.set_datasets(datasets)
 
         if config['type'] == 'local':
             cloud = Local()
@@ -261,6 +247,7 @@ class API(object):
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
+
         self.set_config()
         return True
 

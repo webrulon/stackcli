@@ -25,6 +25,7 @@ path_home = '/localpath/' if docker_ver() else str(Path.home())
 try:
     api = api_core.API()
     initialized = api.start_check()
+    print('commiting')
     api.commit('',False)
 except:
     print('no config file')
@@ -41,11 +42,20 @@ async def init_web(data: dict):
         api.init(data['uri'])
         api.connect_post_web(data['name'], data)
         api.start_check()
-        json_compatible_item_data = jsonable_encoder(True)
-        return JSONResponse(content=json_compatible_item_data)
+        return {'success': True}
     except:
-        json_compatible_item_data = jsonable_encoder(False)
-        return JSONResponse(content=json_compatible_item_data)
+        return {'success': False}
+
+@app.get("/connect/")
+async def connect(uri):
+    # try:
+    print('connecting')
+    api.init(uri)
+    api.connect_post_api()
+    print('worked')
+    return {'success': True}
+    # except:
+    #     return {'success': False}
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
@@ -116,10 +126,10 @@ async def key_versions_api(key='',l=5, page=0):
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
-    # try:
-    return api.lastNcommits(n)
-    # except:
-    #     return {}
+    try:
+        return api.lastNcommits(n)
+    except:
+        return {}
 
 @app.get("/last_commits_from_hist_api")
 async def last_commits_from_hist_api(n=1):

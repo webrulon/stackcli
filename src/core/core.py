@@ -119,7 +119,7 @@ def commit(init, comment = ''):
 		# checks if the file was modified or remove
 		if not (f in old_rel_files):
 
-			if not '.DS_STORE' in f:
+			if not '.DS_Store' in f:
 				# checks the latest diff and sets the new path
 				n = init.getLatestDiffNumber(f) + 1
 				diff = init.prefix_diffs + f.replace(init.storage.prefix_ignore,'') + '/' + str(n).zfill(10)
@@ -163,7 +163,7 @@ def commit(init, comment = ''):
 		init.copyCurrentCommit(toadd,toremove)
 		updateHistory(init,commits)
 	init.storage.resetBuffer()
-
+	
 	return (len(commits) > 0)
 
 def computeDiff(bin1,bin2):
@@ -405,7 +405,7 @@ def printHistory(init):
 
 	# prints history
 	for i in range(len(history),0,-1):
-		print('Commit: '+str(i)+' Date: '+ history[str(i)]['date'])
+		print('Version: '+str(i)+' Date: '+ history[str(i)]['date'])
 		idx = 0
 		for commit in history[str(i)]['commits']:
 			# reads each file version
