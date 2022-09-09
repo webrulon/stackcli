@@ -5,46 +5,31 @@ import shutil
 from pathlib import Path
 import time
 from src.comm.docker_ver import *
-path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
-ref_path = os.getenv('LCP_DKR')+'/' if docker_ver() else ''
+path_home = os.getenv('LCP_DKR') if docker_ver() else str(Path.home())
 
 class Local(object):
 	"""docstring for Storage"""
 	def __init__(self):
 		self.type = "local"
 		self.dataset = "./"
-		self.raw_location = ""
 		self.prefix_ignore = ''
 		self.credentials = {}
 
 	def createDataset(self,location,verbose=False):
 		# transforms to absolute path
-		if docker_ver():
-			if location[0] == '/':
-				location = ref_path + location[1:]
-				self.raw_location = location
+		if location[0] == '~':
+			if len(location) > 1:
+				location = path_home+location[1:]
 			else:
-				location = ref_path + location
-				self.raw_location = location
+				location = path_home
+		if location[0] == '/':
+			location = path_home + location
 		else:
-			if location[0] == '~':
-				if len(location) > 1:
-					location = path_home+location[1:]
-					self.raw_location = location[1:]
-				else:
-					location = path_home
-					self.raw_location = ''
-			if location[0] == '/':
-				location = path_home + location
-				self.raw_location = location
-			else:
-				location = path_home + '/' + location
-				self.raw_location = '/' + location
+			location = path_home + '/' + location
 
 		#print('Initializing dataset at '+location)
 		if location[-1] != '/':
 			location = location + '/'
-			self.raw_location = self.raw_location + '/'
 			self.dataset = location
 
 		if not os.path.exists(location):

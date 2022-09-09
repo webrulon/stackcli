@@ -277,7 +277,7 @@ class API(object):
             return False
 
     def getURI(self):
-        return {'storage': self.storage_name, 'dataset': self.Initializer.storage.prefix_ignore+self.dataset_name, 'storage_dataset': self.Initializer.storage.dataset}
+        return {'storage': self.storage_name, 'dataset': self.dataset_name, 'storage_dataset': self.Initializer.storage.dataset}
 
     def add(self, path, subpath=''):
         if len(subpath)>1:
@@ -331,7 +331,7 @@ class API(object):
                             cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
                         if str(cmit['version']) == version and cmit['key'] == key:
                             if cmit['type'] != 'remove':
-                                key = self.Initializer.prefix_diffs + key.replace(self.Initializer.storage.prefix_ignore,'') + '/' + str(cmit['version']).zfill(10)
+                                key = self.Initializer.prefix_diffs + key + '/' + str(cmit['version']).zfill(10)
                                 binary = self.Initializer.storage.loadFileGlobal(key).read()
                                 self.Initializer.storage.resetBuffer()
                             gtfo = True
@@ -456,7 +456,7 @@ class API(object):
             return self.Initializer.storage.loadFile(file)
         elif int(version) >= 1:
             print('loading ' + file + ' version '+ version +'...')
-            path = self.Initializer.prefix_diffs + self.Initializer.storage.dataset.replace(self.Initializer.storage.prefix_ignore,'') + file.replace(self.Initializer.storage.prefix_ignore,'') + '/' + str(int(version)).zfill(10)
+            path = self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10)
             return self.Initializer.storage.loadFileGlobal(path)
         else:
             assert(False)

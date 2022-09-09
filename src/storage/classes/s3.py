@@ -18,8 +18,6 @@ class S3Bucket(object):
 		# self = Cloud().__init__()
 		self.type = "s3"
 		self.dataset = ""
-		self.raw_location = ""
-		self.prefix_ignore = ''
 		self.BUCKET_NAME = BUCKET_NAME
 		self.credentials = {
 			"aws_access_key_id": "",
