@@ -178,6 +178,5 @@ def revert_api(version):
     api.commit('', cmd=False)
     return True
 
-
 if __name__ == "__main__":
     app()

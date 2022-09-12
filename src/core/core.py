@@ -205,7 +205,7 @@ def updateHistory(init,commits):
 	init.storage.resetBuffer()
 
 	# adds to the latest commits
-	time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+	time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 	history[str(len(history)+1)] = {'commits': commits, 'date': time}
 
 	init.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(history).encode('ascii')))

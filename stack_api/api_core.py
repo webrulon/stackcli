@@ -9,8 +9,10 @@ from src.storage.classes.local import Local
 from pathlib import Path
 import pickle
 import os
+from io import StringIO
 from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
+import pandas as pd
 
 class API(object):
     """docstring for CLI"""
@@ -460,6 +462,36 @@ class API(object):
             return self.Initializer.storage.loadFileGlobal(path)
         else:
             assert(False)
+
+    def load_csv_binary(self, file, row_p, col_p, version='current'):
+        assert(int(row_p)>=0)
+        assert(int(col_p)>=0)
+
+        N_rows = 10
+        N_cols = 10
+
+        if version=='current':
+            print('loading ' + file + '...')
+            data  = self.Initializer.storage.loadFile(file)
+            data1 = self.Initializer.storage.loadFile(file)
+        elif int(version) >= 1:
+            print('loading ' + file + ' version '+ version +'...')
+            data  =  self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10))
+            data1 =  self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10))
+        else:
+            assert(False)
+
+        df1 = pd.read_csv(data)
+
+        total_cols = len(df1.axes[1])
+        bot_col = min(N_cols*int(col_p),total_cols)
+        top_col = min(N_cols*(int(col_p)+1),total_cols)
+        
+        total_rows = len(df1.axes[0])
+        bot_row = min(N_rows*int(row_p), total_rows)
+
+        df = pd.read_csv(data1, usecols=range(bot_col,top_col), nrows=N_rows, skiprows=bot_row, header=None)
+        return StringIO(df.to_csv(index=False, header=False)), total_rows/N_rows, total_cols/N_cols
 
     def load_file_binary_bytes(self, file, bi, bf):
         print('loading '+file+'...')

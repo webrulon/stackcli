@@ -23,7 +23,6 @@ import os
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 # checks if local files are installed
-
 try:
     api = api_core.API()
     initialized = api.start_check()
@@ -40,22 +39,22 @@ except:
 # End-points
 @app.post("/init_web/")
 async def init_web(data: dict):
-    # try:
-    api.init(data['uri'])
-    api.connect_post_web(data['name'], data)
-    api.start_check()
-    return {'success': True}
-    # except:
-    #     return {'success': False}
+    try:
+        api.init(data['uri'])
+        api.connect_post_web(data['name'], data)
+        api.start_check()
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.get("/connect/")
 async def connect(uri):
-    # try:
-    api.init(uri)
-    api.connect_post_api()
-    return {'success': True}
-    # except:
-    #     return {'success': False}
+    try:
+        api.init(uri)
+        api.connect_post_api()
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
@@ -75,61 +74,61 @@ async def directories():
 
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
-    # try: 
-    return {'success': api.disconnectDataset(uri)}
-    # except:
-    #     return {'success': False}
+    try: 
+        return {'success': api.disconnectDataset(uri)}
+    except:
+        return {'success': False}
 
 @app.get("/get_datasets")
 async def get_datasets_api():
-    # try:
-    return api.get_datasets()
-    # except:
-    #     return {}
+    try:
+        return api.get_datasets()
+    except:
+        return {}
 
 @app.get("/uri")
 async def uri_api():
-    # try:
-    return api.getURI()
-    # except:
-    #     return {}
+    try:
+        return api.getURI()
+    except:
+        return {}
 
 @app.get("/history")
 async def history_api():
-    # try:
-    return api.history()
-    # except:
-    #     return {}
+    try:
+        return api.history()
+    except:
+        return {}
 
 @app.post("/add_file/")
 async def add_file_api(file: UploadFile = File(description="A file read as UploadFile")):
-    # try:
-    api.upload_file_binary(file.filename, file.file)
-    api.commit('')
-    #     return {'success': True}
-    # except:
-    #     return {'success': False}
+    try:
+        api.upload_file_binary(file.filename, file.file)
+        api.commit('')
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.get("/commits_version")
 async def commits_version_api(version=1,l=5, page=0):
-    # try:
-    return api.commits_version(version, l, page)
-    # except:
-    #     return {}
+    try:
+        return api.commits_version(version, l, page)
+    except:
+        return {}
 
 @app.get("/key_versions")
 async def key_versions_api(key='',l=5, page=0):
-    # try:
-    return api.key_versions(key, l, page)
-    # except:
-    #     return {}
+    try:
+        return api.key_versions(key, l, page)
+    except:
+        return {}
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
-    # try:
-    return api.lastNcommits(n)
-    # except:
-    #     return {}
+    try:
+        return api.lastNcommits(n)
+    except:
+        return {}
 
 @app.get("/last_commits_from_hist_api")
 async def last_commits_from_hist_api(n=1):
@@ -162,6 +161,22 @@ async def pull_file_api(file, version='current'):
         return StreamingResponse(api.load_file_binary(file, version), media_type="image/png")
     except:
         return Response(content='')
+
+@app.get("/pull_csv_api")
+async def pull_csv_api(file, row_p=0, col_p=0, version='current'):
+    try:
+        data, _, _ = api.load_csv_binary(file, row_p, col_p, version)
+        return StreamingResponse(data, media_type="image/png")
+    except:
+        return Response(content='')
+
+@app.get("/pull_csv_metadata_api")
+async def pull_csv_metadata_api(file, version='current'):
+    try:
+        _, nr, nc = api.load_csv_binary(file, 0, 0, version)
+        return {'rows': nr-1, 'cols': nc-1}
+    except:
+        return {'rows': 0, 'cols': 0}
 
 @app.get("/remove_key")
 async def remove_key_api(key):

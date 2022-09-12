@@ -16,8 +16,6 @@ class GCSBucket(object):
 		# self = Cloud().__init__()
 		self.type = "gcs"
 		self.dataset = ""
-		self.raw_location = ""
-		self.prefix_ignore = ''
 		self.BUCKET_NAME = BUCKET_NAME
 		self.credentials = {}
 		self.client = None
