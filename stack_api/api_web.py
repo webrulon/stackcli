@@ -144,6 +144,24 @@ async def status_api():
     except:
         return {}
 
+@app.get("/current")
+async def current_api(page=0,max_pp=12):
+    # try:
+    full_json = api.status()
+    idx_i = int(page)*int(max_pp)
+    idx_f = (int(page)+1)*int(max_pp)
+
+    current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
+
+    current['keys'] = full_json['keys'][idx_i:idx_f]
+    current['lm'] = full_json['lm'][idx_i:idx_f]
+
+    print(current)
+
+    return current
+    # except:
+    #     return {}
+
 @app.get("/commit_req")
 async def commit_api(comment=''):
     return {'success': api.commit(comment)}
@@ -231,3 +249,10 @@ async def revert_api(version=0):
         return {'success': True}
     except:
         return {'success': False}
+
+@app.get("/get_yolo_labels")
+async def get_yolo_labels_api(filename, version='current'):
+    try:
+        return api.get_yolo_labels(filename, version)
+    except:
+        return {}

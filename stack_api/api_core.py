@@ -126,6 +126,36 @@ class API(object):
         file1.close()
         return datasets
 
+    def get_yolo_labels(self, filename, version='current'):
+        if version == 'current':
+            basename = os.path.splitext(os.path.basename(filename))[0]
+            ls, _ = self.Initializer.storage.loadDatasetList()
+
+            matches = [match for match in ls if basename+'.txt' in match]
+            labels_str = self.Initializer.storage.loadFileGlobal(matches[0])
+        else:
+            assert(int(version) > 0)            
+
+            basename = os.path.splitext(os.path.basename(filename))[0]
+            ls, _ = self.Initializer.storage.loadDatasetList()
+
+            matches = [match for match in ls if basename+'.txt' in match]
+            
+            path = self.Initializer.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)            
+            labels_str = self.Initializer.storage.loadFileGlobal(path)
+
+        labels = {}
+        i = 0
+        for line in labels_str.readlines():
+            labels[str(i)] = {}
+            j = 0
+            for x in line.split():
+                labels[str(i)][str(j)] = float(x)
+                j += 1
+            i += 1
+
+        return labels
+
     def set_datasets(self, datasets):
         file1 = open(path_home+'/datasets.stack', 'wb')
         pickle.dump(datasets,file1)

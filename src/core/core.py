@@ -248,6 +248,65 @@ def add_from_binary(init, filename='', binary='', location='?'):
 	init.storage.resetBuffer()
 	return True
 
+def rename_file(init, key, new_key):
+	# renames the files
+	init.storage.copyFile(key,new_key)
+	init.storage.removeFile(key)
+
+	# renames the diffs
+	n_vers = init.getLatestDiffNumber(key)
+	for v in range(1,n_vers+1):
+		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
+		nxt_diff = init.prefix_diffs + new_key + '/' + str(v).zfill(10)
+		init.storage.copyFileGlobal(prv_diff,nxt_diff)
+		init.storage.removeFileGlobal(prv_diff)
+
+	prv_diff = init.prefix_history + key + '/history.json'
+	nxt_diff = init.prefix_history + new_key + '/history.json'
+	init.storage.copyFileGlobal(prv_diff,nxt_diff)
+
+	print('rename file ' + key + ' to ' + new_key)
+	return True
+
+def copy_file_to_new_dataset(init, key, new_dataset):
+	# renames the files
+	init.storage.copyFileGlobal(init.storage.dataset+key,new_dataset+key)
+
+	# renames the diffs
+	n_vers = init.getLatestDiffNumber(key)
+	for v in range(1,n_vers+1):
+		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
+		nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
+		init.storage.copyFileGlobal(prv_diff,nxt_diff)
+		
+	prv_diff = init.prefix_history + key + '/history.json'
+	nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
+	init.storage.copyFileGlobal(prv_diff,nxt_diff)
+
+	print('rename file ' + key + ' to ' + new_dataset)
+	return True
+
+def move_file_to_new_dataset(init, key, new_dataset):
+	# renames the files
+	init.storage.copyFileGlobal(init.storage.dataset+key,new_dataset+key)
+	init.storage.removeFileGlobal(init.storage.dataset+key)
+
+	# renames the diffs
+	n_vers = init.getLatestDiffNumber(key)
+	for v in range(1,n_vers+1):
+		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
+		nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
+		init.storage.copyFileGlobal(prv_diff,nxt_diff)
+		init.storage.removeFileGlobal(prv_diff)
+
+	prv_diff = init.prefix_history + key + '/history.json'
+	nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
+	init.storage.copyFileGlobal(prv_diff,nxt_diff)
+	init.storage.removeFileGlobal(prv_diff)
+
+	print('moving file ' + key + ' to ' + new_dataset)
+	return True
+
 def remove(init, files=[], location='?'):
 	if location == '?':
 		location = ''
@@ -273,7 +332,7 @@ def remove_full(init, key):
 	n_versions = init.getLatestDiffNumber(key)
 	init.storage.removeFile(key)
 	for version in range(1,n_versions+1):
-		diff = init.prefix_diffs + ke + '/' + str(version).zfill(10)
+		diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 
 		# generates an empty diff
 		init.storage.addFileFromBinaryGlobal(diff,io.BytesIO("".encode('ascii')))

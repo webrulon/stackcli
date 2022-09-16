@@ -6,6 +6,10 @@ import typer
 from pathlib import Path
 from src.core.core import *
 
+from src.comm.docker_ver import *
+import os
+path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
+
 app = typer.Typer()
 
 # Checks if local files are installed
@@ -20,7 +24,7 @@ except:
     initialized = api.start_check()
 
     if initialized:
-        api.commit('')
+        api.commit('First commit')
 
 ### CLI Entry-points ###
 
@@ -37,6 +41,15 @@ def connect_cli(uri: str):
     try:
         if docker_ver():
             assert(False)
+
+        if uri == '.':
+            uri = str(os.path.abspath('.'))
+        if uri[0:2] == '~/':
+            uri = str(os.path.abspath('~/'))
+        if uri[0:3] == 'C:/' or uri[0:3] == 'C:\\':
+            uri[0:3] = '/c/'
+
+        uri = uri.replace(path_home,'')
 
         api.init(uri)
         api.connect_post_cli()
@@ -153,9 +166,13 @@ def diff_api(version_a: str, version_b: str, file: str=''):
         List the changes applied to the dataset between version_a and 
         version_b (optional: give it a specific file to compare)
     '''
+    if int(version_b) > int(version_a):
+        tmp = version_a
+        version_a = version_b
+        version_b = tmp
+
     printDiff(api.Initializer, version_a, version_b, file)
     return True
-
 
 @app.command("diff_csv")
 def diff_csv(csv1: str, csv2: str):
@@ -175,7 +192,7 @@ def revert_api(version):
     '''
     assert(version != '')
     revertCommit(api.Initializer, int(version))
-    api.commit('', cmd=False)
+    api.commit('reverted to version '+ version, cmd=False)
     return True
 
 if __name__ == "__main__":
