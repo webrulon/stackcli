@@ -115,6 +115,16 @@ class Local(object):
 		}
 		return metadata
 
+	def loadFileMetadataGlobal(self,filename):
+		path = filename
+		metadata = {
+			'key' : self.dataset+filename,
+			'date_loaded' : time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getmtime(path))),
+			'date_added' : time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getctime(path))),
+			'last_modified' : time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getmtime(path))),
+		}
+		return metadata
+
 	def loadDataset(self):
 		file_m = []
 		for root, dirs, files in os.walk(self.dataset, topdown=False):
@@ -177,10 +187,15 @@ class Local(object):
 	def copyFileGlobal(self,filepath,full_target_name):
 		head_tail = os.path.split(filepath)
 		os.makedirs(os.path.dirname(full_target_name), exist_ok=True)
-
 		if filepath[-1] != '/':
 			shutil.copyfile(filepath, full_target_name)
 		return True
+
+	def get_size_of_file(self, filepath):
+		return self.get_size_of_file_global(self.dataset + filepath)
+
+	def get_size_of_file_global(self, filepath):
+		return os.path.getsize(filepath)
 
 	def resetBuffer(self):
 		pass

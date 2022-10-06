@@ -26,13 +26,17 @@ path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 try:
     api = api_core.API()
     initialized = api.start_check()
+    api.set_schema()
     print('commiting')
     api.commit('',False)
 except:
     print('no config file')
     api = api_core.API()
     initilized = api.start_check()
-
+    try:
+        api.set_schema()
+    except:
+        pass
     if initilized:
         api.start_check()
 
@@ -41,7 +45,8 @@ except:
 async def init_web(data: dict):
     try:
         api.init(data['uri'])
-        api.connect_post_web(data['name'], data)
+        api.connect_post_web(data['name'], data, data['schema'])
+        api.set_schema()
         api.start_check()
         return {'success': True}
     except:
@@ -52,6 +57,7 @@ async def connect(uri):
     try:
         api.init(uri)
         api.connect_post_api()
+        api.set_schema()
         return {'success': True}
     except:
         return {'success': False}
@@ -71,6 +77,10 @@ async def directories():
     print(path_home)
     print(str(os.path.abspath('.')))
     return {'success': True}
+
+@app.post("/set_branch")
+async def set_branch_api(data: dict):
+    return {'success': api.branch(data['branch_name'], data['branch_type'])}
 
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
@@ -99,6 +109,14 @@ async def history_api():
         return api.history()
     except:
         return {}
+
+@app.get('/set_schema')
+async def set_schema_api():
+    api.set_schema()
+
+@app.get('/reset_schema')
+async def reset_schema_api():
+    api.reset_schema()
 
 @app.post("/add_file/")
 async def add_file_api(file: UploadFile = File(description="A file read as UploadFile")):
@@ -144,23 +162,36 @@ async def status_api():
     except:
         return {}
 
+@app.get("/schema_metadata")
+async def schema_metadata_api():
+    try:
+        return api.schema_metadata()
+    except:
+        return {}
+
 @app.get("/current")
 async def current_api(page=0,max_pp=12):
-    # try:
-    full_json = api.status()
-    idx_i = int(page)*int(max_pp)
-    idx_f = (int(page)+1)*int(max_pp)
+    try:
+        full_json = api.status()
+        idx_i = int(page)*int(max_pp)
+        idx_f = (int(page)+1)*int(max_pp)
 
-    current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
+        current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
 
-    current['keys'] = full_json['keys'][idx_i:idx_f]
-    current['lm'] = full_json['lm'][idx_i:idx_f]
+        current['keys'] = full_json['keys'][idx_i:idx_f]
+        current['lm'] = full_json['lm'][idx_i:idx_f]
 
-    print(current)
+        return current
+    except:
+        return {'keys': {}, 'lm': {}}
 
-    return current
-    # except:
-    #     return {}
+@app.post("/set_filter/")
+async def set_filter_api(data: dict):
+    return {'success': api.set_filters(data)}
+
+@app.get("/reset_filters")
+async def reset_filter_api():
+    return {'success': api.reset_filters()}
 
 @app.get("/commit_req")
 async def commit_api(comment=''):

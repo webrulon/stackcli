@@ -16,6 +16,7 @@ class Initializer(object):
 		self.storage = storage
 		self.dataset = storage.loadDataset()
 		self.user = user
+		self.schema = 'Files'
 		
 		# prefixes
 		if self.storage.type == 'local':
@@ -147,7 +148,7 @@ class Initializer(object):
 			commitpath = prefix_commit + file['key'] + '/' + str(1).zfill(10)
 			commits.append(commitpath)
 
-		time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+		time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 		history = {1: {'commits': commits, 'date': time}}
 		metapath = self.prefix_meta+'history.json'
 		self.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(history).encode('ascii')))

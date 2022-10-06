@@ -6,6 +6,7 @@ from src.core.core import *
 from src.storage.classes.s3 import S3Bucket
 from src.storage.classes.gcs import GCSBucket
 from src.storage.classes.local import Local
+from src.dataset.schemas.yolo import yolo_schema
 from pathlib import Path
 import pickle
 import os
@@ -21,6 +22,7 @@ class API(object):
         self.key_bin = None
         self.Initializer = None
         self.config = None
+        self.schema_class = None
         if not Path(path_home+'/datasets.stack').exists():
             self.set_datasets({})
         if reset:
@@ -35,8 +37,9 @@ class API(object):
                 self.storage_name = self.config['storage']
                 self.dataset_name = self.config['dataset']
                 ctype = self.config['type']
+                schema = self.config['schema']
             except:
-                self.config = {'storage': ''}
+                self.config = {'storage': '', 'schema': 'files'}
                 self.set_config()
                 ctype = ''
 
@@ -46,16 +49,19 @@ class API(object):
                 self.Initializer = Initializer(cloud)
                 self.dataset_name = self.config['storage']
                 self.storage_name = self.config['dataset']
+                self.Initializer.schema = schema
             elif ctype == 's3':
                 cloud = S3Bucket(self.config['bucket'])
                 cloud.connectBucket()
                 cloud.createDataset(self.config['dataset'])
                 self.Initializer = Initializer(cloud)
+                self.Initializer.schema = schema
             elif ctype == 'gcs':
                 cloud = GCSBucket(self.config['bucket'])
                 cloud.connectBucket()
                 cloud.createDataset(self.config['dataset'])
                 self.Initializer = Initializer(cloud)
+                self.Initializer.schema = schema
             else:
                 self.Initializer = None
         
@@ -83,9 +89,8 @@ class API(object):
                 config['dataset'] = storage
                 config['type'] = 'local'
             config['storage'] = storage
+            
             # stores the config file
-
-            # print('Initializing dataset in ' + storage.lower())
             self.config = config
             # creates dataset
             return True
@@ -99,7 +104,7 @@ class API(object):
         if Path(path_home+'/.config_stack').exists():
             return True
         else:
-            config = {'storage': ''}
+            config = {'storage': '', 'schema': 'files'}
             self.config = config
             self.set_config()
             return False
@@ -127,6 +132,7 @@ class API(object):
         return datasets
 
     def get_yolo_labels(self, filename, version='current'):
+        assert(self.config['schema'] == 'yolo')
         if version == 'current':
             basename = os.path.splitext(os.path.basename(filename))[0]
             ls, _ = self.Initializer.storage.loadDatasetList()
@@ -174,9 +180,62 @@ class API(object):
             print('no datasets to show')
         return True
     
-    def connect_post_web(self, name='My Dataset', keys={}):
+    def set_schema(self):
+        if self.config['schema'] == 'yolo':
+            self.schema_class = yolo_schema(self.Initializer)
+            try:
+                metapath = self.schema_class.meta_path
+                json.load(self.Initializer.storage.loadFileGlobal(metapath))
+            except:
+                self.schema_class.create_schema_file()
+                self.schema_class.compute_meta_data()
+
+    def reset_schema(self):
+        if self.config['schema'] == 'yolo':
+            self.schema_class.create_schema_file()
+            self.schema_class.compute_meta_data()
+
+    def branch(self, branch_name='new_branch123/', branch_type='copy'):
+        if self.config['schema'] == 'yolo':
+            trial = self.schema_class.branch(branch_name, branch_type)
+            if trial:
+                if self.config['type'] == 's3':
+                    uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+                elif self.config['type'] == 'gcs':
+                    uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+                else:
+                    uri = ''
+
+                if branch_name[-1] != '/':
+                    branch_name += '/'
+
+                self.init(uri+branch_name)
+                self.reconnect_post_web(branch_name, 'yolo')
+                self.set_schema()
+                self.start_check()
+                self.commit('created branch ' + branch_name)
+                return True
+            else:
+                return False
+
+    def schema_metadata(self):
+        if self.config['schema'] == 'yolo':
+            metapath = self.schema_class.meta_path
+            return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        else:
+            return {}
+
+    def apply_filter(self):
+        if self.config['schema'] == 'yolo':
+            metapath = self.schema_class.meta_path
+            return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        else:
+            return {}
+
+    def connect_post_web(self, name='My Dataset', keys={}, schema='files'):
         
         print('connecting to '+name)
+        self.config['schema'] = schema
         config = self.config
 
         self.storage_name = config['storage']
@@ -210,10 +269,53 @@ class API(object):
                 is_not_there = False
 
         if is_not_there:
-            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
+            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
             self.set_datasets(datasets)
         self.set_config()
         return True
+
+    def reconnect_post_web(self, name='My Dataset', schema='files'):
+        
+        print('connecting to '+name)
+        self.config['schema'] = schema
+        config = self.config
+
+        self.storage_name = config['storage']
+        self.dataset_name = config['dataset']
+        
+        try: 
+            datasets = self.get_datasets()
+        except:
+            datasets = {}
+
+        if config['type'] == 'local':
+            cloud = Local()
+            cloud.createDataset(config['dataset'],verbose=True)
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 's3':
+            cloud = S3Bucket(config['bucket'])
+            cloud.reconnect_bucket_api()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        elif config['type'] == 'gcs':
+            cloud = GCSBucket(config['bucket'])
+            cloud.reconnect_bucket_api()
+            cloud.createDataset(config['dataset'])
+            self.Initializer = Initializer(cloud)
+        else:
+            self.Initializer = None
+
+        is_not_there = True
+        for s in datasets.keys():
+            if datasets[s]['storage'] == self.storage_name:
+                is_not_there = False
+
+        if is_not_there:
+            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
+            self.set_datasets(datasets)
+        self.set_config()
+        return True
+
 
     def connect_post_cli(self):
         config = self.config
@@ -250,7 +352,7 @@ class API(object):
 
         if is_not_there:
             name = input('please give a name to your dataset: ')
-            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type']}
+            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
             self.set_datasets(datasets)
         self.set_config()
         return True
@@ -260,6 +362,9 @@ class API(object):
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
+
+        datasets = self.get_datasets()
+        self.config['schema'] = datasets[self.storage_name]['schema']
 
         if config['type'] == 'local':
             cloud = Local()
@@ -279,7 +384,6 @@ class API(object):
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
-
         self.set_config()
         return True
 
@@ -426,8 +530,14 @@ class API(object):
         return {'commits': response, 'len': len(key_hist)}
 
     def status(self):
-        metapath = self.Initializer.prefix_meta+'current.json'
-        return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        if self.config['schema'] == 'yolo':
+            if self.schema_class.filtered:
+                return self.schema_class.status
+            else:
+                return self.schema_class.read_all_files()
+        else:
+            metapath = self.Initializer.prefix_meta+'current.json'
+            return json.load(self.Initializer.storage.loadFileGlobal(metapath))
 
     def remove(self, key, subpath=''):
         if len(subpath)>1:
@@ -458,17 +568,25 @@ class API(object):
         remove_diff(self.Initializer,self.Initializer.storage.dataset+key,int(version))
         return True
 
+    def set_filters(self, filters):
+        if self.config['schema'] == 'yolo':
+            self.schema_class.apply_filters(filters)
+        return True
+
     def remove_key_full(self, key, version):
         remove_full(self.Initializer,self.Initializer.storage.dataset+key)
         return True
 
     def commit(self, comment='',cmd=True):
-        res = commit(self.Initializer, comment)
+        res, added, modified, deleted = commit(self.Initializer, comment)
         if cmd:
             if res: 
                 print('sync done!')
             else:
                 print('already up-to-date')
+        if self.config['schema'] == 'yolo':
+            self.schema_class.update_schema_file(added, modified, deleted)
+
         return True
 
     def loadCommitMetadata(self, commit_file):
@@ -503,15 +621,13 @@ class API(object):
         if version=='current':
             print('loading ' + file + '...')
             data  = self.Initializer.storage.loadFile(file)
-            data1 = self.Initializer.storage.loadFile(file)
         elif int(version) >= 1:
             print('loading ' + file + ' version '+ version +'...')
             data  =  self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10))
-            data1 =  self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10))
         else:
             assert(False)
 
-        df1 = pd.read_csv(data)
+        df1 = pd.read_csv(data, encoding='unicode_escape', encoding_errors='backslashreplace', lineterminator='\n')
 
         total_cols = len(df1.axes[1])
         bot_col = min(N_cols*int(col_p),total_cols)
@@ -519,9 +635,37 @@ class API(object):
         
         total_rows = len(df1.axes[0])
         bot_row = min(N_rows*int(row_p), total_rows)
+        top_row = min(N_rows*(int(row_p)+1),total_rows)
+        
+        df1 = df1.iloc[bot_row:top_row,bot_col:top_col]
+        return StringIO(df1.to_csv(index=False, header=False)), total_rows/N_rows, total_cols/N_cols
 
-        df = pd.read_csv(data1, usecols=range(bot_col,top_col), nrows=N_rows, skiprows=bot_row, header=None)
-        return StringIO(df.to_csv(index=False, header=False)), total_rows/N_rows, total_cols/N_cols
+    def load_csv_diff_metadata(self, file, v1, v2):
+        if v1 == 'current':
+            d1 = self.Initializer.storage.loadFile(file)
+        else:
+            d1 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
+
+        if v2 == 'current':
+            d2 = self.Initializer.storage.loadFile(file)
+        else:
+            d2 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
+
+        from csv_diff import load_csv, compare
+        diff = compare(load_csv(d1), load_csv(d2))
+
+        print(diff)
+
+        # converts diff to json
+        diff_meta = {}
+        # diff_meta['additions'] = len(diff_additions)
+        # diff_meta['deletions'] = len(diff_deletions)
+        # diff_meta['modifications'] = len(diff_changes)
+        # diff_meta['new_rows'] = len(diff_rows)
+        # diff_meta['new_cols'] = len(diff_cols)
+
+        return diff_meta
+
 
     def load_file_binary_bytes(self, file, bi, bf):
         print('loading '+file+'...')

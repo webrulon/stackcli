@@ -32,6 +32,11 @@ def commit(init, comment = ''):
 	commits = []
 	toadd = []
 	toremove = []
+	tomodify = []
+
+	added = []
+	modified = []
+	removed = []
 
 	for idx, f in enumerate(old_files):
 		# relative file location
@@ -63,6 +68,7 @@ def commit(init, comment = ''):
 				print('-- modified '+ f_relative)
 
 				toadd.append(f_relative)
+				modified.append(f_relative)
 	
 				commitpath = init.prefix_commit + f_relative + '/' + str(n).zfill(10)
 				commits.append(commitpath)
@@ -87,6 +93,7 @@ def commit(init, comment = ''):
 			print('-- removed '+ f_relative)
 
 			toremove.append(f_relative)
+			removed.append(f_relative)
 
 			prefix_commit = init.prefix_commit
 
@@ -126,6 +133,7 @@ def commit(init, comment = ''):
 				print('-- added '+ f)			
 
 				toadd.append(f)
+				added.append(f)
 
 				prefix_commit = init.prefix_commit
 
@@ -141,7 +149,7 @@ def commit(init, comment = ''):
 		updateHistory(init,commits)
 	init.storage.resetBuffer()
 
-	return (len(commits) > 0)
+	return (len(commits) > 0), added, modified, removed
 
 def computeDiff(bin1,bin2):
 	"""
@@ -286,7 +294,7 @@ def copy_file_to_new_dataset(init, key, new_dataset):
 	print('rename file ' + key + ' to ' + new_dataset)
 	return True
 
-def move_file_to_new_dataset(init, key, new_dataset):
+def move_file_to_dataset(init, key, new_dataset):
 	# renames the files
 	init.storage.copyFileGlobal(init.storage.dataset+key,new_dataset+key)
 	init.storage.removeFileGlobal(init.storage.dataset+key)

@@ -160,6 +160,27 @@ class S3Bucket(object):
 
 		return False
 
+	def reconnect_bucket_api(self):
+		# checks if the credentials are in the computer
+		config = configparser.ConfigParser()
+		config.read(path_home+'/.aws/credentials')
+
+		self.credentials['aws_access_key_id'] = config['default']['aws_access_key_id']
+		self.credentials['aws_secret_access_key'] = config['default']['aws_secret_access_key']
+		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])
+		self.resetBuffer()
+
+		# checks if the target bucket exist
+		buckets = self.resource.buckets.all()
+
+		for bucket in buckets:
+			if bucket.name == self.BUCKET_NAME:
+				found = True
+				self.bucket = self.resource.Bucket(name=self.BUCKET_NAME)
+				return True
+
+		return False
+
 	def createDataset(self,location):
 		# assigns location
 		if location[-1] != '/':
@@ -223,6 +244,20 @@ class S3Bucket(object):
 	def loadFileMetadata(self,filename,debug=False):
 		# gets the metadata
 		obj = self.resource.Object(self.BUCKET_NAME,self.dataset+filename).get()
+
+		metadata = {
+			'key' : self.dataset+filename,
+			'date_loaded' : obj['ResponseMetadata']['HTTPHeaders']['date'],
+			'date_added' : obj['ResponseMetadata']['HTTPHeaders']['date'],
+			'last_modified' : obj['ResponseMetadata']['HTTPHeaders']['last-modified'],
+			'HostId' : obj['ResponseMetadata']['HostId'],
+		}
+
+		return metadata
+
+	def loadFileMetadataGlobal(self,filename,debug=False):
+		# gets the metadata
+		obj = self.resource.Object(self.BUCKET_NAME,filename).get()
 
 		metadata = {
 			'key' : self.dataset+filename,
@@ -306,6 +341,12 @@ class S3Bucket(object):
 		}
 		self.s3t.copy(copy_source=copy_source,bucket=self.BUCKET_NAME, key=full_target_name)
 		return True
+
+	def get_size_of_file(self, filepath):
+		return self.get_size_of_file_global(self.dataset + filepath)
+
+	def get_size_of_file_global(self, filepath):
+		return self.bucket.Object(filename).content_length
 
 	def resetBuffer(self):
 		if self.s3t != None:

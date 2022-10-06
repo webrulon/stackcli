@@ -82,6 +82,21 @@ class GCSBucket(object):
 				return True
 		return False
 
+	def reconnect_bucket_api(self,binary):
+		try:
+			self.client = storage.Client()
+		except:
+			return False
+
+		# checks if the bucket exists
+		print('Connecting to your bucket...')
+		buckets = self.client.list_buckets()
+		for bucket in buckets:
+			if bucket.name == self.BUCKET_NAME:
+				self.bucket = self.client.get_bucket(self.BUCKET_NAME)
+				return True
+		return False
+
 	def createDataset(self,location):
 		# assigns location
 		if location[-1] != '/':
@@ -155,6 +170,18 @@ class GCSBucket(object):
 			}
 			return metadata
 
+	def loadFileMetadataGlobal(self,filename,debug=False):
+		blob = self.bucket.get_blob(filename)
+		if blob.name[-1] != '/':
+			metadata = {
+				'key' : self.dataset + filename,
+				'date_loaded' : blob.time_created.strftime("%m/%d/%Y, %H:%M:%S"),
+				'date_added' : blob.time_created.strftime("%m/%d/%Y, %H:%M:%S"),
+				'last_modified' : blob.updated.strftime("%m/%d/%Y, %H:%M:%S"),
+				'HostId' : blob.id,
+			}
+			return metadata
+
 	def listFilesinPath(self,path):
 		blobs = self.client.list_blobs(self.BUCKET_NAME, prefix=path, delimiter=None)
 		for blob in blobs:
@@ -213,6 +240,12 @@ class GCSBucket(object):
 		source_blob = self.bucket.blob(filepath)
 		blob_copy = self.bucket.copy_blob(source_blob, self.bucket, full_target_name)
 		return True
+
+	def get_size_of_file(self, filepath):
+		return self.get_size_of_file_global(self.dataset + filepath)
+
+	def get_size_of_file_global(self, filepath):
+		return self.bucket.get_blob(filepath).size
 
 	def resetBuffer(self):
 		return True
