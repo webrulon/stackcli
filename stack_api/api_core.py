@@ -131,36 +131,43 @@ class API(object):
         file1.close()
         return datasets
 
-    def get_yolo_labels(self, filename, version='current'):
-        assert(self.config['schema'] == 'yolo')
-        if version == 'current':
-            basename = os.path.splitext(os.path.basename(filename))[0]
-            ls, _ = self.Initializer.storage.loadDatasetList()
+    def get_labels(self, filename, version='current'):
+        if(self.config['schema'] == 'yolo'):
+            if version == 'current':
+                basename = os.path.splitext(os.path.basename(filename))[0]
+                ls, _ = self.Initializer.storage.loadDatasetList()
 
-            matches = [match for match in ls if basename+'.txt' in match]
-            labels_str = self.Initializer.storage.loadFileGlobal(matches[0])
-        else:
-            assert(int(version) > 0)            
+                matches = [match for match in ls if basename+'.txt' in match]
+                labels_str = self.Initializer.storage.loadFileGlobal(matches[0])
+            else:
+                assert(int(version) > 0)            
 
-            basename = os.path.splitext(os.path.basename(filename))[0]
-            ls, _ = self.Initializer.storage.loadDatasetList()
+                basename = os.path.splitext(os.path.basename(filename))[0]
+                ls, _ = self.Initializer.storage.loadDatasetList()
 
-            matches = [match for match in ls if basename+'.txt' in match]
-            
-            path = self.Initializer.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)            
-            labels_str = self.Initializer.storage.loadFileGlobal(path)
+                matches = [match for match in ls if basename+'.txt' in match]
+                
+                path = self.Initializer.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)            
+                labels_str = self.Initializer.storage.loadFileGlobal(path)
 
-        labels = {}
-        i = 0
-        for line in labels_str.readlines():
-            labels[str(i)] = {}
-            j = 0
-            for x in line.split():
-                labels[str(i)][str(j)] = float(x)
-                j += 1
-            i += 1
+            labels = {}
+            i = 0
+            for line in labels_str.readlines():
+                labels[str(i)] = {}
+                j = 0
+                for x in line.split():
+                    labels[str(i)][str(j)] = float(x)
+                    j += 1
+                i += 1
 
-        return labels
+            return labels
+        return []
+
+    def set_labels(self, data):
+        if self.config['schema'] == 'yolo':
+            filename = data['keyId']
+            self.schema_class.set_labels(filename, data)
+        return {'success': True}
 
     def set_datasets(self, datasets):
         file1 = open(path_home+'/datasets.stack', 'wb')
@@ -315,7 +322,6 @@ class API(object):
             self.set_datasets(datasets)
         self.set_config()
         return True
-
 
     def connect_post_cli(self):
         config = self.config
@@ -514,18 +520,48 @@ class API(object):
     def key_versions(self, key = '', l = 5, page = 0):
         assert(int(l) > 0)
         assert(int(page) >= 0)
-        key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
-        response = {}
-        i_p = len(key_hist) - int(page)*int(l)
-        i_f = max(len(key_hist) - int(l)*(int(page)+1),0)
+        if self.config['schema'] == 'yolo':
 
-        idx = 0
+            labels_key = self.schema_class.get_labels_filename(key)
+            key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
+            labels_hist = get_key_history(self.Initializer, labels_key)
+            response = {}
+            
+            i_p = len(key_hist) - int(page)*int(int(l)/2)
+            i_f = max(len(key_hist) - int(int(l)/2)*(int(page)+1),0)
 
-        # goes over the commits
-        for i in range(i_p, i_f, -1):
-            # reads each file version
-            response[idx] = key_hist[str(i)]
-            idx = idx+1
+            idx = 0
+
+            # goes over the commits
+            for i in range(i_p, i_f, -1):
+                # reads each file version
+                response[idx] = key_hist[str(i)]
+                response[idx]['file'] = 'raw'
+                idx = idx+1
+
+            i_p = len(labels_hist) - int(page)*int(int(l)/2)
+            i_f = max(len(labels_hist) - int(int(l)/2)*(int(page)+1),0)
+
+            # goes over the commits
+            for i in range(i_p, i_f, -1):
+                # reads each file version
+                response[idx] = labels_hist[str(i)]
+                response[idx]['file'] = 'label'
+                idx = idx+1
+        else:
+            key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
+            response = {}
+            i_p = len(key_hist) - int(page)*int(l)
+            i_f = max(len(key_hist) - int(l)*(int(page)+1),0)
+
+            idx = 0
+
+            # goes over the commits
+            for i in range(i_p, i_f, -1):
+                # reads each file version
+                response[idx] = key_hist[str(i)]
+                response[idx]['file'] = 'raw'
+                idx = idx+1
 
         return {'commits': response, 'len': len(key_hist)}
 
@@ -652,20 +688,40 @@ class API(object):
             d2 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
 
         from csv_diff import load_csv, compare
-        diff = compare(load_csv(d1), load_csv(d2))
+        import codecs
 
-        print(diff)
+        csv1 = load_csv(codecs.getreader("utf-8")(d1))
+        csv2 = load_csv(codecs.getreader("utf-8")(d2))
+        diff = compare(csv2, csv1)
 
         # converts diff to json
         diff_meta = {}
-        # diff_meta['additions'] = len(diff_additions)
-        # diff_meta['deletions'] = len(diff_deletions)
-        # diff_meta['modifications'] = len(diff_changes)
-        # diff_meta['new_rows'] = len(diff_rows)
-        # diff_meta['new_cols'] = len(diff_cols)
+        diff_meta['additions'] = len(diff['added'])
+        diff_meta['deletions'] = len(diff['removed'])
+        diff_meta['modifications'] = len(diff['changed'])
+        diff_meta['new_cols'] = len(diff['columns_added'])
 
         return diff_meta
 
+    def load_csv_diff(self, file, v1, v2):
+        if v1 == 'current':
+            d1 = self.Initializer.storage.loadFile(file)
+        else:
+            d1 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
+
+        if v2 == 'current':
+            d2 = self.Initializer.storage.loadFile(file)
+        else:
+            d2 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
+
+        from csv_diff import load_csv, compare
+        import codecs
+
+        csv1 = load_csv(codecs.getreader("utf-8")(d1))
+        csv2 = load_csv(codecs.getreader("utf-8")(d2))
+        diff = compare(csv2, csv1)
+
+        return diff
 
     def load_file_binary_bytes(self, file, bi, bf):
         print('loading '+file+'...')

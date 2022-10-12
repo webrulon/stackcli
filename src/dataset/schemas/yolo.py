@@ -95,7 +95,7 @@ class yolo_schema(object):
 				labels = self.get_labels(key)
 				
 				dp['key'] = key
-				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last-modified']
+				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
 				dp['classes'] = [self.label_name(label[0]) for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
@@ -112,7 +112,7 @@ class yolo_schema(object):
 				labels = self.get_labels(key)
 				
 				dp['key'] = key
-				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last-modified']
+				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
 				dp['classes'] = [self.label_name(label[0]) for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
@@ -194,9 +194,47 @@ class yolo_schema(object):
 
 		return labels
 
+	def get_labels_filename(self, filename, version = 'current'):
+		if version == 'current':
+			basename = os.path.splitext(os.path.basename(filename))[0]
+
+			ls, _ = self.init.storage.loadDatasetList()
+
+			matches = [match for match in ls if basename+'.txt' in match]
+			
+			return matches[0]
+		else:
+			assert(int(version) > 0)
+
+			basename = os.path.splitext(os.path.basename(filename))[0]
+			ls, _ = self.init.storage.loadDatasetList()
+
+			matches = [match for match in ls if basename+'.txt' in match]
+			
+			return self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
+
+	def set_labels(self, filename, labels_array):
+		# reads the labels
+		basename = os.path.splitext(os.path.basename(filename))[0]
+		ls, _ = self.init.storage.loadDatasetList()
+		matches = [match for match in ls if basename+'.txt' in match]
+		
+		labels_string = ''
+
+		for i in range(len(labels_array)-1):
+			cl = labels_array[str(i)]['0']
+			w = labels_array[str(i)]['1']
+			h = labels_array[str(i)]['2']
+			x = labels_array[str(i)]['3']
+			y = labels_array[str(i)]['4']
+
+			labels_string = labels_string + f'{cl} {w} {h} {x} {y}\n'
+
+		self.init.storage.addFileFromBinaryGlobal(matches[0],io.BytesIO(labels_string.encode("utf-8")))
+
+		return True
+
 	def branch(self, branch_name, type_ ='copy', versions=[]):
-		# try: 
-		# copies each file to the new dataset
 		dataset = self.init.storage.dataset
 		if self.init.storage.type == 'local':
 			branch_name = path_home + '/' + branch_name + '/'
@@ -236,9 +274,6 @@ class yolo_schema(object):
 					self.init.storage.copyFileGlobal(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
 				idx += 1
 		return True
-		# except:
-		# 	return False
-
 
 	def read_all_files(self):
 		# queries the json

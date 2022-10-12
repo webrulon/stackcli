@@ -103,6 +103,13 @@ async def uri_api():
     except:
         return {}
 
+@app.get("/schema")
+async def schema_api():
+    try:
+        return {'value': api.config['schema']}
+    except:
+        return {'value': 'files'}
+
 @app.get("/history")
 async def history_api():
     try:
@@ -263,8 +270,22 @@ async def remove_key_diff_api(key, version=-1):
     except:
         return {'sucess': False}
 
+@app.get("/get_csv_diff_metadata")
+async def get_csv_diff_metadata(key, v1='current', v2='current'):
+    try:
+        return api.load_csv_diff_metadata(key, v1, v2)
+    except:
+        return {}
+
+@app.get("/get_csv_diff")
+async def get_csv_diff(key, v1='current', v2='current'):
+    try:
+        return api.load_csv_diff(key, v1, v2)
+    except:
+        return {}
+
 @app.get("/revert_key_version")
-async def revert_key_version_api(key, version=-1):
+async def revert_key_version_api(key, version=-1, label='raw'):
     try:
         api.revert_file(key, version)
         api.commit('reverted file ' + key)
@@ -281,9 +302,16 @@ async def revert_api(version=0):
     except:
         return {'success': False}
 
-@app.get("/get_yolo_labels")
-async def get_yolo_labels_api(filename, version='current'):
+@app.get("/get_labels")
+async def get_labels_api(filename, version='current'):
     try:
-        return api.get_yolo_labels(filename, version)
+        return api.get_labels(filename, version)
     except:
         return {}
+
+@app.post("/set_labels")
+async def set_labels_api(data: dict):
+    # try:
+    return api.set_labels(data)
+    # except:
+    #     return {}

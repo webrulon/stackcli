@@ -175,13 +175,14 @@ def diff_api(version_a: str, version_b: str, file: str=''):
     return True
 
 @app.command("diff_csv")
-def diff_csv(csv1: str, csv2: str):
+def diff_csv(v1: str='current', v2: str='current', file: str=''):
     '''
         Printes the differences between two csv files in the path
     '''
-    from csv_diff import load_csv, compare
-    diff = compare(load_csv(open(csv1)), load_csv(open(csv2)))
-    print(diff)
+    diff_metadata = api.load_csv_diff_metadata(key, v1, v2)
+    print(json.dumps(diff_metadata, indent=4))
+    diff = api.load_csv_diff(key, v1, v2)
+    print(json.dumps(diff, indent=4))
     return True
 
 
