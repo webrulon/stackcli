@@ -30,9 +30,7 @@ class S3Bucket(object):
 
 	def connectBucket(self, verbose=False):
 		# checks if the credentials are in the computer
-		home_dir = path_home
-		if not os.path.isfile(home_dir+'/.aws/credentials'):
-
+		if not os.path.isfile(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials'):
 			print("AWS is not setup in this machine. Please follow the following setups:")
 			print('\n')
 			print("1) Go to https://console.aws.amazon.com/iamv2/")
@@ -53,18 +51,18 @@ class S3Bucket(object):
 			config['default'] = {}
 			config['default']['aws_access_key_id'] = self.credentials['aws_access_key_id']
 			config['default']['aws_secret_access_key'] = self.credentials['aws_secret_access_key']
-			os.mkdir(home_dir+'/.aws/')
-			with open(home_dir+'/.aws/credentials', 'w') as configfile:
+			os.mkdir(path_home+'/.aws/'+self.BUCKET_NAME+'/')
+			with open(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials', 'w') as configfile:
 				config.write(configfile)
 		else:
 			config = configparser.ConfigParser()
-			config.read(home_dir+'/.aws/credentials')
+			config.read(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials')
 
 			self.credentials['aws_access_key_id'] = config['default']['aws_access_key_id']
 			self.credentials['aws_secret_access_key'] = config['default']['aws_secret_access_key']
 
 		# checks if the config is there
-		if not os.path.isfile(home_dir+'/.aws/config'):
+		if not os.path.isfile(path_home+'/.aws/'+self.BUCKET_NAME+'/config'):
 			print('Please select your region (https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region)')
 			print('[Press enter for us-east-2]')
 
@@ -77,11 +75,11 @@ class S3Bucket(object):
 			config['default'] = {}
 			config['default']['region'] = self.credentials['region']
 
-			with open(home_dir+'/.aws/config', 'w') as configfile:
+			with open(path_home+'/.aws/'+self.BUCKET_NAME+'/config', 'w') as configfile:
 				config.write(configfile)
 		else:
 			config = configparser.ConfigParser()
-			config.read(home_dir+'/.aws/config')
+			config.read(path_home+'/.aws/'+self.BUCKET_NAME+'/config')
 			self.credentials['region'] = config['default']['region']
 
 		if verbose:
@@ -101,9 +99,9 @@ class S3Bucket(object):
 		except:
 			print('invalid credentials')
 			print('removing config files')
-			os.remove(home_dir+'/.aws/credentials')
-			os.remove(home_dir+'/.aws/config')
-			os.rmdir(home_dir+'/.aws/')
+			os.remove(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials')
+			os.remove(path_home+'/.aws/'+self.BUCKET_NAME+'/config')
+			os.rmdir(path_home+'/.aws/'+self.BUCKET_NAME+'/')
 
 			print('try again...')
 
@@ -123,6 +121,18 @@ class S3Bucket(object):
 
 	def connect_bucket_api(self,keys_dict):
 		# checks if the credentials are in the computer
+
+		if keys_dict['key1'] == 'NoKey' or keys_dict['key2'] == 'NoKey':
+			config = configparser.ConfigParser()
+			config.read(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials')
+			keys_dict['key1'] = config['default']['aws_access_key_id']
+			keys_dict['key2'] = config['default']['aws_secret_access_key']
+
+		if keys_dict['key3'] == 'NoRegion':
+			config = configparser.ConfigParser()
+			config.read(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials')
+			keys_dict['key3'] = config['default']['region']
+
 		self.credentials['aws_access_key_id'] = keys_dict['key1']
 		self.credentials['aws_secret_access_key'] = keys_dict['key2']
 		self.credentials['region'] = keys_dict['key3']
@@ -134,7 +144,17 @@ class S3Bucket(object):
 		config['default']['region'] = self.credentials['region']
 
 		print('saving credentials')
-		with open(path_home+'/.aws/credentials', 'w') as configfile:
+		if not os.path.isfile(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials'):
+			try:
+				os.mkdir(path_home+'/.aws/')
+			except:
+				pass
+			try: 
+				os.mkdir(path_home+'/.aws/'+self.BUCKET_NAME+'/')
+			except:
+				pass
+
+		with open(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials', 'w') as configfile:
 			config.write(configfile)
 
 		config = configparser.ConfigParser()
@@ -142,7 +162,7 @@ class S3Bucket(object):
 		config['default']['region'] = self.credentials['region']
 
 		print('saving config')
-		with open(path_home+'/.aws/config', 'w') as configfile:
+		with open(path_home+'/.aws/'+self.BUCKET_NAME+'/config', 'w') as configfile:
 			config.write(configfile)
 
 		print('Connecting to your bucket...')
@@ -163,7 +183,7 @@ class S3Bucket(object):
 	def reconnect_bucket_api(self):
 		# checks if the credentials are in the computer
 		config = configparser.ConfigParser()
-		config.read(path_home+'/.aws/credentials')
+		config.read(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials')
 
 		self.credentials['aws_access_key_id'] = config['default']['aws_access_key_id']
 		self.credentials['aws_secret_access_key'] = config['default']['aws_secret_access_key']
@@ -346,7 +366,7 @@ class S3Bucket(object):
 		return self.get_size_of_file_global(self.dataset + filepath)
 
 	def get_size_of_file_global(self, filepath):
-		return self.bucket.Object(filename).content_length
+		return self.bucket.Object(filepath).content_length
 
 	def resetBuffer(self):
 		if self.s3t != None:

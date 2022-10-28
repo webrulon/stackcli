@@ -3,7 +3,6 @@ sys.path.append( '../../..' )
 from datetime import *
 import cv2
 import numpy as np
-import time
 import os
 import io
 import json
@@ -11,12 +10,13 @@ from pathlib import Path
 from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
-class yolo_schema(object):
+class labelbox_schema(object):
 	"""docstring for YOLO"""
 	def __init__(self, init):
 		self.init = init
 		self.schema_path = self.init.prefix_meta + 'schema.json'
-		self.meta_path = self.init.prefix_meta + 'yolo_data.json'
+		self.meta_path = self.init.prefix_meta + 'labelbox_data.json'
+		self.labelbox_file = []
 		self.status = {}
 		self.filtered = False
 		self.bounding_box_thumbs = True
@@ -25,6 +25,8 @@ class yolo_schema(object):
 		# generates the schema file for a yolo dataset
 		schema = {}
 		current = json.load(self.init.storage.loadFileGlobal(self.init.prefix_meta+'current.json'))
+		json_name = self.get_labels_filename()
+		self.labelbox_file = json.load(self.init.storage.loadFileGlobal(json_name))
 
 		k = 0
 		idx = 0
@@ -34,10 +36,9 @@ class yolo_schema(object):
 			if self.is_image(key):
 				dp = {}
 				labels = self.get_labels(key)
-				
 				dp['key'] = key
 				dp['lm'] = current['lm'][idx]
-				dp['classes'] = [self.label_name(labels[label]['0']) for label in labels]
+				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
 				dp['resolution'] = self.get_resolution(key)
@@ -100,19 +101,18 @@ class yolo_schema(object):
 
 			ls, _ = self.init.storage.loadDatasetList()
 
-			matches = [match for match in ls if basename+'.txt' in match]
-			 
-			fl = self.init.storage.loadFileGlobal(matches[0])
+			fl = self.get_labels(filename)
 
-			for dt in fl.readlines():
+			for dt in fl.keys():
+
+				res = fl[dt]
 
 				# Split string to float
-				res = dt.split()
-				cl = int(res[0])
-				x = float(res[1])
-				y = float(res[2])
-				w = float(res[3])
-				h = float(res[4])
+				cl = res['0']
+				x = float(res['1'])
+				y = float(res['2'])
+				w = float(res['3'])
+				h = float(res['4'])
 
 				color_str = str(cl)[::-1] + "c" + str(cl)
 				
@@ -228,89 +228,104 @@ class yolo_schema(object):
 		# returns shape
 		return str(im.shape[1]) + 'x' + str(im.shape[0])
 
+	def get_resolution_values(self, key):
+		# reads image
+		img_str = self.init.storage.loadFile(key)
+		
+		# formats to cv2
+		nparr = np.fromstring(img_str.read(), np.uint8)
+		im = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+		# returns shape
+		return {'w': str(im.shape[1]), 'h': str(im.shape[0])}
+
 	def label_name(self, class_number):
 		return str(class_number)
 
 	def get_labels(self, filename, version='current'):
 		# reads the labels
-		if version == 'current':
-			basename = os.path.splitext(os.path.basename(filename))[0]
-
-			ls, _ = self.init.storage.loadDatasetList()
-
-			matches = [match for match in ls if basename+'.txt' in match]
-			
-			try: 
-				labels_str = self.init.storage.loadFileGlobal(matches[0])
-			except:
-				return {}
-		else:
-			assert(int(version) > 0)
-
-			basename = os.path.splitext(os.path.basename(filename))[0]
-			ls, _ = self.init.storage.loadDatasetList()
-
-			matches = [match for match in ls if basename+'.txt' in match]
-			
-			path = self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
-			labels_str = self.init.storage.loadFileGlobal(path)
-
-		print(filename)
+		labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename(version)))
 
 		labels = {}
 		i = 0
-		for line in labels_str.readlines():
+
+		for dp in labelbox_file:
+			if dp['External ID'] in filename:
+				loaded_labels = dp['Label']['objects']
+
+		res = self.get_resolution_values(filename)
+
+		for line in loaded_labels:
 			labels[str(i)] = {}
 			j = 0
-			for x in line.split():
-				try: 
-					labels[str(i)][str(j)] = float(x)
-				except:
-					labels[str(i)][str(j)] = 0
-				j += 1
+			labels[str(i)][str(0)] = line['value']
+			labels[str(i)][str(1)] = (int(line['bbox']['left']) + int(line['bbox']['width'])/2)/int(res['w'])
+			labels[str(i)][str(2)] = (int(line['bbox']['top']) + int(line['bbox']['height'])/2)/int(res['h'])
+			labels[str(i)][str(3)] = int(line['bbox']['width'])/int(res['w'])
+			labels[str(i)][str(4)] = int(line['bbox']['height'])/int(res['h'])
+			
 			i = i + 1
 
 		return labels
 
-	def get_labels_filename(self, filename, version = 'current'):
+	def get_labels_filename(self, version = 'current'):
+		# reads the labels
+		current = json.load(self.init.storage.loadFileGlobal(self.init.prefix_meta+'current.json'))
+		json_name = ''
+		for key in current['keys']:
+			if os.path.splitext(os.path.basename(key))[1] == '.json':
+				json_name = key
+
 		if version == 'current':
-			basename = os.path.splitext(os.path.basename(filename))[0]
-
-			ls, _ = self.init.storage.loadDatasetList()
-
-			matches = [match for match in ls if basename+'.txt' in match]
-			
-			return matches[0]
+			return json_name
 		else:
-			assert(int(version) > 0)
-
-			basename = os.path.splitext(os.path.basename(filename))[0]
-			ls, _ = self.init.storage.loadDatasetList()
-
-			matches = [match for match in ls if basename+'.txt' in match]
-			
-			return self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
+			return self.init.prefix_diffs + json_name + '/' + str(int(version)).zfill(10)	
 
 	def set_labels(self, filename, labels_array):
 		# reads the labels
-		basename = os.path.splitext(os.path.basename(filename))[0]
-		ls, _ = self.init.storage.loadDatasetList()
-		matches = [match for match in ls if basename+'.txt' in match]
+		labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename()))
+		labelbox_new = labelbox_file
 		
-		labels_string = ''
+		res = self.get_resolution_values(filename)
 
-		for i in range(len(labels_array)-1):
-			cl = labels_array[str(i)]['0']
-			w = labels_array[str(i)]['1']
-			h = labels_array[str(i)]['2']
-			x = labels_array[str(i)]['3']
-			y = labels_array[str(i)]['4']
+		idx = 0
+						
+		for elem in labelbox_file:
+			if elem['External ID'] in filename:
+				j_arr = []
+				for i in range(len(labels_array)-1):
+					cl = labels_array[str(i)]['0']
+					x = float(labels_array[str(i)]['1'])
+					y = float(labels_array[str(i)]['2'])
+					w = float(labels_array[str(i)]['3'])
+					h = float(labels_array[str(i)]['4'])
 
-			labels_string = labels_string + f'{cl} {w} {h} {x} {y}\n'
 
-		self.init.storage.addFileFromBinaryGlobal(matches[0],io.BytesIO(labels_string.encode("utf-8")))
+					print(cl)
+					print(w)
+					print(h)
+					print(x)
+					print(y)
 
-		return True
+					print(res)
+
+					bbox = {'top': (y-h/2)*float(res['h']), 'left': (x-w/2)*float(res['w']), 'height': h*int(res['h']), 'width': w*int(res['w'])}
+
+					j = 0
+
+					print(labelbox_file[idx])
+
+					for obj in labelbox_file[idx]['Label']['objects']:
+						if obj['value'] == cl:
+							if not j in j_arr:
+								labelbox_file[idx]['Label']['objects'][j]['bbox'] = bbox
+								j_arr.append(j)
+								break
+						j += 1
+				print(labelbox_file)
+				self.init.storage.addFileFromBinaryGlobal(self.get_labels_filename(),io.BytesIO(json.dumps(labelbox_file).encode('ascii')))
+				return True
+			idx += 1
 
 	def branch(self, branch_name, type_ ='copy', versions=[]):
 		dataset = self.init.storage.dataset
@@ -322,35 +337,41 @@ class yolo_schema(object):
 				versions.append('current')
 		idx = 0
 		if type_ == 'copy':
+			labelbox_new = []
+			labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename()))
+					
 			for f in self.status['keys']:
 				if versions[idx] == 'current':
-					basename = os.path.splitext(os.path.basename(f))[0]
-					ls, _ = self.init.storage.loadDatasetList()
-					matches = [match for match in ls if basename+'.txt' in match]
-				else:
-					assert(int(versions[idx]) > 0)
-					basename = os.path.splitext(os.path.basename(f))[0]
-					ls, _ = self.init.storage.loadDatasetList()
-					matches = [match for match in ls if basename+'.txt' in match]
-					path = self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
-
-				if versions[idx] == 'current':
 					self.init.storage.copyFileGlobal(f,branch_name+f.replace(dataset,''))
-					self.init.storage.copyFileGlobal(matches[0],branch_name+matches[0].replace(dataset,''))
+					
 				else:
 					self.init.storage.copyFileGlobal(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
-					basename = os.path.splitext(os.path.basename(f))[0]
-					ls, _ = self.init.storage.loadDatasetList()
-					matches2 = [match for match in ls if basename+'.txt' in match]
-					self.init.storage.copyFileGlobal(matches[0],branch_name+matches2[0].replace(dataset,''))
+									
+				for label in labelbox_file:
+					if label['External ID'] in f:
+						labelbox_new.append(label)
 				idx += 1
+
+			self.init.storage.addFileFromBinaryGlobal(branch_name+self.get_labels_filename().replace(dataset,''),io.BytesIO(json.dumps(labelbox_new).encode('ascii')))
 		else:
+			labelbox_new = []
+			labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename()))
+				
 			for f in self.status['keys']:
 				if versions[idx] == 'current':
 					self.init.storage.removeFileGlobal(dataset+f)
 				else:
 					self.init.storage.copyFileGlobal(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+				k = 0
+				for label in labelbox_file:
+					if label['External ID'] in f:
+						labelbox_new.append(label)
+						del labelbox_file[k]
+						k += 1
 				idx += 1
+
+			self.init.storage.addFileFromBinaryGlobal(self.get_labels_filename(),io.BytesIO(json.dumps(labelbox_file).encode('ascii')))
+			self.init.storage.addFileFromBinaryGlobal(branch_name+self.get_labels_filename().replace(dataset,''),io.BytesIO(json.dumps(labelbox_new).encode('ascii')))
 		return True
 
 	def read_all_files(self):

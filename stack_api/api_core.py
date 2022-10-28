@@ -6,7 +6,10 @@ from src.core.core import *
 from src.storage.classes.s3 import S3Bucket
 from src.storage.classes.gcs import GCSBucket
 from src.storage.classes.local import Local
+
 from src.dataset.schemas.yolo import yolo_schema
+from src.dataset.schemas.labelbox import labelbox_schema
+
 from pathlib import Path
 import pickle
 import os
@@ -71,12 +74,12 @@ class API(object):
             config = {} 
             if storage == None:
                 return False
-            if 's3' in storage.lower():
+            if 's3:/' in storage.lower():
                 bucket_data = storage.split("/")[1:]
                 config['bucket'] = bucket_data[1]
                 config['dataset'] = ''.join(bucket_data[2:])+'/'
                 config['type'] = 's3'
-            elif 'gs' in storage.lower():
+            elif 'gs:/' in storage.lower():
                 bucket_data = storage.split("/")[1:]
                 config['bucket'] = bucket_data[1]
                 config['dataset'] = ''.join(bucket_data[2:])+'/'
@@ -132,6 +135,7 @@ class API(object):
         return datasets
 
     def get_labels(self, filename, version='current'):
+        print(version)
         if(self.config['schema'] == 'yolo'):
             if version == 'current':
                 basename = os.path.splitext(os.path.basename(filename))[0]
@@ -161,10 +165,30 @@ class API(object):
                 i += 1
 
             return labels
+        elif (self.config['schema'] == 'labelbox'):
+            return self.schema_class.get_labels(filename, version)
+
         return []
 
+    def set_bounding_boxes(self):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            if self.schema_class.bounding_box_thumbs:
+                self.schema_class.bounding_box_thumbs = False
+            else:
+                self.schema_class.bounding_box_thumbs = True
+        return True
+
+    def load_thumbnail(self, file):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            try: 
+                return self.schema_class.get_thumbnail(file)
+            except:
+                return self.load_file_binary(file, 'current')    
+        else:
+            return self.load_file_binary(file, 'current')
+
     def set_labels(self, data):
-        if self.config['schema'] == 'yolo':
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             filename = data['keyId']
             self.schema_class.set_labels(filename, data)
         return {'success': True}
@@ -196,15 +220,23 @@ class API(object):
             except:
                 self.schema_class.create_schema_file()
                 self.schema_class.compute_meta_data()
+        elif self.config['schema'] == 'labelbox':
+            self.schema_class = labelbox_schema(self.Initializer)
+            try:
+                metapath = self.schema_class.meta_path
+                json.load(self.Initializer.storage.loadFileGlobal(metapath))
+            except:
+                self.schema_class.create_schema_file()
+                self.schema_class.compute_meta_data()
 
     def reset_schema(self):
-        if self.config['schema'] == 'yolo':
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.create_schema_file()
             self.schema_class.compute_meta_data()
 
     def branch(self, branch_name='new_branch123/', branch_type='copy'):
-        if self.config['schema'] == 'yolo':
-            trial = self.schema_class.branch(branch_name, branch_type)
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            trial = self.schema_class.branch(branch_name=branch_name,type_=branch_type)
             if trial:
                 if self.config['type'] == 's3':
                     uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
@@ -217,7 +249,7 @@ class API(object):
                     branch_name += '/'
 
                 self.init(uri+branch_name)
-                self.reconnect_post_web(branch_name, 'yolo')
+                self.reconnect_post_web(branch_name, self.config['schema'])
                 self.set_schema()
                 self.start_check()
                 self.commit('created branch ' + branch_name)
@@ -226,14 +258,14 @@ class API(object):
                 return False
 
     def schema_metadata(self):
-        if self.config['schema'] == 'yolo':
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             metapath = self.schema_class.meta_path
             return json.load(self.Initializer.storage.loadFileGlobal(metapath))
         else:
             return {}
 
     def apply_filter(self):
-        if self.config['schema'] == 'yolo':
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             metapath = self.schema_class.meta_path
             return json.load(self.Initializer.storage.loadFileGlobal(metapath))
         else:
@@ -270,14 +302,9 @@ class API(object):
         else:
             self.Initializer = None
 
-        is_not_there = True
-        for s in datasets.keys():
-            if datasets[s]['storage'] == self.storage_name:
-                is_not_there = False
-
-        if is_not_there:
-            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
-            self.set_datasets(datasets)
+        datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
+        self.set_datasets(datasets)
+        
         self.set_config()
         return True
 
@@ -317,9 +344,8 @@ class API(object):
             if datasets[s]['storage'] == self.storage_name:
                 is_not_there = False
 
-        if is_not_there:
-            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
-            self.set_datasets(datasets)
+        datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
+        self.set_datasets(datasets)
         self.set_config()
         return True
 
@@ -418,8 +444,10 @@ class API(object):
         except:
             return False
 
-    def getURI(self):
-        return {'storage': self.storage_name, 'dataset': self.dataset_name, 'storage_dataset': self.Initializer.storage.dataset}
+    def get_uri(self):
+        datasets = self.get_datasets()
+        dataset_meta = datasets[self.storage_name]
+        return {'storage': self.storage_name, 'schema': dataset_meta['schema'], 'dataset': dataset_meta['name'], 'storage_dataset': self.Initializer.storage.dataset}
 
     def add(self, path, subpath=''):
         if len(subpath)>1:
@@ -520,27 +548,47 @@ class API(object):
     def key_versions(self, key = '', l = 5, page = 0):
         assert(int(l) > 0)
         assert(int(page) >= 0)
-        if self.config['schema'] == 'yolo':
 
+        key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
+        response = {}
+        i_p = len(key_hist) - int(page)*int(l)
+        i_f = max(len(key_hist) - int(l)*(int(page)+1),0)
+
+        idx = 0
+
+        # goes over the commits
+        for i in range(i_p, i_f, -1):
+            # reads each file version
+            response[idx] = key_hist[str(i)]
+            response[idx]['file'] = 'raw'
+            idx = idx+1
+
+        return {'commits': response, 'len': len(key_hist)}
+
+    def label_versions(self, key, l = 5, page = 0):
+        assert(int(l) > 0)
+        assert(int(page) >= 0)
+        if self.config['schema'] == 'yolo':
             labels_key = self.schema_class.get_labels_filename(key)
-            key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
             labels_hist = get_key_history(self.Initializer, labels_key)
             response = {}
-            
-            i_p = len(key_hist) - int(page)*int(int(l)/2)
-            i_f = max(len(key_hist) - int(int(l)/2)*(int(page)+1),0)
-
             idx = 0
+            i_p = len(labels_hist) - int(page)*int(int(l))
+            i_f = max(len(labels_hist) - int(int(l))*(int(page)+1),0)
 
             # goes over the commits
             for i in range(i_p, i_f, -1):
                 # reads each file version
-                response[idx] = key_hist[str(i)]
-                response[idx]['file'] = 'raw'
+                response[idx] = labels_hist[str(i)]
+                response[idx]['file'] = 'label'
                 idx = idx+1
-
-            i_p = len(labels_hist) - int(page)*int(int(l)/2)
-            i_f = max(len(labels_hist) - int(int(l)/2)*(int(page)+1),0)
+        if self.config['schema'] == 'labelbox':
+            labels_key = self.schema_class.get_labels_filename()
+            labels_hist = get_key_history(self.Initializer, labels_key)
+            response = {}
+            idx = 0
+            i_p = len(labels_hist) - int(page)*int(int(l))
+            i_f = max(len(labels_hist) - int(int(l))*(int(page)+1),0)
 
             # goes over the commits
             for i in range(i_p, i_f, -1):
@@ -549,24 +597,25 @@ class API(object):
                 response[idx]['file'] = 'label'
                 idx = idx+1
         else:
-            key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
+            labels_key = key
+            labels_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
             response = {}
-            i_p = len(key_hist) - int(page)*int(l)
-            i_f = max(len(key_hist) - int(l)*(int(page)+1),0)
+            i_p = len(labels_hist) - int(page)*int(l)
+            i_f = max(len(labels_hist) - int(l)*(int(page)+1),0)
 
             idx = 0
 
             # goes over the commits
             for i in range(i_p, i_f, -1):
                 # reads each file version
-                response[idx] = key_hist[str(i)]
+                response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'raw'
                 idx = idx+1
 
-        return {'commits': response, 'len': len(key_hist)}
+        return {'commits': response, 'len': len(labels_hist), 'keyId': labels_key}
 
     def status(self):
-        if self.config['schema'] == 'yolo':
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             if self.schema_class.filtered:
                 return self.schema_class.status
             else:
@@ -605,7 +654,7 @@ class API(object):
         return True
 
     def set_filters(self, filters):
-        if self.config['schema'] == 'yolo':
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.apply_filters(filters)
         return True
 
@@ -620,7 +669,7 @@ class API(object):
                 print('sync done!')
             else:
                 print('already up-to-date')
-        if self.config['schema'] == 'yolo':
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.update_schema_file(added, modified, deleted)
 
         return True

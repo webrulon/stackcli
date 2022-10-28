@@ -43,6 +43,18 @@ except:
 # End-points
 @app.post("/init_web/")
 async def init_web(data: dict):
+    print(data)
+    try:
+        api.init(data['uri'])
+        api.connect_post_web(data['name'], data, data['schema'])
+        api.set_schema()
+        api.start_check()
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.post("/update_credentials")
+async def update_credentials(data: dict):
     try:
         api.init(data['uri'])
         api.connect_post_web(data['name'], data, data['schema'])
@@ -80,7 +92,10 @@ async def directories():
 
 @app.post("/set_branch")
 async def set_branch_api(data: dict):
-    return {'success': api.branch(data['branch_name'], data['branch_type'])}
+    try: 
+        return {'success': api.branch(data['branch_name'], data['branch_type'])}
+    except:
+        return {'success': False}
 
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
@@ -99,7 +114,7 @@ async def get_datasets_api():
 @app.get("/uri")
 async def uri_api():
     try:
-        return api.getURI()
+        return api.get_uri()
     except:
         return {}
 
@@ -145,6 +160,13 @@ async def commits_version_api(version=1,l=5, page=0):
 async def key_versions_api(key='',l=5, page=0):
     try:
         return api.key_versions(key, l, page)
+    except:
+        return {}
+
+@app.get("/label_versions")
+async def label_versions_api(key='',l=5, page=0):
+    try:
+        return api.label_versions(key, l, page)
     except:
         return {}
 
@@ -215,6 +237,20 @@ async def get_commit_meta_api(commit):
 async def pull_file_api(file, version='current'):
     try:
         return StreamingResponse(api.load_file_binary(file, version), media_type="image/png")
+    except:
+        return Response(content='')
+
+@app.get("/set_bounding_boxes")
+async def set_bounding_boxes_api():
+    try:
+        return {'success': api.set_bounding_boxes()} 
+    except:
+        return {'success': False}
+
+@app.get("/get_thumbnail")
+async def get_thumbnail_api(file):
+    try:
+        return StreamingResponse(api.load_thumbnail(file), media_type="image/png")
     except:
         return Response(content='')
 
@@ -311,7 +347,7 @@ async def get_labels_api(filename, version='current'):
 
 @app.post("/set_labels")
 async def set_labels_api(data: dict):
-    # try:
-    return api.set_labels(data)
-    # except:
-    #     return {}
+    try:
+        return api.set_labels(data)
+    except:
+        return {}
