@@ -40,6 +40,7 @@ class labelbox_schema(object):
 				dp['lm'] = current['lm'][idx]
 				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
+				dp['tags'] = []
 				dp['n_classes'] = len(dp['classes'])
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
@@ -58,31 +59,106 @@ class labelbox_schema(object):
 
 	def compute_meta_data(self):
 		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		
 		classes = []
 		resolutions = []
 		size = []
 		lm = []
+		tags = []
 
-		# for class distribution. Not used yet
-		n_class = []
+		n_class = {}
+		n_res = {}
+		n_lm = {}
+		n_size = {}
+		n_tags = {}
 
 		for val in schema:
 			if val != 'len':
 				for cl in schema[val]['classes']:
 					if not cl in classes:
 						classes.append(cl)
+						n_class[cl] = 1
+					else:
+						n_class[cl] += 1
+				
 				if not schema[val]['resolution'] in resolutions:
 					resolutions.append(schema[val]['resolution'])
+					n_res[schema[val]['resolution']] = 1
+				else:
+					n_res[schema[val]['resolution']] += 1
+				
 				if not schema[val]['lm'] in lm:
 					lm.append(schema[val]['lm'])
+					n_lm[schema[val]['lm']] = 1
+				else:
+					n_lm[schema[val]['lm']] += 1
+				
 				if not schema[val]['size'] in size:
 					size.append(schema[val]['size'])
-		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm}
+					n_size[schema[val]['size']] = 1
+				else:
+					n_size[schema[val]['size']] += 1
+
+				if 'tags' in schema[val].keys():
+					for tag in schema[val]['tags']:
+						if not tag in tags:
+							tags.append(tag)
+							n_tags[tag] = 1
+						else:
+							n_tags[tag] += 1
+
+		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags}
 
 		self.init.storage.addFileFromBinaryGlobal(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
 		self.init.storage.resetBuffer()
 
 		return True
+
+	def get_tags(self, key):
+		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+
+		print(schema)
+
+		for val in schema.keys():
+			if schema[val]['key'] == key:
+				if 'tags' in schema[val].keys():
+					return schema[val]['tags']
+
+		return []
+
+	def add_tag(self, key, tag):
+		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+
+		idx = 0
+		for val in schema.keys():
+			if schema[val]['key'] == key:
+				if 'tags' in schema[val].keys():
+					if not tag in val['tags']:
+						schema[val]['tags'].append(tag)
+				else:
+					schema[val]['tags'] = []
+					schema[val]['tags'].append(tag)
+
+		# stores schema file
+		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.resetBuffer()
+
+		return self.compute_meta_data()
+
+	def remove_tag(self, key, tag):
+		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+
+		for val in schema.keys():
+			if schema[str(val)]['key'] == key:
+				if 'tags' in schema[str(val)].keys():
+					if not tag in schema[str(val)]['tags']:
+						schema[str(val)]['tags'].pop(tag)
+
+		# stores schema file
+		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.resetBuffer()
+
+		return self.compute_meta_data()
 
 	def get_thumbnail(self, filename):
 		if self.bounding_box_thumbs:
@@ -171,6 +247,7 @@ class labelbox_schema(object):
 				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
 				dp['classes'] = [self.label_name(label[0]) for label in labels]
 				dp['labels'] = labels
+				dp['tags'] = []
 				dp['n_classes'] = len(dp['classes'])
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)
@@ -188,15 +265,29 @@ class labelbox_schema(object):
 				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
 				dp['classes'] = [self.label_name(label[0]) for label in labels]
 				dp['labels'] = labels
+				dp['tags'] = self.get_tags(key)
 				dp['n_classes'] = len(dp['classes'])
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)
 
-				schema[[k for k, v in schema.items() if v['key'] == key][0]] = dp
+				ref = 0
+
+				for k, v in schema.items():
+					if k != 'len':
+						if v['key'] == key:
+							ref = k
+
+				schema[ref] = dp
 
 		for key in removed:
 			if self.is_image(key):
-				ref = [k for k, v in schema.items() if v['key'] == key][0]
+				ref = 0
+
+				for k, v in schema.items():
+					if k != 'len':
+						if v['key'] == key:
+							ref = k
+							
 				del schema[ref]
 				for k in range(ref, idx):
 					schema[k] = schema[str(int(k) + 1)]

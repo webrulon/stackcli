@@ -45,6 +45,7 @@ except:
 async def init_web(data: dict):
     print(data)
     try:
+        assert(not '.stack' in data['uri'])
         api.init(data['uri'])
         api.connect_post_web(data['name'], data, data['schema'])
         api.set_schema()
@@ -56,6 +57,7 @@ async def init_web(data: dict):
 @app.post("/update_credentials")
 async def update_credentials(data: dict):
     try:
+        assert(not '.stack' in data['uri'])
         api.init(data['uri'])
         api.connect_post_web(data['name'], data, data['schema'])
         api.set_schema()
@@ -67,6 +69,7 @@ async def update_credentials(data: dict):
 @app.get("/connect/")
 async def connect(uri):
     try:
+        assert(not '.stack' in uri)
         api.init(uri)
         api.connect_post_api()
         api.set_schema()
@@ -92,10 +95,10 @@ async def directories():
 
 @app.post("/set_branch")
 async def set_branch_api(data: dict):
-    try: 
-        return {'success': api.branch(data['branch_name'], data['branch_type'])}
-    except:
-        return {'success': False}
+    # try: 
+    return {'success': api.branch(data['branch_name'], data['branch_type'])}
+    # except:
+    #     return {'success': False}
 
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
@@ -139,6 +142,21 @@ async def set_schema_api():
 @app.get('/reset_schema')
 async def reset_schema_api():
     api.reset_schema()
+    return {'success': True}
+
+@app.get('/add_tags')
+async def add_tags_api(filename, tag):
+    api.add_tags(filename, tag)
+    return {'success': True}
+
+@app.get('/remove_tags')
+async def remove_tags_api(filename, tag):
+    api.remove_tags(filename, tag)
+    return {'success': True}
+
+@app.get('/get_tags')
+async def get_tags_api(filename):
+    return {'success': api.get_tags(filename)}
 
 @app.post("/add_file/")
 async def add_file_api(file: UploadFile = File(description="A file read as UploadFile")):
@@ -158,17 +176,17 @@ async def commits_version_api(version=1,l=5, page=0):
 
 @app.get("/key_versions")
 async def key_versions_api(key='',l=5, page=0):
-    try:
-        return api.key_versions(key, l, page)
-    except:
-        return {}
+    # try:
+    return api.key_versions(key, l, page)
+    # except:
+    #     return {}
 
 @app.get("/label_versions")
 async def label_versions_api(key='',l=5, page=0):
-    try:
-        return api.label_versions(key, l, page)
-    except:
-        return {}
+    # try:
+    return api.label_versions(key, l, page)
+    # except:
+    #     return {}
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
@@ -322,12 +340,12 @@ async def get_csv_diff(key, v1='current', v2='current'):
 
 @app.get("/revert_key_version")
 async def revert_key_version_api(key, version=-1, label='raw'):
-    try:
-        api.revert_file(key, version)
-        api.commit('reverted file ' + key)
-        return {'sucess': True}
-    except:
-        return {'sucess': False}
+    # try:
+    api.revert_file(key, version)
+    api.commit('reverted file ' + key)
+    return {'sucess': True}
+    # except:
+    #     return {'sucess': False}
 
 @app.get("/revert")
 async def revert_api(version=0):
@@ -340,14 +358,14 @@ async def revert_api(version=0):
 
 @app.get("/get_labels")
 async def get_labels_api(filename, version='current'):
-    try:
-        return api.get_labels(filename, version)
-    except:
-        return {}
+    # try:
+    return api.get_labels(filename, version)
+    # except:
+    #     return {}
 
 @app.post("/set_labels")
 async def set_labels_api(data: dict):
-    try:
-        return api.set_labels(data)
-    except:
-        return {}
+    # try:
+    return api.set_labels(data)
+    # except:
+        # return {}

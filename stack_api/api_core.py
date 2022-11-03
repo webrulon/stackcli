@@ -245,11 +245,14 @@ class API(object):
                 else:
                     uri = ''
 
+                schme = self.config['schema']
+
                 if branch_name[-1] != '/':
                     branch_name += '/'
 
                 self.init(uri+branch_name)
-                self.reconnect_post_web(branch_name, self.config['schema'])
+
+                self.reconnect_post_web(branch_name, schme)
                 self.set_schema()
                 self.start_check()
                 self.commit('created branch ' + branch_name)
@@ -565,6 +568,22 @@ class API(object):
 
         return {'commits': response, 'len': len(key_hist)}
 
+    def get_tags(self, key):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            return self.schema_class.get_tags(key)
+        else:
+            return {}
+
+    def add_tag(self, key, tag):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.add_tag(key, tag)
+        return True
+
+    def remove_tag(self, key, tag):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.remove_tag(key, tag)
+        return True
+
     def label_versions(self, key, l = 5, page = 0):
         assert(int(l) > 0)
         assert(int(page) >= 0)
@@ -582,7 +601,7 @@ class API(object):
                 response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'label'
                 idx = idx+1
-        if self.config['schema'] == 'labelbox':
+        elif self.config['schema'] == 'labelbox':
             labels_key = self.schema_class.get_labels_filename()
             labels_hist = get_key_history(self.Initializer, labels_key)
             response = {}
