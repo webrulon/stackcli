@@ -42,6 +42,8 @@ def connect_cli(uri: str):
         if docker_ver():
             assert(False)
 
+        assert(not '.stack' in uri)
+
         if uri == '.':
             uri = str(os.path.abspath('.'))
         if uri[0:2] == '~/':

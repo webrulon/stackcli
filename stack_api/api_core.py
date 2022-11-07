@@ -26,6 +26,8 @@ class API(object):
         self.Initializer = None
         self.config = None
         self.schema_class = None
+        self.filtered = False
+        self.filters = {}
         if not Path(path_home+'/datasets.stack').exists():
             self.set_datasets({})
         if reset:
@@ -95,6 +97,7 @@ class API(object):
             
             # stores the config file
             self.config = config
+            self.filtered = False
             # creates dataset
             return True
         else:
@@ -135,7 +138,7 @@ class API(object):
         return datasets
 
     def get_labels(self, filename, version='current'):
-        print(version)
+        
         if(self.config['schema'] == 'yolo'):
             if version == 'current':
                 basename = os.path.splitext(os.path.basename(filename))[0]
@@ -160,7 +163,10 @@ class API(object):
                 labels[str(i)] = {}
                 j = 0
                 for x in line.split():
-                    labels[str(i)][str(j)] = float(x)
+                    try:
+                        labels[str(i)][str(j)] = float(x)
+                    except:
+                        labels[str(i)][str(j)] = 0
                     j += 1
                 i += 1
 
@@ -235,6 +241,8 @@ class API(object):
             self.schema_class.compute_meta_data()
 
     def branch(self, branch_name='new_branch123/', branch_type='copy'):
+        if branch_name[-1] != '/':
+            branch_name += '/'
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             trial = self.schema_class.branch(branch_name=branch_name,type_=branch_type)
             if trial:
@@ -259,6 +267,53 @@ class API(object):
                 return True
             else:
                 return False
+        else:
+            type_ = branch_type
+            dataset = self.Initializer.storage.dataset
+            if self.Initializer.storage.type == 'local':
+                branch_name = path_home + '/' + branch_name + '/'
+
+            status = self.status()
+            versions = []
+            if len(versions) == 0:
+                for f in status['keys']:
+                    versions.append('current')
+            idx = 0
+            if type_ == 'copy':
+                for f in status['keys']:
+                    if versions[idx] == 'current':
+                        self.Initializer.storage.copyFileGlobal(f,branch_name+f.replace(dataset,''))
+                    else:
+                        self.Initializer.storage.copyFileGlobal(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+                    idx += 1
+            else:
+                for f in self.status['keys']:
+                    if versions[idx] == 'current':
+                        self.Initializer.storage.removeFileGlobal(dataset+f)
+                    else:
+                        self.Initializer.storage.copyFileGlobal(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+                    idx += 1
+
+            if self.config['type'] == 's3':
+                uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+            elif self.config['type'] == 'gcs':
+                uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+            else:
+                uri = ''
+
+            schme = self.config['schema']
+
+            if branch_name[-1] != '/':
+                branch_name += '/'
+
+            self.init(uri+branch_name)
+
+            self.reconnect_post_web(branch_name, schme)
+            self.set_schema()
+            self.start_check()
+            self.commit('created branch ' + branch_name)
+
+            return True
 
     def schema_metadata(self):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
@@ -572,7 +627,7 @@ class API(object):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             return self.schema_class.get_tags(key)
         else:
-            return {}
+            return []
 
     def add_tag(self, key, tag):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
@@ -601,6 +656,7 @@ class API(object):
                 response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'label'
                 idx = idx+1
+
         elif self.config['schema'] == 'labelbox':
             labels_key = self.schema_class.get_labels_filename()
             labels_hist = get_key_history(self.Initializer, labels_key)
@@ -640,8 +696,26 @@ class API(object):
             else:
                 return self.schema_class.read_all_files()
         else:
-            metapath = self.Initializer.prefix_meta+'current.json'
-            return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+            if self.filtered:
+                metapath = self.Initializer.prefix_meta+'current.json'
+                schema = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+                status = {'keys': [], 'lm': []}
+
+                idx = 0
+                for key in schema['keys']:
+                    for f in self.filters:
+                        for filt in self.filters[f]:
+                            if filt == 'name':
+                                if self.filters[f]['name'] in key:
+                                    status['keys'].append(schema['keys'][idx])
+                                    status['lm'].append(schema['lm'][idx])
+
+                    idx += 1
+
+                return status
+            else:
+                metapath = self.Initializer.prefix_meta+'current.json'
+                return json.load(self.Initializer.storage.loadFileGlobal(metapath))
 
     def remove(self, key, subpath=''):
         if len(subpath)>1:
@@ -675,6 +749,9 @@ class API(object):
     def set_filters(self, filters):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.apply_filters(filters)
+        else:
+            self.filters = filters
+            self.filtered = True
         return True
 
     def remove_key_full(self, key, version):

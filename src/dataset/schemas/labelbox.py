@@ -117,13 +117,11 @@ class labelbox_schema(object):
 	def get_tags(self, key):
 		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
 
-		print(schema)
-
 		for val in schema.keys():
-			if schema[val]['key'] == key:
-				if 'tags' in schema[val].keys():
-					return schema[val]['tags']
-
+			if schema[val] is dict:
+				if schema[val]['key'] == key:
+					if 'tags' in schema[val].keys():
+						return schema[val]['tags']
 		return []
 
 	def add_tag(self, key, tag):
@@ -131,13 +129,14 @@ class labelbox_schema(object):
 
 		idx = 0
 		for val in schema.keys():
-			if schema[val]['key'] == key:
-				if 'tags' in schema[val].keys():
-					if not tag in val['tags']:
+			if schema[val] is dict:
+				if schema[val]['key'] == key:
+					if 'tags' in schema[val].keys():
+						if not tag in val['tags']:
+							schema[val]['tags'].append(tag)
+					else:
+						schema[val]['tags'] = []
 						schema[val]['tags'].append(tag)
-				else:
-					schema[val]['tags'] = []
-					schema[val]['tags'].append(tag)
 
 		# stores schema file
 		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
@@ -149,10 +148,11 @@ class labelbox_schema(object):
 		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
 
 		for val in schema.keys():
-			if schema[str(val)]['key'] == key:
-				if 'tags' in schema[str(val)].keys():
-					if not tag in schema[str(val)]['tags']:
-						schema[str(val)]['tags'].pop(tag)
+			if schema[val] is dict:
+				if schema[str(val)]['key'] == key:
+					if 'tags' in schema[str(val)].keys():
+						if not tag in schema[str(val)]['tags']:
+							schema[str(val)]['tags'].pop(tag)
 
 		# stores schema file
 		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))

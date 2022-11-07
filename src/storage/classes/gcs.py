@@ -23,7 +23,7 @@ class GCSBucket(object):
 
 	def connectBucket(self, verbose=False):
 		# creates a client 
-		key_path = path_home+'./gs/'+self.BUCKET_NAME+'/gs_key'
+		key_path = path_home+'/.gs/'+self.BUCKET_NAME+'/gs_key'
 		os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
 		try:		
 			self.client = storage.Client()
@@ -58,11 +58,22 @@ class GCSBucket(object):
 	def connect_bucket_api(self,binary):
 		# reads the gs_key
 		print('creating key file')
-		key_path = path_home+'./gs/'+self.BUCKET_NAME+'/gs_key'
+		key_path = path_home+'/.gs/'+self.BUCKET_NAME+'/gs_key'
+
+		if not os.path.isfile(key_path):
+			try:
+				os.mkdir(path_home+'/.gs/')
+			except:
+				pass
+			try: 
+				os.mkdir(path_home+'/.gs/'+self.BUCKET_NAME+'/')
+			except:
+				pass
+
 		binary_file = open(key_path, "wb")
 		binary_file.write(binary.read())
 		binary_file.close()
-
+		
 		# sets env variable for google cloud
 		print('exporting key')	
 		os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
@@ -82,8 +93,12 @@ class GCSBucket(object):
 				return True
 		return False
 
-	def reconnect_bucket_api(self,binary):
+	def reconnect_bucket_api(self):
 		try:
+			key_path = path_home+'/.gs/'+self.BUCKET_NAME+'/gs_key'	
+			os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
+
+			print('connecting to client')
 			self.client = storage.Client()
 		except:
 			return False

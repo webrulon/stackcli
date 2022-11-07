@@ -220,7 +220,7 @@ class yolo_schema(object):
 				dp['classes'] = [self.label_name(label[0]) for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
-				dp['tags'] = []
+				dp['tags'] = self.get_tags(key)
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)
 
@@ -258,13 +258,12 @@ class yolo_schema(object):
 	def get_tags(self, key):
 		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
 
-		print(schema)
-
 		for val in schema.keys():
-			if schema[val]['key'] == key:
-				if 'tags' in schema[val].keys():
-					return schema[val]['tags']
-
+			if type(schema[val]) is dict:
+				if key in schema[val]['key']:
+					if 'tags' in schema[val].keys():
+						print('getting it')
+						return schema[val]['tags']
 		return []
 
 	def add_tag(self, key, tag):
@@ -272,13 +271,14 @@ class yolo_schema(object):
 
 		idx = 0
 		for val in schema.keys():
-			if schema[val]['key'] == key:
-				if 'tags' in schema[val].keys():
-					if not tag in val['tags']:
+			if type(schema[val]) is dict:
+				if key == schema[val]['key']:
+					if 'tags' in schema[val].keys():
+						if not tag in schema[val]['tags']:
+							schema[val]['tags'].append(tag)
+					else:
+						schema[val]['tags'] = []
 						schema[val]['tags'].append(tag)
-				else:
-					schema[val]['tags'] = []
-					schema[val]['tags'].append(tag)
 
 		# stores schema file
 		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
@@ -290,10 +290,11 @@ class yolo_schema(object):
 		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
 
 		for val in schema.keys():
-			if schema[str(val)]['key'] == key:
-				if 'tags' in schema[str(val)].keys():
-					if not tag in schema[str(val)]['tags']:
-						schema[str(val)]['tags'].pop(tag)
+			if type(schema[val]) is dict:
+				if key in schema[val]['key']:
+					if 'tags' in schema[val].keys():
+						if tag in schema[val]['tags']:
+							schema[val]['tags'].remove(tag)
 
 		# stores schema file
 		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
