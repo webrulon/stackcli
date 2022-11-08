@@ -347,8 +347,6 @@ class yolo_schema(object):
 			path = self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
 			labels_str = self.init.storage.loadFileGlobal(path)
 
-		print(filename)
-
 		labels = {}
 		i = 0
 		for line in labels_str.readlines():
@@ -456,60 +454,119 @@ class yolo_schema(object):
 		self.status = status
 		return status
 
+	def get_metadata(self):
+		if self.filtered:
+			schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		
+			classes = []
+			resolutions = []
+			size = []
+			lm = []
+			tags = []
+
+			n_class = {}
+			n_res = {}
+			n_lm = {}
+			n_size = {}
+			n_tags = {}
+
+			for val in self.status['dp']:
+				for cl in schema[val]['classes']:
+					if not cl in classes:
+						classes.append(cl)
+						n_class[cl] = 1
+					else:
+						n_class[cl] += 1
+				
+				if not schema[val]['resolution'] in resolutions:
+					resolutions.append(schema[val]['resolution'])
+					n_res[schema[val]['resolution']] = 1
+				else:
+					n_res[schema[val]['resolution']] += 1
+				
+				if not schema[val]['lm'] in lm:
+					lm.append(schema[val]['lm'])
+					n_lm[schema[val]['lm']] = 1
+				else:
+					n_lm[schema[val]['lm']] += 1
+				
+				if not schema[val]['size'] in size:
+					size.append(schema[val]['size'])
+					n_size[schema[val]['size']] = 1
+				else:
+					n_size[schema[val]['size']] += 1
+
+				if 'tags' in schema[val].keys():
+					for tag in schema[val]['tags']:
+						if not tag in tags:
+							tags.append(tag)
+							n_tags[tag] = 1
+						else:
+							n_tags[tag] += 1
+
+			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags}
+		else:
+			return json.load(self.init.storage.loadFileGlobal(self.meta_path))
+
 	def apply_filters(self, filters={}):
 		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
-		status = {'keys': [], 'lm': []}
+		status = {'keys': [], 'lm': [], 'dp': []}
 
-		operation = filters['operation']
-
+		if len(filters) == 0:
+			self.filtered = False
+			return self.status
+	
 		for dp in schema:
+
 			if dp != 'len':
-				if operation == 'OR':
-					add = False
-					for f in filters:
-						for filt in filters[f]:
-							if filt == 'class':
-								if filters[f]['class'] in schema[dp]['classes']:
-									add = True
-							if filt == 'resolution':
-								if schema[dp]['resolution'] in filters[f]['resolution']:
-									add = True
-							if filt == 'name':
-								if add:
-									if filters[f]['name'] in schema[dp]['key']:
-										add = True
-									else:
-										add = False
-				if operation == 'AND':
-					add = False
-					sum_class = 0
-					sum_res = 0
-					for f in filters:
-						for filt in filters[f]:
-							if filt == 'class':
-								if filters[f]['class'] in schema[dp]['classes']:
-									add = True
-									sum_class = 1
-							if filt == 'resolution':
-								if schema[dp]['resolution'] in filters[f]['resolution']:
-									add = True
-									sum_res = 1
-							if filt == 'name':
-								if add:
-									if filters[f]['name'] in schema[dp]['key']:
-										add = True
-									else:
-										add = False
-										sum_res = 0
-										sum_class = 0
-						if sum_class + sum_res == 2:
-							add = True
-						else:
-							add = False
+				
+				add_class =  []
+				add_res =  []
+				add_name =  []
+				add_tag =  []
+
+				for f in filters:
+					for filt in filters[f]:
+						if filt == 'class':
+							if filters[f]['class'] in schema[dp]['classes']:
+								add_class.append(True)
+							else:
+								add_class.append(False)
+						if filt == 'resolution':
+							if filters[f]['resolution'] == schema[dp]['resolution']:
+								add_res.append(True)
+							else:
+								add_res.append(False)
+						if filt == 'name':
+							if filters[f]['name'] in schema[dp]['key']:
+								add_name.append(True)
+							else:
+								add_name.append(False)
+						if filt == 'tag':
+							if 'tags' in schema[dp]:
+								if filters[f]['tag'] in schema[dp]['tags']:
+									add_tag.append(True)
+								else:
+									add_tag.append(False)
+							else:
+								add_tag.append(False)
+				
+				if len(add_class) == 0:
+					add_class = [True]
+				if len(add_res) == 0:
+					add_res = [True]
+				if len(add_name) == 0:
+					add_name = [True]
+				if len(add_tag) == 0:
+					add_tag = [True]
+					
+				add = all([any(add_class),any(add_res),any(add_name),any(add_tag)])
+				
 				if add:
 					status['keys'].append(schema[dp]['key'])
 					status['lm'].append(schema[dp]['lm'])
-		
+					status['dp'].append(dp)
+
 		self.filtered = True
 		self.status = status
 		return status

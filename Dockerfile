@@ -1,6 +1,9 @@
 FROM python:3.9
 WORKDIR /code
 
+
+ENV AM_I_IN_A_DOCKER_CONTAINER Yes
+
 COPY ./requirements.txt /code/requirements.txt
 RUN python -m pip install --no-cache-dir --upgrade -r /code/requirements.txt
 

@@ -317,8 +317,7 @@ class API(object):
 
     def schema_metadata(self):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
-            metapath = self.schema_class.meta_path
-            return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+            return self.schema_class.get_metadata()
         else:
             return {}
 

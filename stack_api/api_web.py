@@ -210,10 +210,10 @@ async def status_api():
 
 @app.get("/schema_metadata")
 async def schema_metadata_api():
-    try:
-        return api.schema_metadata()
-    except:
-        return {}
+    # try:
+    return api.schema_metadata()
+    # except:
+    #     return {}
 
 @app.get("/current")
 async def current_api(page=0,max_pp=12):
