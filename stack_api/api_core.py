@@ -20,7 +20,7 @@ import pandas as pd
 
 class API(object):
     """docstring for CLI"""
-    def __init__(self, reset=False):
+    def __init__(self, reset=False, cli=False):
         super(API, self).__init__()
         self.key_bin = None
         self.Initializer = None
@@ -47,27 +47,35 @@ class API(object):
                 self.config = {'storage': '', 'schema': 'files'}
                 self.set_config()
                 ctype = ''
-
-            if ctype == 'local':
-                cloud = Local()
-                cloud.createDataset(self.config['dataset'])
-                self.Initializer = Initializer(cloud)
-                self.dataset_name = self.config['storage']
-                self.storage_name = self.config['dataset']
-                self.Initializer.schema = schema
-            elif ctype == 's3':
-                cloud = S3Bucket(self.config['bucket'])
-                cloud.connectBucket()
-                cloud.createDataset(self.config['dataset'])
-                self.Initializer = Initializer(cloud)
-                self.Initializer.schema = schema
-            elif ctype == 'gcs':
-                cloud = GCSBucket(self.config['bucket'])
-                cloud.connectBucket()
-                cloud.createDataset(self.config['dataset'])
-                self.Initializer = Initializer(cloud)
-                self.Initializer.schema = schema
-            else:
+            try:
+                if ctype == 'local':
+                    cloud = Local()
+                    cloud.createDataset(self.config['dataset'])
+                    self.Initializer = Initializer(cloud)
+                    self.dataset_name = self.config['storage']
+                    self.storage_name = self.config['dataset']
+                    self.Initializer.schema = schema
+                elif ctype == 's3':
+                    cloud = S3Bucket(self.config['bucket'])
+                    if cli:
+                        cloud.connectBucket()
+                    else:
+                        cloud.reconnect_bucket_api()
+                    cloud.createDataset(self.config['dataset'])
+                    self.Initializer = Initializer(cloud)
+                    self.Initializer.schema = schema
+                elif ctype == 'gcs':
+                    cloud = GCSBucket(self.config['bucket'])
+                    if cli:
+                        cloud.connectBucket()
+                    else:
+                        cloud.reconnect_bucket_api()
+                    cloud.createDataset(self.config['dataset'])
+                    self.Initializer = Initializer(cloud)
+                    self.Initializer.schema = schema
+                else:
+                    self.Initializer = None
+            except:
                 self.Initializer = None
         
     def init(self, storage = None):
@@ -87,6 +95,8 @@ class API(object):
                 config['dataset'] = ''.join(bucket_data[2:])+'/'
                 config['type'] = 'gcs'
             else:
+                if path_home in storage:
+                    storage.replace(path_home,'')
                 if storage[0] == '/':
                     storage = storage[1:]
                 if storage[-1] == '/':
@@ -446,7 +456,7 @@ class API(object):
         self.set_config()
         return True
 
-    def connect_post_api(self):
+    def connect_post_api(self, cli=False):
         config = self.config
 
         self.storage_name = config['storage']
@@ -463,12 +473,18 @@ class API(object):
             self.storage_name = config['storage']
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
-            cloud.connectBucket()
+            if cli:
+                cloud.connectBucket()
+            else:
+                cloud.reconnect_bucket_api()
             cloud.createDataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
-            cloud.connectBucket()
+            if cli:
+                cloud.connectBucket()
+            else:
+                cloud.reconnect_bucket_api()
             cloud.createDataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         else:

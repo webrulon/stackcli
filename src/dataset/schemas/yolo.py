@@ -211,7 +211,9 @@ class yolo_schema(object):
 				idx += 1
 
 		for key in modified:
-			if self.is_image(key):
+			if self.is_image(key) or self.has_image(key):
+				if self.has_image(key):
+					key = self.has_image(key, path=True)
 				dp = {}
 				labels = self.get_labels(key)
 				
@@ -308,6 +310,19 @@ class yolo_schema(object):
 		if extension in ['.jpg','.jpeg','.png','.bmp','.gif','.tiff','.svg']:
 			return True
 		return False
+
+	def has_image(self, key, path = False):
+		basename = os.path.splitext(os.path.basename(key))[0]
+		ls, _ = self.init.storage.loadDatasetList()
+		matches = [match for match in ls if basename in match]
+
+		for m in matches:
+			if self.is_image(m):
+				if path:
+					return m
+				else:
+					return True
+		return False		
 
 	def get_resolution(self, key):
 		# reads image
@@ -515,7 +530,7 @@ class yolo_schema(object):
 		if len(filters) == 0:
 			self.filtered = False
 			return self.status
-	
+			
 		for dp in schema:
 
 			if dp != 'len':
@@ -524,6 +539,7 @@ class yolo_schema(object):
 				add_res =  []
 				add_name =  []
 				add_tag =  []
+				add_box =  []
 
 				for f in filters:
 					for filt in filters[f]:
@@ -532,16 +548,21 @@ class yolo_schema(object):
 								add_class.append(True)
 							else:
 								add_class.append(False)
+								
 						if filt == 'resolution':
 							if filters[f]['resolution'] == schema[dp]['resolution']:
 								add_res.append(True)
 							else:
 								add_res.append(False)
+
 						if filt == 'name':
 							if filters[f]['name'] in schema[dp]['key']:
+								print(f'yes')
 								add_name.append(True)
 							else:
+								print(f'no')
 								add_name.append(False)
+
 						if filt == 'tag':
 							if 'tags' in schema[dp]:
 								if filters[f]['tag'] in schema[dp]['tags']:
@@ -550,6 +571,24 @@ class yolo_schema(object):
 									add_tag.append(False)
 							else:
 								add_tag.append(False)
+
+						if filt == 'box_area':
+
+							a_min = min(float(filters[f]['box_area'][0])/100, float(filters[f]['box_area'][1])/100)
+							a_max = max(float(filters[f]['box_area'][0])/100, float(filters[f]['box_area'][1])/100)
+
+							if 'labels' in schema[dp]:
+								if len(schema[dp]['labels']) == 0:
+									add_box.append(False)
+
+								for i in range(len(schema[dp]['labels'])):
+									area = float(schema[dp]['labels'][str(i)]['3']) * float(schema[dp]['labels'][str(i)]['4'])
+									if (area >= a_min) and (area <= a_max):
+										add_box.append(True)
+									else:
+										add_box.append(False)
+							else:
+								add_box.append(False)
 				
 				if len(add_class) == 0:
 					add_class = [True]
@@ -559,8 +598,10 @@ class yolo_schema(object):
 					add_name = [True]
 				if len(add_tag) == 0:
 					add_tag = [True]
+				if len(add_box) == 0:
+					add_box = [True]
 					
-				add = all([any(add_class),any(add_res),any(add_name),any(add_tag)])
+				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box)])
 				
 				if add:
 					status['keys'].append(schema[dp]['key'])

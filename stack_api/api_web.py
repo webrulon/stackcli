@@ -67,14 +67,14 @@ async def update_credentials(data: dict):
 
 @app.get("/connect/")
 async def connect(uri):
-    try:
-        assert(not '.stack' in uri)
-        api.init(uri)
-        api.connect_post_api()
-        api.set_schema()
-        return {'success': True}
-    except:
-        return {'success': False}
+    # try:
+    assert(not '.stack' in uri)
+    api.init(uri)
+    api.connect_post_api()
+    api.set_schema()
+    return {'success': True}
+    # except:
+    #     return {'success': False}
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
