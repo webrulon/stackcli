@@ -37,7 +37,7 @@ class yolo_schema(object):
 				
 				dp['key'] = key
 				dp['lm'] = current['lm'][idx]
-				dp['classes'] = [self.label_name(labels[label]['0']) for label in labels]
+				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
 				dp['tags'] = []
@@ -199,7 +199,7 @@ class yolo_schema(object):
 				
 				dp['key'] = key
 				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
-				dp['classes'] = [self.label_name(label[0]) for label in labels]
+				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
 				dp['resolution'] = self.get_resolution(key)
@@ -207,6 +207,7 @@ class yolo_schema(object):
 				dp['size'] = self.init.storage.get_size_of_file_global(key)
 
 				schema[str(idx)] = dp
+				print(dp)
 
 				idx += 1
 
@@ -219,12 +220,14 @@ class yolo_schema(object):
 				
 				dp['key'] = key
 				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
-				dp['classes'] = [self.label_name(label[0]) for label in labels]
+				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
 				dp['tags'] = self.get_tags(key)
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)
+
+				print(dp)
 
 				ref = 0
 
@@ -288,6 +291,27 @@ class yolo_schema(object):
 
 		return self.compute_meta_data()
 
+	def add_many_tag(self, keys, tag):
+		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+
+		idx = 0
+		for val in schema.keys():
+			if type(schema[val]) is dict:
+				if schema[val]['key'] in keys:
+					if 'tags' in schema[val].keys():
+						if not tag in schema[val]['tags']:
+							schema[val]['tags'].append(tag)
+					else:
+						schema[val]['tags'] = []
+						schema[val]['tags'].append(tag)
+					keys.remove(schema[val]['key'])
+
+		# stores schema file
+		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.resetBuffer()
+
+		return self.compute_meta_data()
+
 	def remove_tag(self, key, tag):
 		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
 
@@ -297,6 +321,37 @@ class yolo_schema(object):
 					if 'tags' in schema[val].keys():
 						if tag in schema[val]['tags']:
 							schema[val]['tags'].remove(tag)
+
+		# stores schema file
+		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.resetBuffer()
+
+		return self.compute_meta_data()
+
+	def remove_all_tags(self, key):
+		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+
+		for val in schema.keys():
+			if type(schema[val]) is dict:
+				if key in schema[val]['key']:
+					if 'tags' in schema[val].keys():
+						schema[val]['tags'] = []
+
+		# stores schema file
+		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.resetBuffer()
+
+		return self.compute_meta_data()
+
+	def many_remove_all_tags(self, keys):
+		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+
+		for val in schema.keys():
+			if type(schema[val]) is dict:
+				if schema[val]['key'] in keys:
+					if 'tags' in schema[val].keys():
+						schema[val]['tags'] = []
+					keys.remove(schema[val]['key'])
 
 		# stores schema file
 		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
@@ -369,7 +424,10 @@ class yolo_schema(object):
 			j = 0
 			for x in line.split():
 				try: 
-					labels[str(i)][str(j)] = float(x)
+					if j == 0:
+						labels[str(i)][str(j)] = x.decode("utf-8")
+					else:
+						labels[str(i)][str(j)] = float(x)
 				except:
 					labels[str(i)][str(j)] = 0
 				j += 1
@@ -530,7 +588,7 @@ class yolo_schema(object):
 		if len(filters) == 0:
 			self.filtered = False
 			return self.status
-			
+
 		for dp in schema:
 
 			if dp != 'len':
@@ -613,4 +671,4 @@ class yolo_schema(object):
 		return status
 
 	def get_status(self):
-		return status
+		return self.status

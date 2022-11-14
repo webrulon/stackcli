@@ -150,45 +150,15 @@ class API(object):
     def get_labels(self, filename, version='current'):
         
         if(self.config['schema'] == 'yolo'):
-            if version == 'current':
-                basename = os.path.splitext(os.path.basename(filename))[0]
-                ls, _ = self.Initializer.storage.loadDatasetList()
-
-                matches = [match for match in ls if basename+'.txt' in match]
-                labels_str = self.Initializer.storage.loadFileGlobal(matches[0])
-            else:
-                assert(int(version) > 0)            
-
-                basename = os.path.splitext(os.path.basename(filename))[0]
-                ls, _ = self.Initializer.storage.loadDatasetList()
-
-                matches = [match for match in ls if basename+'.txt' in match]
-                
-                path = self.Initializer.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)            
-                labels_str = self.Initializer.storage.loadFileGlobal(path)
-
-            labels = {}
-            i = 0
-            for line in labels_str.readlines():
-                labels[str(i)] = {}
-                j = 0
-                for x in line.split():
-                    try:
-                        labels[str(i)][str(j)] = float(x)
-                    except:
-                        labels[str(i)][str(j)] = 0
-                    j += 1
-                i += 1
-
-            return labels
+            return self.schema_class.get_labels(filename, version)
         elif (self.config['schema'] == 'labelbox'):
             return self.schema_class.get_labels(filename, version)
 
         return []
 
-    def set_bounding_boxes(self):
+    def set_bounding_boxes(self, val = 'false'):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
-            if self.schema_class.bounding_box_thumbs:
+            if val == 'true':
                 self.schema_class.bounding_box_thumbs = False
             else:
                 self.schema_class.bounding_box_thumbs = True
@@ -649,9 +619,24 @@ class API(object):
             self.schema_class.add_tag(key, tag)
         return True
 
+    def selection_add_tag(self, keys, tag):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.add_many_tag(keys, tag)
+        return True
+
+    def selection_remove_all_tags(self, keys):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.many_remove_all_tags(keys)
+        return True
+
     def remove_tag(self, key, tag):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.remove_tag(key, tag)
+        return True
+
+    def remove_all_tags(self, key):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.remove_all_tags(key)
         return True
 
     def label_versions(self, key, l = 5, page = 0):

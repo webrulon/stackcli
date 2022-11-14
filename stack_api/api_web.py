@@ -1,10 +1,8 @@
 import sys
 sys.path.append( '..' )
 import stack_api.api_core as api_core
-from fastapi import FastAPI, File, UploadFile, Response, Form
+from fastapi import FastAPI, File, UploadFile, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 from starlette.responses import StreamingResponse
 from pathlib import Path
 
@@ -67,14 +65,14 @@ async def update_credentials(data: dict):
 
 @app.get("/connect/")
 async def connect(uri):
-    # try:
-    assert(not '.stack' in uri)
-    api.init(uri)
-    api.connect_post_api()
-    api.set_schema()
-    return {'success': True}
-    # except:
-    #     return {'success': False}
+    try:
+        assert(not '.stack' in uri)
+        api.init(uri)
+        api.connect_post_api()
+        api.set_schema()
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
@@ -83,6 +81,10 @@ async def init_gskey(file: UploadFile = File(description="A file read as UploadF
         return {'success': True}
     except:
         return {'success': False}
+
+@app.get("/get_training_log")
+async def get_training_log(data: dict):
+    return {'success': True}
 
 @app.get("/directories")
 async def directories():
@@ -151,6 +153,21 @@ async def add_tag_api(file, tag):
 @app.get('/remove_tag')
 async def remove_tag_api(file, tag):
     api.remove_tag(file, tag)
+    return {'success': True}
+
+@app.get('/remove_all_tags')
+async def remove_all_tags_api(file):
+    api.remove_all_tags(file)
+    return {'success': True}
+
+@app.post('/selection_add_tag')
+async def selection_add_tag_api(data: list):
+    api.selection_add_tag(data[:-1], data[-1])
+    return {'success': True}
+
+@app.post('/selection_remove_all_tags')
+async def selection_remove_all_tags_api(data: list):
+    api.selection_remove_all_tags(data)
     return {'success': True}
 
 @app.get('/get_tags')
@@ -258,9 +275,9 @@ async def pull_file_api(file, version='current'):
         return Response(content='')
 
 @app.get("/set_bounding_boxes")
-async def set_bounding_boxes_api():
+async def set_bounding_boxes_api(val):
     try:
-        return {'success': api.set_bounding_boxes()} 
+        return {'success': api.set_bounding_boxes(val)} 
     except:
         return {'success': False}
 
