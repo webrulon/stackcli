@@ -50,7 +50,7 @@ class API(object):
             try:
                 if ctype == 'local':
                     cloud = Local()
-                    cloud.createDataset(self.config['dataset'])
+                    cloud.create_dataset(self.config['dataset'])
                     self.Initializer = Initializer(cloud)
                     self.dataset_name = self.config['storage']
                     self.storage_name = self.config['dataset']
@@ -58,19 +58,19 @@ class API(object):
                 elif ctype == 's3':
                     cloud = S3Bucket(self.config['bucket'])
                     if cli:
-                        cloud.connectBucket()
+                        cloud.connect_bucket()
                     else:
                         cloud.reconnect_bucket_api()
-                    cloud.createDataset(self.config['dataset'])
+                    cloud.create_dataset(self.config['dataset'])
                     self.Initializer = Initializer(cloud)
                     self.Initializer.schema = schema
                 elif ctype == 'gcs':
                     cloud = GCSBucket(self.config['bucket'])
                     if cli:
-                        cloud.connectBucket()
+                        cloud.connect_bucket()
                     else:
                         cloud.reconnect_bucket_api()
-                    cloud.createDataset(self.config['dataset'])
+                    cloud.create_dataset(self.config['dataset'])
                     self.Initializer = Initializer(cloud)
                     self.Initializer.schema = schema
                 else:
@@ -202,15 +202,17 @@ class API(object):
             self.schema_class = yolo_schema(self.Initializer)
             try:
                 metapath = self.schema_class.meta_path
-                json.load(self.Initializer.storage.loadFileGlobal(metapath))
+                json.load(self.Initializer.storage.load_file_global(metapath))
             except:
+                print('creating schema file')
                 self.schema_class.create_schema_file()
+                print('computing metadata')
                 self.schema_class.compute_meta_data()
         elif self.config['schema'] == 'labelbox':
             self.schema_class = labelbox_schema(self.Initializer)
             try:
                 metapath = self.schema_class.meta_path
-                json.load(self.Initializer.storage.loadFileGlobal(metapath))
+                json.load(self.Initializer.storage.load_file_global(metapath))
             except:
                 self.schema_class.create_schema_file()
                 self.schema_class.compute_meta_data()
@@ -262,16 +264,16 @@ class API(object):
             if type_ == 'copy':
                 for f in status['keys']:
                     if versions[idx] == 'current':
-                        self.Initializer.storage.copyFileGlobal(f,branch_name+f.replace(dataset,''))
+                        self.Initializer.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
                     else:
-                        self.Initializer.storage.copyFileGlobal(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+                        self.Initializer.storage.copy_file_global(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
                     idx += 1
             else:
                 for f in self.status['keys']:
                     if versions[idx] == 'current':
-                        self.Initializer.storage.removeFileGlobal(dataset+f)
+                        self.Initializer.storage.remove_file_global(dataset+f)
                     else:
-                        self.Initializer.storage.copyFileGlobal(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+                        self.Initializer.storage.copy_file_global(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
                     idx += 1
 
             if self.config['type'] == 's3':
@@ -304,7 +306,7 @@ class API(object):
     def apply_filter(self):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             metapath = self.schema_class.meta_path
-            return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+            return json.load(self.Initializer.storage.load_file_global(metapath))
         else:
             return {}
 
@@ -324,17 +326,17 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
-            cloud.createDataset(config['dataset'],verbose=True)
+            cloud.create_dataset(config['dataset'],verbose=True)
             self.Initializer = Initializer(cloud)
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.connect_bucket_api(keys)
-            cloud.createDataset(config['dataset'])
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
             cloud.connect_bucket_api(self.key_bin)
-            cloud.createDataset(config['dataset'])
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
@@ -361,17 +363,17 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
-            cloud.createDataset(config['dataset'],verbose=True)
+            cloud.create_dataset(config['dataset'],verbose=True)
             self.Initializer = Initializer(cloud)
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.reconnect_bucket_api()
-            cloud.createDataset(config['dataset'])
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
             cloud.reconnect_bucket_api()
-            cloud.createDataset(config['dataset'])
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
@@ -394,17 +396,17 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
-            cloud.createDataset(config['dataset'], verbose=True)
+            cloud.create_dataset(config['dataset'], verbose=True)
             self.Initializer = Initializer(cloud)
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
-            cloud.connectBucket(verbose=True)
-            cloud.createDataset(config['dataset'])
+            cloud.connect_bucket(verbose=True)
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
-            cloud.connectBucket(verbose=True)
-            cloud.createDataset(config['dataset'])
+            cloud.connect_bucket(verbose=True)
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
@@ -437,25 +439,25 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
-            cloud.createDataset(config['dataset'], verbose=True)
+            cloud.create_dataset(config['dataset'], verbose=True)
             self.Initializer = Initializer(cloud)
             self.dataset_name = config['dataset']
             self.storage_name = config['storage']
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             if cli:
-                cloud.connectBucket()
+                cloud.connect_bucket()
             else:
                 cloud.reconnect_bucket_api()
-            cloud.createDataset(config['dataset'])
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
             if cli:
-                cloud.connectBucket()
+                cloud.connect_bucket(verbose=True)
             else:
                 cloud.reconnect_bucket_api()
-            cloud.createDataset(config['dataset'])
+            cloud.create_dataset(config['dataset'])
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
@@ -502,7 +504,7 @@ class API(object):
     def pull_all(self,version = 'current'):
         print('downloading files from last commit')
         metapath = self.Initializer.prefix_meta + 'current.json'
-        current = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        current = json.load(self.Initializer.storage.load_file_global(metapath))
         pull(self.Initializer, current['keys'], version)
         return True
 
@@ -525,12 +527,12 @@ class API(object):
         if version == 'current':
             # saves each file
             for key in files:
-                binary = self.Initializer.storage.loadFileGlobal(key)
+                binary = self.Initializer.storage.load_file_global(key)
         else:
             gtfo = False
             # finds the commit of interest
             metapath = self.Initializer.prefix_meta+'history.json'
-            history = self.Initializer.load(self.Initializer.storage.loadFileGlobal(metapath))
+            history = self.Initializer.load(self.Initializer.storage.load_file_global(metapath))
             for key in files:
                 if key[-1] == '/':
                     print('Do not pull directories')
@@ -539,14 +541,14 @@ class API(object):
                     for commit in history[str(i)]['commits']:
                         # reads each file version
                         if self.Initializer.storage.type == 'local':
-                            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                            cmit = json.load(self.Initializer.storage.load_file_global(commit))
                         else:
-                            cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                            cmit = json.load(self.Initializer.storage.load_file_global(commit))
                         if str(cmit['version']) == version and cmit['key'] == key:
                             if cmit['type'] != 'remove':
                                 key = self.Initializer.prefix_diffs + key + '/' + str(cmit['version']).zfill(10)
-                                binary = self.Initializer.storage.loadFileGlobal(key).read()
-                                self.Initializer.storage.resetBuffer()
+                                binary = self.Initializer.storage.load_file_global(key).read()
+                                self.Initializer.storage.reset_buffer()
                             gtfo = True
                         if gtfo:
                             break
@@ -554,7 +556,7 @@ class API(object):
                     gtfo = Falsfe
                     break
 
-        self.Initializer.storage.resetBuffer()
+        self.Initializer.storage.reset_buffer()
         file_array = {binary: binary, key: file}
 
         return file_array
@@ -565,8 +567,8 @@ class API(object):
         assert(int(page) >= 0)
 
         metapath = self.Initializer.prefix_meta+'history.json'
-        history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
-        self.Initializer.storage.resetBuffer()
+        history = json.load(self.Initializer.storage.load_file_global(metapath))
+        self.Initializer.storage.reset_buffer()
 
         response = {}
         idx = 0
@@ -579,10 +581,10 @@ class API(object):
             # reads each file version
             commit = history[str(int(version))]['commits'][i]
             if self.Initializer.storage.type == 'local':
-                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                cmit = json.load(self.Initializer.storage.load_file_global(commit))
             else:
-                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
-            self.Initializer.storage.resetBuffer()
+                cmit = json.load(self.Initializer.storage.load_file_global(commit))
+            self.Initializer.storage.reset_buffer()
             response[idx] = {'key': cmit['key'], 'source': cmit['source'], 'date': history[str(int(version))]['date'], 'comment': cmit['comment']}
             idx = idx + 1
 
@@ -698,7 +700,7 @@ class API(object):
         else:
             if self.filtered:
                 metapath = self.Initializer.prefix_meta+'current.json'
-                schema = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+                schema = json.load(self.Initializer.storage.load_file_global(metapath))
                 status = {'keys': [], 'lm': []}
 
                 idx = 0
@@ -715,7 +717,7 @@ class API(object):
                 return status
             else:
                 metapath = self.Initializer.prefix_meta+'current.json'
-                return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+                return json.load(self.Initializer.storage.load_file_global(metapath))
 
     def remove(self, key, subpath=''):
         if len(subpath)>1:
@@ -728,16 +730,16 @@ class API(object):
         assert(int(version) >= 0)
         
         metapath = self.Initializer.prefix_meta+'history.json'
-        history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
-        self.Initializer.storage.resetBuffer()
+        history = json.load(self.Initializer.storage.load_file_global(metapath))
+        self.Initializer.storage.reset_buffer()
 
         for i in range(len(history[str(int(version))]['commits'])):
             commit = history[str(int(version))]['commits'][i]
             if self.Initializer.storage.type == 'local':
-                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                cmit = json.load(self.Initializer.storage.load_file_global(commit))
             else:
-                cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
-            self.Initializer.storage.resetBuffer()
+                cmit = json.load(self.Initializer.storage.load_file_global(commit))
+            self.Initializer.storage.reset_buffer()
             removeGlobal(self.Initializer, [cmit['diff']])
 
         return True
@@ -772,23 +774,23 @@ class API(object):
 
     def loadCommitMetadata(self, commit_file):
         try:
-            return json.load(self.Initializer.storage.loadFileGlobal(commit_file))
+            return json.load(self.Initializer.storage.load_file_global(commit_file))
         except:
             return {}
 
     def check_if_setup(self):
-        self.Initializer.setupDataset()
+        self.Initializer.setup_dataset()
         print('setup complete!')
         return True
 
     def load_file_binary(self, file, version='current'):
         if version=='current':
             print('loading ' + file + '...')
-            return self.Initializer.storage.loadFile(file)
+            return self.Initializer.storage.load_file(file)
         elif int(version) >= 1:
             print('loading ' + file + ' version '+ version +'...')
             path = self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10)
-            return self.Initializer.storage.loadFileGlobal(path)
+            return self.Initializer.storage.load_file_global(path)
         else:
             assert(False)
 
@@ -801,10 +803,10 @@ class API(object):
 
         if version=='current':
             print('loading ' + file + '...')
-            data  = self.Initializer.storage.loadFile(file)
+            data  = self.Initializer.storage.load_file(file)
         elif int(version) >= 1:
             print('loading ' + file + ' version '+ version +'...')
-            data  =  self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10))
+            data  =  self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10))
         else:
             assert(False)
 
@@ -823,14 +825,14 @@ class API(object):
 
     def load_csv_diff_metadata(self, file, v1, v2):
         if v1 == 'current':
-            d1 = self.Initializer.storage.loadFile(file)
+            d1 = self.Initializer.storage.load_file(file)
         else:
-            d1 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
+            d1 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
 
         if v2 == 'current':
-            d2 = self.Initializer.storage.loadFile(file)
+            d2 = self.Initializer.storage.load_file(file)
         else:
-            d2 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
+            d2 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
 
         from csv_diff import load_csv, compare
         import codecs
@@ -850,14 +852,14 @@ class API(object):
 
     def load_csv_diff(self, file, v1, v2):
         if v1 == 'current':
-            d1 = self.Initializer.storage.loadFile(file)
+            d1 = self.Initializer.storage.load_file(file)
         else:
-            d1 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
+            d1 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
 
         if v2 == 'current':
-            d2 = self.Initializer.storage.loadFile(file)
+            d2 = self.Initializer.storage.load_file(file)
         else:
-            d2 = self.Initializer.storage.loadFileGlobal(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
+            d2 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
 
         from csv_diff import load_csv, compare
         import codecs
@@ -870,26 +872,26 @@ class API(object):
 
     def load_file_binary_bytes(self, file, bi, bf):
         print('loading '+file+'...')
-        return self.Initializer.storage.loadFileBytes(file,bi,bf)
+        return self.Initializer.storage.load_file_bytes(file,bi,bf)
 
     def reset(self):
-        self.Initializer.removeSetup()
-        self.Initializer.setupDataset()
+        self.Initializer.remove_setup()
+        self.Initializer.setup_dataset()
         print('setup complete!')
         return True
 
     def revert(self, version=0):
         assert(version != '')
-        revertCommit(self.Initializer, int(version))
+        revert_commit(self.Initializer, int(version))
         commit(self.Initializer, 'reverted to version ' + str(version))
 
     def revert_file(self, key, version):
         try: 
             if self.Initializer.storage.dataset in key:
-                revertFile(self.Initializer, key, int(version))
+                revert_file(self.Initializer, key, int(version))
             else:
-                revertFile(self.Initializer, self.Initializer.storage.dataset+key, int(version))
-            self.Initializer.storage.resetBuffer()
+                revert_file(self.Initializer, self.Initializer.storage.dataset+key, int(version))
+            self.Initializer.storage.reset_buffer()
 
             return True
         except:
@@ -897,12 +899,12 @@ class API(object):
 
     def history(self):
         metapath = self.Initializer.prefix_meta+'history.json'
-        return json.load(self.Initializer.storage.loadFileGlobal(metapath))
+        return json.load(self.Initializer.storage.load_file_global(metapath))
 
     def lastNcommits(self, n = 0):
         metapath = self.Initializer.prefix_meta+'history.json'
-        history = json.load(self.Initializer.storage.loadFileGlobal(metapath))
-        self.Initializer.storage.resetBuffer()
+        history = json.load(self.Initializer.storage.load_file_global(metapath))
+        self.Initializer.storage.reset_buffer()
 
         response = {}
         idx = 0
@@ -912,9 +914,9 @@ class API(object):
             for commit in history[str(i)]['commits']:
                 # reads each file version
                 if self.Initializer.storage.type == 'local':
-                    cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                    cmit = json.load(self.Initializer.storage.load_file_global(commit))
                 else:
-                    cmit = json.load(self.Initializer.storage.loadFileGlobal(commit))
+                    cmit = json.load(self.Initializer.storage.load_file_global(commit))
 
                 response[idx] = {'source': cmit['source'], 'date': history[str(i)]['date'], 'comment': cmit['comment']}
 
@@ -927,5 +929,5 @@ class API(object):
         return response
 
     def diff(self, v1, v0, file=''):
-        printDiff(self.Initializer, v1, v0, file)
+        print_diff(self.Initializer, v1, v0, file)
         return True

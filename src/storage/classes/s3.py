@@ -22,13 +22,14 @@ class S3Bucket(object):
 		self.credentials = {
 			"aws_access_key_id": "",
 			"aws_secret_access_key": "",
-			"region": "us-east-2",
+			"region": "us-east-1",
 		}
 		self.resource = None
 		self.s3t = None
 		self.bucket = None
 
-	def connectBucket(self, verbose=False):
+	def connect_bucket(self, verbose=False):
+		print('connecting to bucket')
 		# checks if the credentials are in the computer
 		if not os.path.isfile(path_home+'/.aws/'+self.BUCKET_NAME+'/credentials'):
 			print("AWS is not setup in this machine. Please follow the following setups:")
@@ -85,7 +86,7 @@ class S3Bucket(object):
 		if verbose:
 			print('Connecting to your bucket...')
 		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])
-		self.resetBuffer()
+		self.reset_buffer()
 
 		# checks if the target bucket exist
 		found = False
@@ -105,7 +106,7 @@ class S3Bucket(object):
 
 			print('try again...')
 
-			return self.connectBucket()
+			return self.connect_bucket()
 
 		# creates a new bucket or picks another bucket
 
@@ -167,7 +168,7 @@ class S3Bucket(object):
 
 		print('Connecting to your bucket...')
 		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])
-		self.resetBuffer()
+		self.reset_buffer()
 
 		# checks if the target bucket exist
 		buckets = self.resource.buckets.all()
@@ -188,8 +189,8 @@ class S3Bucket(object):
 		self.credentials['aws_access_key_id'] = config['default']['aws_access_key_id']
 		self.credentials['aws_secret_access_key'] = config['default']['aws_secret_access_key']
 		self.resource = boto3.resource('s3',aws_access_key_id=self.credentials['aws_access_key_id'],aws_secret_access_key=self.credentials['aws_secret_access_key'])
-		self.resetBuffer()
-
+		self.reset_buffer()
+		
 		# checks if the target bucket exist
 		buckets = self.resource.buckets.all()
 
@@ -201,7 +202,7 @@ class S3Bucket(object):
 
 		return False
 
-	def createDataset(self,location):
+	def create_dataset(self,location):
 		# assigns location
 		if location[-1] != '/':
 			location = location + '/'
@@ -209,7 +210,7 @@ class S3Bucket(object):
 		self.raw_location = location
 		return True
 
-	def addFile(self,filepath,target_name='',subpath=''):
+	def add_file(self,filepath,target_name='',subpath=''):
 		# adding new file
 		if target_name == '':
 			target_name = os.path.basename(filepath)
@@ -217,51 +218,51 @@ class S3Bucket(object):
 			for root,dirs,files in os.walk(filepath):
 				for file in files:
 					self.s3t.upload(os.path.join(root,file),self.BUCKET_NAME,self.dataset+subpath+file)
-			self.resetBuffer()
+			self.reset_buffer()
 		else:
 			self.s3t.upload(filepath,self.BUCKET_NAME,self.dataset+subpath+os.path.basename(filepath))
 		return True
 
-	def addFileFromBinary(self,filename,f):
-		return self.addFileFromBinaryGlobal(self.dataset+filename,f)
+	def add_file_from_binary(self,filename,f):
+		return self.add_file_from_binary_global(self.dataset+filename,f)
 
-	def addFileFromBinaryGlobal(self,filename,f):
+	def add_file_from_binary_global(self,filename,f):
 		self.s3t.upload(f,self.BUCKET_NAME,filename)
 		return True
 
-	def removeFile(self,filename):
+	def remove_file(self,filename):
 		# deletes files in path
-		return self.removeFileGlobal(self.dataset+filename)
+		return self.remove_file_global(self.dataset+filename)
 
-	def removeFileGlobal(self,filename):
+	def remove_file_global(self,filename):
 		# deletes files in path
 		if filename[-1] == '/':
 			for obj in self.bucket.objects.filter(Prefix=filename):
 				self.s3t.delete(self.BUCKET_NAME, obj.key)
-			self.resetBuffer()
+			self.reset_buffer()
 		elif filename[-1] == '*':
 			for obj in self.bucket.objects.filter(Prefix=filename[:-1]):
 				self.s3t.delete(self.BUCKET_NAME, obj.key)
-			self.resetBuffer()
+			self.reset_buffer()
 		else:
 			self.s3t.delete(self.BUCKET_NAME, filename)
 
 		return True
 
-	def loadFile(self,filename):
-		return self.loadFileGlobal(self.dataset+filename)
+	def load_file(self,filename):
+		return self.load_file_global(self.dataset+filename)
 
-	def loadFileBytes(self,filename, b_i, b_f):
-		return self.loadFileGlobalBytes(self.dataset+filename,b_i,b_f)
+	def load_file_bytes(self,filename, b_i, b_f):
+		return self.load_file_global_bytes(self.dataset+filename,b_i,b_f)
 
-	def loadFileGlobal(self,filename):
+	def load_file_global(self,filename):
 		return self.resource.meta.client.get_object(Bucket=self.BUCKET_NAME,Key=filename)['Body']
 
-	def loadFileGlobalBytes(self,filename,b_i,b_f):
+	def load_file_global_bytes(self,filename,b_i,b_f):
 		bytes_rage = 'bytes=' + str(bi) + '-' + str(b_f)
 		return self.resource.meta.client.get_object(Bucket=self.BUCKET_NAME,Key=filename,Range=bytes_rage)['Body']
 
-	def loadFileMetadata(self,filename,debug=False):
+	def load_file_metadata(self,filename,debug=False):
 		# gets the metadata
 		obj = self.resource.Object(self.BUCKET_NAME,self.dataset+filename).get()
 
@@ -275,7 +276,7 @@ class S3Bucket(object):
 
 		return metadata
 
-	def loadFileMetadataGlobal(self,filename,debug=False):
+	def load_file_metadata_global(self,filename,debug=False):
 		# gets the metadata
 		obj = self.resource.Object(self.BUCKET_NAME,filename).get()
 
@@ -289,12 +290,12 @@ class S3Bucket(object):
 
 		return metadata
 
-	def listFilesinPath(self,path):
+	def list_files_in_path(self,path):
 		for obj in self.bucket.objects.filter(Prefix=path):
 			print(f'-- {obj.key}')
 		return True
 
-	def loadDataset(self):
+	def load_dataset(self):
 		# loads all the metadata associated with the dataset
 		files = []
 		params = {"Bucket" : self.BUCKET_NAME, "Prefix" : self.dataset}
@@ -313,11 +314,11 @@ class S3Bucket(object):
 		else:
 			return []
 
-	def loadDatasetList(self):
+	def load_dataset_list(self):
 		# loads all the metadata associated with the dataset
-		return self.loadListInPath(self.dataset)
+		return self.load_list_in_path(self.dataset)
 
-	def loadListInPath(self,path):
+	def load_list_in_path(self,path):
 		# loads all the metadata associated within a path
 		keys = []
 		last_m = []
@@ -336,7 +337,7 @@ class S3Bucket(object):
 		else:
 			return [],[]
 
-	def checkIfEmpty(self,path):
+	def check_if_empty(self,path):
 		# checks the number of files in a directory
 		summary = self.bucket.objects.filter(Prefix=path)
 		count = 0
@@ -345,15 +346,15 @@ class S3Bucket(object):
 				count += 1
 		return (count == 0)
 
-	def listFilesinDataset(self):
+	def load_files_in_dataset(self):
 		# lists all the files in the main path of the dataset
-		return self.listFilesinPath(self.dataset)
+		return self.list_files_in_path(self.dataset)
 
-	def copyFile(self,filepath,full_target_name):
+	def copy_file(self,filepath,full_target_name):
 		# adding new file
-		return self.copyFileGlobal(self.dataset+filepath,self.dataset+full_target_name)
+		return self.copy_file_global(self.dataset+filepath,self.dataset+full_target_name)
 
-	def copyFileGlobal(self,filepath,full_target_name):
+	def copy_file_global(self,filepath,full_target_name):
 		# adding new file
 		copy_source = {
 			'Bucket' : self.BUCKET_NAME,
@@ -368,7 +369,7 @@ class S3Bucket(object):
 	def get_size_of_file_global(self, filepath):
 		return self.bucket.Object(filepath).content_length
 
-	def resetBuffer(self):
+	def reset_buffer(self):
 		if self.s3t != None:
 			self.s3t.shutdown()
 		botocore_config = botocore.config.Config(max_pool_connections=80)
@@ -379,44 +380,44 @@ class S3Bucket(object):
 def main():
 	# connects a bucket
 	cloud = S3Bucket('stacktest123')
-	cloud.connectBucket()
+	cloud.connect_bucket()
 
 	# connects to a dataset in the bucket
-	cloud.createDataset('dataset1/')
+	cloud.create_dataset('dataset1/')
 
 	# list the files in the bucket
-	cloud.listFilesinPath('')
-	cloud.listFilesinDataset()
+	cloud.list_files_in_path('')
+	cloud.load_files_in_dataset()
 
 	# addes on file
-	cloud.addFile('../../tests/image.png','image.png')
-	cloud.addFile('../../tests/image.png','base/image.png',subpath='base/')
-	cloud.resetBuffer()
+	cloud.add_file('../../tests/image.png','image.png')
+	cloud.add_file('../../tests/image.png','base/image.png',subpath='base/')
+	cloud.reset_buffer()
 
 	# opens one file
-	body = cloud.loadFile('image.png')
+	body = cloud.load_file('image.png')
 	print(body)
 
-	meta = cloud.loadFileMetadata('image.png')
+	meta = cloud.load_file_metadata('image.png')
 	print(meta)
 
 	# adds two file from binaries
-	cloud.addFileFromBinary('extra/image2.png',open("../../tests/image.png", "rb"))
-	cloud.addFileFromBinary('extra/image3.png',cloud.loadFile('base/image.png'))
-	cloud.resetBuffer()
+	cloud.add_file_from_binary('extra/image2.png',open("../../tests/image.png", "rb"))
+	cloud.add_file_from_binary('extra/image3.png',cloud.load_file('base/image.png'))
+	cloud.reset_buffer()
 
 	# removes a file
-	cloud.removeFile('extra/image2.png')
-	cloud.resetBuffer()
+	cloud.remove_file('extra/image2.png')
+	cloud.reset_buffer()
 
 	# loads the dataset in memory
-	dataset = cloud.loadDataset()
-	print(cloud.loadDataset())
+	dataset = cloud.load_dataset()
+	print(cloud.load_dataset())
 
-	cloud.listFilesinDataset()
+	cloud.load_files_in_dataset()
 
-	cloud.copyFile('extra/image3.png','extra/image4.png')
-	cloud.listFilesinPath('')
+	cloud.copy_file('extra/image3.png','extra/image4.png')
+	cloud.list_files_in_path('')
 	print('success')
 
 if __name__ == '__main__':

@@ -15,8 +15,11 @@ class Local(object):
 		self.prefix_ignore = ''
 		self.credentials = {}
 
-	def createDataset(self,location,verbose=False):
+	def create_dataset(self,location,verbose=False):
 		# transforms to absolute path
+		if path_home in location:
+			location.replace(path_home,'')
+
 		if location[0] == '~':
 			if len(location) > 1:
 				location = path_home+location[1:]
@@ -40,14 +43,14 @@ class Local(object):
 
 		return False
 
-	def checkIfEmpty(self,path):
+	def check_if_empty(self,path):
 		if os.path.exists(path):
 			dir = os.listdir(path)
 			return (len(dir) == 0)
 		else:
 			return True
 
-	def addFile(self,filepath,target_name='',subpath=''):
+	def add_file(self,filepath,target_name='',subpath=''):
 		if filepath[-1] == '/':
 			for root,dirs,files in os.walk(filepath):
 				for file in files:
@@ -55,7 +58,7 @@ class Local(object):
 						os.makedirs(os.path.dirname(self.dataset+subpath))
 					head_tail = os.path.split(os.path.join(root,file))
 					shutil.copyfile(os.path.join(root,file), self.dataset+subpath+head_tail[1])	
-				self.resetBuffer()
+				self.reset_buffer()
 		else:
 			if not os.path.exists(os.path.dirname(self.dataset+subpath)):
 				os.makedirs(os.path.dirname(self.dataset+subpath))
@@ -63,15 +66,15 @@ class Local(object):
 			shutil.copyfile(filepath, self.dataset+subpath+head_tail[1])
 		return True
 
-	def addFolder(self,folderpath):
+	def add_folder(self,folderpath):
 		if not os.path.exists(self.dataset + folderpath):
 			os.makedirs(self.dataset + folderpath)
 		return True
 
-	def addFileFromBinary(self,filename,f):
-		return self.addFileFromBinaryGlobal(self.dataset+filename,f)
+	def add_file_from_binary(self,filename,f):
+		return self.add_file_from_binary_global(self.dataset+filename,f)
 
-	def addFileFromBinaryGlobal(self,filename,f):
+	def add_file_from_binary_global(self,filename,f):
 		if not os.path.exists(os.path.dirname(filename)):
 			os.makedirs(os.path.dirname(filename))
 		binary_file = open(filename, "wb")
@@ -79,10 +82,10 @@ class Local(object):
 		binary_file.close()
 		return True
 
-	def removeFile(self,filename):
-		return self.removeFileGlobal(self.dataset+filename)
+	def remove_file(self,filename):
+		return self.remove_file_global(self.dataset+filename)
 
-	def removeFileGlobal(self,filename):
+	def remove_file_global(self,filename):
 		if os.path.exists(filename):
 			if filename[-1] == '/':
 				shutil.rmtree(filename)
@@ -90,22 +93,22 @@ class Local(object):
 				os.remove(filename)
 		return True
 
-	def loadFile(self,filename):
-		return self.loadFileGlobal(self.dataset+filename)
+	def load_file(self,filename):
+		return self.load_file_global(self.dataset+filename)
 
-	def loadFileBytes(self,filename,bi,bf):
-		return self.loadFileGlobal(self.dataset+filename,bi,bf)
+	def load_file_bytes(self,filename,bi,bf):
+		return self.load_file_global(self.dataset+filename,bi,bf)
 
-	def loadFileGlobal(self,filename):
+	def load_file_global(self,filename):
 		return open(filename,'rb')
 
-	def loadFileGlobalBytes(self,filename,bi,bf):
+	def load_file_global_bytes(self,filename,bi,bf):
 		f = open(filename, "rb")
 		f.seek(bi)
 		data = f.read(bf-bi)
 		return data
 
-	def loadFileMetadata(self,filename):
+	def load_file_metadata(self,filename):
 		path = self.dataset+filename
 		metadata = {
 			'key' : self.dataset+filename,
@@ -115,7 +118,7 @@ class Local(object):
 		}
 		return metadata
 
-	def loadFileMetadataGlobal(self,filename):
+	def load_file_metadata_global(self,filename):
 		path = filename
 		metadata = {
 			'key' : self.dataset+filename,
@@ -125,7 +128,7 @@ class Local(object):
 		}
 		return metadata
 
-	def loadDataset(self):
+	def load_dataset(self):
 		file_m = []
 		for root, dirs, files in os.walk(self.dataset, topdown=False):
 			for name in files:
@@ -139,10 +142,10 @@ class Local(object):
 		return file_m
 
 	
-	def loadDatasetList(self):
-		return self.loadListInPath(self.dataset)
+	def load_dataset_list(self):
+		return self.load_list_in_path(self.dataset)
 
-	def loadListInPath(self,path):
+	def load_list_in_path(self,path):
 		keys = []
 		last_m = []
 
@@ -152,7 +155,7 @@ class Local(object):
 				last_m.append(time.strftime("%m/%d/%Y, %H:%M:%S", time.gmtime(os.path.getmtime(os.path.join(root, name)))))
 		return keys, last_m
 
-	def listFilesinDataset(self):
+	def load_files_in_dataset(self):
 		files = []
 		for root, dirs, files in os.walk(self.dataset, topdown=False):
 			for name in files:
@@ -160,31 +163,17 @@ class Local(object):
 				print(path)
 		return True
 
-	def listEverythinginDataset(self):
-		for root, dirs, files in os.walk(self.dataset, topdown=False):
-			for name in files:
-				path = os.path.join(root, name)
-				print(path.name)
-		return True
-
-	def listFilesinPath(self,dir_path):
+	def list_files_in_path(self,dir_path):
 		for root, dirs, files in os.walk(self.dataset + dir_path, topdown=False):
 			for name in files:
 				path = os.path.join(root, name)
 				print(path)
 		return True
 
-	def listEverythinginPath(self,dir_path):
-		for root, dirs, files in os.walk(self.dataset + dir_path, topdown=False):
-			for name in files:
-				path = os.path.join(root, name)
-				print(path)
-		return True
+	def copy_file(self,filepath,full_target_name):
+		return self.copy_file_global(self.dataset + filepath, self.dataset + full_target_name)
 
-	def copyFile(self,filepath,full_target_name):
-		return self.copyFileGlobal(self.dataset + filepath, self.dataset + full_target_name)
-
-	def copyFileGlobal(self,filepath,full_target_name):
+	def copy_file_global(self,filepath,full_target_name):
 		head_tail = os.path.split(filepath)
 		os.makedirs(os.path.dirname(full_target_name), exist_ok=True)
 		if filepath[-1] != '/':
@@ -197,30 +186,30 @@ class Local(object):
 	def get_size_of_file_global(self, filepath):
 		return os.path.getsize(filepath)
 
-	def resetBuffer(self):
+	def reset_buffer(self):
 		pass
 
 def main():
 	storage = Local()
 	
 	print('create dataset')
-	storage.createDataset('/Users/bernardo/test_data/')
+	storage.create_dataset('/Users/bernardo/test_data/')
 	
 	print('add folder')
-	storage.addFolder('.stack')
+	storage.add_folder('.stack')
 	print('add subfolder')
-	storage.addFolder('subtree')
+	storage.add_folder('subtree')
 	print('list in dataset')
-	storage.listFilesinDataset()
+	storage.load_files_in_dataset()
 	print('list in path')
-	storage.listFilesinPath('')
+	storage.list_files_in_path('')
 	
 	print('adds a file')
-	storage.addFile('../../tests/image.png')
-	print(storage.loadFileMetadata('image.png'))
+	storage.add_file('../../tests/image.png')
+	print(storage.load_file_metadata('image.png'))
 
-	storage.copyFile('image.png',storage.dataset+'/copies/image4.png')
-	storage.listFilesinPath('')
+	storage.copy_file('image.png',storage.dataset+'/copies/image4.png')
+	storage.list_files_in_path('')
 
 if __name__ == '__main__':
 	main()

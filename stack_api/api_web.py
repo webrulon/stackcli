@@ -19,22 +19,24 @@ app.add_middleware(
 from src.comm.docker_ver import *
 import os
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
-
+ 
 # checks if local files are installed
 try:
     api = api_core.API()
     initialized = api.start_check()
     api.set_schema()
-    print('commiting')
     api.commit('',False)
 except:
     print('no config file')
     api = api_core.API()
+    print('initializing')
     initilized = api.start_check()
+    print('trying')
     try:
         api.set_schema()
     except:
         pass
+    print('start check')
     if initilized:
         api.start_check()
 
@@ -43,18 +45,10 @@ except:
 async def init_web(data: dict):
     try:
         assert(not '.stack' in data['uri'])
-        api.init(data['uri'])
-        api.connect_post_web(data['name'], data, data['schema'])
-        api.set_schema()
-        api.start_check()
-        return {'success': True}
-    except:
-        return {'success': False}
+        
+        if path_home in data['uri']:
+            data['uri'] = data['uri'].replace(path_home,'')
 
-@app.post("/update_credentials")
-async def update_credentials(data: dict):
-    try:
-        assert(not '.stack' in data['uri'])
         api.init(data['uri'])
         api.connect_post_web(data['name'], data, data['schema'])
         api.set_schema()
@@ -67,6 +61,8 @@ async def update_credentials(data: dict):
 async def connect(uri):
     try:
         assert(not '.stack' in uri)
+        if path_home in uri:
+            uri = uri.replace(path_home,'')
         api.init(uri)
         api.connect_post_api()
         api.set_schema()
@@ -171,8 +167,9 @@ async def selection_remove_all_tags_api(data: list):
     return {'success': True}
 
 @app.get('/get_tags')
-async def get_tags_api(file):
-    return api.get_tags(file)
+def get_tags_api(file):
+    tags = api.get_tags(file)
+    return tags
 
 @app.post("/add_file/")
 async def add_file_api(file: UploadFile = File(description="A file read as UploadFile")):
@@ -234,19 +231,19 @@ async def schema_metadata_api():
 
 @app.get("/current")
 async def current_api(page=0,max_pp=12):
-    try:
-        full_json = api.status()
-        idx_i = int(page)*int(max_pp)
-        idx_f = (int(page)+1)*int(max_pp)
+    # try:
+    full_json = api.status()
+    idx_i = int(page)*int(max_pp)
+    idx_f = (int(page)+1)*int(max_pp)
 
-        current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
+    current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
 
-        current['keys'] = full_json['keys'][idx_i:idx_f]
-        current['lm'] = full_json['lm'][idx_i:idx_f]
+    current['keys'] = full_json['keys'][idx_i:idx_f]
+    current['lm'] = full_json['lm'][idx_i:idx_f]
 
-        return current
-    except:
-        return {'keys': {}, 'lm': {}}
+    return current
+    # except:
+    #     return {'keys': {}, 'lm': {}}
 
 @app.post("/set_filter/")
 async def set_filter_api(data: dict):
@@ -282,9 +279,13 @@ async def set_bounding_boxes_api(val):
         return {'success': False}
 
 @app.get("/get_thumbnail")
-async def get_thumbnail_api(file):
+def get_thumbnail_api(file):
     try:
-        return StreamingResponse(api.load_thumbnail(file), media_type="image/png")
+        import time
+        t0 = time.time()
+        thumb = api.load_thumbnail(file)
+        print(f'time to thumbnail {time.time() - t0}s')
+        return StreamingResponse(thumb, media_type="image/png")
     except:
         return Response(content='')
 
@@ -381,7 +382,22 @@ async def get_labels_api(filename, version='current'):
 
 @app.post("/set_labels")
 async def set_labels_api(data: dict):
+    # try:
+    return api.set_labels(data)
+    # except:
+    #     return {}
+
+@app.get("/set_hash_data")
+async def set_hash_for_data():
     try:
-        return api.set_labels(data)
+        import sys 
+        # import pickle
+        # file = open('pickled_api.example', 'wb')
+        # pickle.dump(api, file)
+        return {'success': f'size of api_core() is {sys.getsizeof(api)}'}
     except:
-        return {}
+        return {'success': False}
+
+@app.get("/get_description")
+async def get_description():
+    return Response(content='')

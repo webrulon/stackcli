@@ -21,7 +21,7 @@ class GCSBucket(object):
 		self.client = None
 		self.bucket = None
 
-	def connectBucket(self, verbose=False):
+	def connect_bucket(self, verbose=False):
 		# creates a client 
 		key_path = path_home+'/.gs/'+self.BUCKET_NAME+'/gs_key'
 		os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = key_path
@@ -112,7 +112,7 @@ class GCSBucket(object):
 				return True
 		return False
 
-	def createDataset(self,location):
+	def create_dataset(self,location):
 		# assigns location
 		if location[-1] != '/':
 			location = location + '/'
@@ -120,7 +120,7 @@ class GCSBucket(object):
 		self.raw_location = location
 		return True
 
-	def addFile(self,filepath,target_name='',subpath=''):
+	def add_file(self,filepath,target_name='',subpath=''):
 		# adding new file
 		if target_name == '':
 			target_name = os.path.basename(filepath)
@@ -129,51 +129,51 @@ class GCSBucket(object):
 				for file in files:
 					blob = self.bucket.blob(self.dataset+subpath+os.path.basename(filepath))
 					blob.upload_from_filename(os.path.join(root,file))	
-			self.resetBuffer()
+			self.reset_buffer()
 		else:
 			blob = self.bucket.blob(self.dataset+subpath+os.path.basename(filepath))
 			blob.upload_from_filename(filepath)
 		return True
 
-	def addFileFromBinary(self,filename,f):
-		return self.addFileFromBinaryGlobal(self.dataset+filename,f)
+	def add_file_from_binary(self,filename,f):
+		return self.add_file_from_binary_global(self.dataset+filename,f)
 
-	def addFileFromBinaryGlobal(self,filename,f):
+	def add_file_from_binary_global(self,filename,f):
 		blob = self.bucket.blob(filename)
 		blob.upload_from_file(file_obj=f, rewind=True)
 		return True
 
-	def removeFile(self,filename):
-		return self.removeFileGlobal(self.dataset+filename)
+	def remove_file(self,filename):
+		return self.remove_file_global(self.dataset+filename)
 
-	def removeFileGlobal(self,filename):
+	def remove_file_global(self,filename):
 		# deletes files in path
 		if filename[-1] == '/':
 			for blob in self.client.list_blobs(self.BUCKET_NAME, prefix=filename, delimiter=None):
 				blob.delete()
-			self.resetBuffer()
+			self.reset_buffer()
 		else:
 			blob = self.bucket.blob(filename)
 			blob.delete()
 		return True
 
-	def loadFile(self,filename):
-		return self.loadFileGlobal(self.dataset+filename)
+	def load_file(self,filename):
+		return self.load_file_global(self.dataset+filename)
 
-	def loadFileBytes(self,filename,bi,bf):
-		return self.loadFileGlobalBytes(self.dataset+filename,bi,bf)
+	def load_file_bytes(self,filename,bi,bf):
+		return self.load_file_global_bytes(self.dataset+filename,bi,bf)
 
-	def loadFileGlobal(self,filename):
+	def load_file_global(self,filename):
 		blob = self.bucket.blob(filename)
 		file_obj = blob.download_as_string()
 		return io.BytesIO(file_obj)
 
-	def loadFileGlobalBytes(self,filename,bi,bf):
+	def load_file_global_bytes(self,filename,bi,bf):
 		blob = self.bucket.blob(filename)
 		file_obj = blob.download_as_string(start=bi,end=bf)
 		return io.BytesIO(file_obj)	
 
-	def loadFileMetadata(self,filename,debug=False):
+	def load_file_metadata(self,filename,debug=False):
 		blob = self.bucket.get_blob(self.dataset + filename)
 		if blob.name[-1] != '/':
 			metadata = {
@@ -185,7 +185,7 @@ class GCSBucket(object):
 			}
 			return metadata
 
-	def loadFileMetadataGlobal(self,filename,debug=False):
+	def load_file_metadata_global(self,filename,debug=False):
 		blob = self.bucket.get_blob(filename)
 		if blob.name[-1] != '/':
 			metadata = {
@@ -197,13 +197,13 @@ class GCSBucket(object):
 			}
 			return metadata
 
-	def listFilesinPath(self,path):
+	def list_files_in_path(self,path):
 		blobs = self.client.list_blobs(self.BUCKET_NAME, prefix=path, delimiter=None)
 		for blob in blobs:
 			print(f'-- {blob.name}')
 		return True
 
-	def loadDataset(self):
+	def load_dataset(self):
 		files = []
 		blobs = self.client.list_blobs(self.BUCKET_NAME, prefix=self.dataset, delimiter=None)
 		# labels each file
@@ -216,11 +216,11 @@ class GCSBucket(object):
 				files.append(metadata)
 		return files
 
-	def loadDatasetList(self):
+	def load_dataset_list(self):
 		# loads all the metadata associated with the dataset
-		return self.loadListInPath(self.dataset)
+		return self.load_list_in_path(self.dataset)
 
-	def loadListInPath(self,path):
+	def load_list_in_path(self,path):
 		# loads all the metadata associated within a path
 		keys = []
 		last_m = []
@@ -235,7 +235,7 @@ class GCSBucket(object):
 			
 		return keys, last_m
 
-	def checkIfEmpty(self,path):
+	def check_if_empty(self,path):
 		# checks the number of files in a directory
 		blobs = self.client.list_blobs(self.BUCKET_NAME, prefix=path, delimiter=None)
 		idx = 0
@@ -243,15 +243,15 @@ class GCSBucket(object):
 			idx = idx + 1
 		return (idx == 0)
 
-	def listFilesinDataset(self):
+	def load_files_in_dataset(self):
 		# lists all the files in the main path of the dataset
-		return self.listFilesinPath(self.dataset)
+		return self.list_files_in_path(self.dataset)
 
-	def copyFile(self,filepath,full_target_name):
+	def copy_file(self,filepath,full_target_name):
 		# adding new file
-		return self.copyFileGlobal(self.dataset+filepath,self.dataset+full_target_name)
+		return self.copy_file_global(self.dataset+filepath,self.dataset+full_target_name)
 
-	def copyFileGlobal(self,filepath,full_target_name):
+	def copy_file_global(self,filepath,full_target_name):
 		source_blob = self.bucket.blob(filepath)
 		blob_copy = self.bucket.copy_blob(source_blob, self.bucket, full_target_name)
 		return True
@@ -262,50 +262,50 @@ class GCSBucket(object):
 	def get_size_of_file_global(self, filepath):
 		return self.bucket.get_blob(filepath).size
 
-	def resetBuffer(self):
+	def reset_buffer(self):
 		return True
 
 def main():
 	# connects a bucket
 	bucket = 'gs://stack123'
 	cloud = GCSBucket('stack123')
-	cloud.connectBucket()
+	cloud.connect_bucket()
 
 	# connects to a dataset in the bucket
-	cloud.createDataset('dataset1/')
+	cloud.create_dataset('dataset1/')
 
 	# list the files in the bucket
-	cloud.listFilesinPath('')
-	cloud.listFilesinDataset()
+	cloud.list_files_in_path('')
+	cloud.load_files_in_dataset()
 
 	# addes on file
-	cloud.addFile('../../tests/image.png','image.png')
-	cloud.addFile('../../tests/image.png','base/image.png',subpath='base/')
-	cloud.resetBuffer()
+	cloud.add_file('../../tests/image.png','image.png')
+	cloud.add_file('../../tests/image.png','base/image.png',subpath='base/')
+	cloud.reset_buffer()
 
 	# opens one file
-	body = cloud.loadFile('image.png')
+	body = cloud.load_file('image.png')
 	print(body)
 
-	meta = cloud.loadFileMetadata('image.png')
+	meta = cloud.load_file_metadata('image.png')
 	print(meta)
 
 	# adds two file from binaries
-	cloud.addFileFromBinary('extra/image2.png',open("../../tests/image.png", "rb"))
-	cloud.addFileFromBinary('extra/image3.png',cloud.loadFile('base/image.png'))
-	cloud.resetBuffer()
+	cloud.add_file_from_binary('extra/image2.png',open("../../tests/image.png", "rb"))
+	cloud.add_file_from_binary('extra/image3.png',cloud.load_file('base/image.png'))
+	cloud.reset_buffer()
 
 	# removes a file
-	cloud.removeFile('extra/image2.png')
+	cloud.remove_file('extra/image2.png')
 
 	# loads the dataset in memory
-	dataset = cloud.loadDataset()
-	print(cloud.loadDataset())
+	dataset = cloud.load_dataset()
+	print(cloud.load_dataset())
 
-	cloud.listFilesinDataset()
+	cloud.load_files_in_dataset()
 	
-	cloud.copyFileGlobal(cloud.dataset+'extra/image3.png',cloud.dataset+'extra/image4.png')
-	cloud.listFilesinPath('')
+	cloud.copy_file_global(cloud.dataset+'extra/image3.png',cloud.dataset+'extra/image4.png')
+	cloud.list_files_in_path('')
 	print('success')
 
 if __name__ == '__main__':

@@ -136,7 +136,7 @@ def history_api():
     '''
         Prints a summary of the commits
     '''
-    printHistory(api.Initializer)
+    print_history(api.Initializer)
 
 @app.command("datasets")
 def dataset_api():
@@ -151,7 +151,7 @@ def status_api():
         Prints the status of the dataset
     '''
     try:
-        printStatus(api.Initializer)
+        print_status(api.Initializer)
     except:
         return Exception
 
@@ -173,7 +173,7 @@ def diff_api(version_a: str, version_b: str, file: str=''):
         version_a = version_b
         version_b = tmp
 
-    printDiff(api.Initializer, version_a, version_b, file)
+    print_diff(api.Initializer, version_a, version_b, file)
     return True
 
 @app.command("diff_csv")
@@ -194,7 +194,7 @@ def revert_api(version):
         reverts the whole dataset to a specific version
     '''
     assert(version != '')
-    revertCommit(api.Initializer, int(version))
+    revert_commit(api.Initializer, int(version))
     api.commit('reverted to version '+ version, cmd=False)
     return True
 

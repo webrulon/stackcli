@@ -22,17 +22,17 @@ class CLI(object):
 			file2.close()
 			if config['type'] == 'local':
 				cloud = Local()
-				cloud.createDataset(config['dataset'])
+				cloud.create_dataset(config['dataset'])
 				self.Initializer = Initializer(cloud)
 			elif config['type'] == 's3':
 				cloud = S3Bucket(config['bucket'])
-				cloud.connectBucket()
-				cloud.createDataset(config['dataset'])
+				cloud.connect_bucket()
+				cloud.create_dataset(config['dataset'])
 				self.Initializer = Initializer(cloud)
 			elif config['type'] == 'gcs':
 				cloud = GCSBucket(config['bucket'])
-				cloud.connectBucket()
-				cloud.createDataset(config['dataset'])
+				cloud.connect_bucket()
+				cloud.create_dataset(config['dataset'])
 				self.Initializer = Initializer(cloud)
 			else:
 				self.Initializer = None
@@ -79,7 +79,7 @@ class CLI(object):
 			file.close()
 
 			if not self.Initializer.verify_setup():
-				self.Initializer.setupDataset()
+				self.Initializer.setup_dataset()
 
 			# creates dataset
 			return True
@@ -94,7 +94,7 @@ class CLI(object):
 	def pull_all(self,version = 'current'):
 		print('downloading files from last commit')
 		metapath = self.Initializer.prefix_meta + 'current.json'
-		current = json.load(self.Initializer.storage.loadFileGlobal(metapath))
+		current = json.load(self.Initializer.storage.load_file_global(metapath))
 		pull(self.Initializer, current['keys'], version)
 		return True
 
@@ -108,7 +108,7 @@ class CLI(object):
 		return True
 
 	def status(self):
-		printStatus(self.Initializer)
+		print_status(self.Initializer)
 		return True
 
 	def start_check(self):
@@ -132,30 +132,30 @@ class CLI(object):
 		print('Are you sure you want to reset? It will delete all diffs and previous versions [y/n]')
 		yn = input("[Y/n]: ")
 		if yn == 'y' or yn == 'Y':
-			self.Initializer.removeSetup()
-			self.Initializer.setupDataset()
+			self.Initializer.remove_setup()
+			self.Initializer.setup_dataset()
 			print('reset complete')
 		return True
 
 	def revert(self, version=0):
 		assert(version != '')
-		revertCommit(self.Initializer, int(version))
+		revert_commit(self.Initializer, int(version))
 		return True
 
-	def revertFile(self, key, version):
+	def revert_file(self, key, version):
 		if self.Initializer.storage.dataset in key:
-			revertFile(self.Initializer, key, int(version))
+			revert_file(self.Initializer, key, int(version))
 		else:
-			revertFile(self.Initializer, self.Initializer.storage.dataset+key, int(version))
-		self.Initializer.storage.resetBuffer()
+			revert_file(self.Initializer, self.Initializer.storage.dataset+key, int(version))
+		self.Initializer.storage.reset_buffer()
 
 		return True
 
 	def history(self):
-		printHistory(self.Initializer)
+		print_history(self.Initializer)
 
 	def diff(self, v1, v0, file=''):
-		printDiff(self.Initializer, v1, v0, file)
+		print_diff(self.Initializer, v1, v0, file)
 		return True
 
 	def logout(self):
@@ -225,7 +225,7 @@ if __name__ == '__main__':
 
 	elif args.command == 'revert':
 		if len(args.options) > 1:
-			cli.revertFile(args.options[0],args.options[1])
+			cli.revert_file(args.options[0],args.options[1])
 		else:
 			cli.revert(args.options[0])
 

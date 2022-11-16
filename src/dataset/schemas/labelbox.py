@@ -24,9 +24,9 @@ class labelbox_schema(object):
 	def create_schema_file(self):
 		# generates the schema file for a labelbox bounding box dataset
 		schema = {}
-		current = json.load(self.init.storage.loadFileGlobal(self.init.prefix_meta+'current.json'))
+		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
 		json_name = self.get_labels_filename()
-		self.labelbox_file = json.load(self.init.storage.loadFileGlobal(json_name))
+		self.labelbox_file = json.load(self.init.storage.load_file_global(json_name))
 
 		k = 0
 		idx = 0
@@ -35,7 +35,7 @@ class labelbox_schema(object):
 		for key in current['keys']:
 			if self.is_image(key):
 				dp = {}
-				labels = self.get_labels(key)
+				labels = self.get_labels_global(key)
 				dp['key'] = key
 				dp['lm'] = current['lm'][idx]
 				dp['classes'] = [labels[label]['0'] for label in labels]
@@ -52,16 +52,16 @@ class labelbox_schema(object):
 		schema['len'] = k
 
 		# stores dp
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return True
 	
 	def recompute_schema_file(self):
 		schema = {}
-		current = json.load(self.init.storage.loadFileGlobal(self.init.prefix_meta+'current.json'))
+		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
 		json_name = self.get_labels_filename()
-		self.labelbox_file = json.load(self.init.storage.loadFileGlobal(json_name))
+		self.labelbox_file = json.load(self.init.storage.load_file_global(json_name))
 
 		k = 0
 		idx = 0
@@ -88,20 +88,21 @@ class labelbox_schema(object):
 		schema['len'] = k
 
 		# stores dp
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return True
 
 	def compute_meta_data(self):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 		
 		classes = []
 		resolutions = []
 		size = []
 		lm = []
 		tags = []
-
+		classes_per_image = []
+		
 		n_class = {}
 		n_res = {}
 		n_lm = {}
@@ -110,6 +111,10 @@ class labelbox_schema(object):
 
 		for val in schema:
 			if val != 'len':
+
+				if not len(schema[val]['classes']) in classes_per_image:
+					classes_per_image.append(len(schema[val]['classes']))
+				
 				for cl in schema[val]['classes']:
 					if not cl in classes:
 						classes.append(cl)
@@ -143,15 +148,15 @@ class labelbox_schema(object):
 						else:
 							n_tags[tag] += 1
 
-		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags}
+		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
 
-		self.init.storage.addFileFromBinaryGlobal(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return True
 
 	def get_tags(self, key):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		for val in schema.keys():
 			if type(schema[val]) is dict:
@@ -161,7 +166,7 @@ class labelbox_schema(object):
 		return []
 
 	def add_tag(self, key, tag):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		idx = 0
 		for val in schema.keys():
@@ -175,13 +180,13 @@ class labelbox_schema(object):
 						schema[val]['tags'].append(tag)
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def add_many_tag(self, keys, tag):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		idx = 0
 		for val in schema.keys():
@@ -196,13 +201,13 @@ class labelbox_schema(object):
 					keys.remove(schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def remove_tag(self, key, tag):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		for val in schema.keys():
 			if type(schema[val]) is dict:
@@ -212,13 +217,13 @@ class labelbox_schema(object):
 							schema[val]['tags'].remove(tag)
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def remove_all_tags(self, key):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		for val in schema.keys():
 			if type(schema[val]) is dict:
@@ -227,13 +232,13 @@ class labelbox_schema(object):
 						schema[val]['tags'] = []
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def many_remove_all_tags(self, keys):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		for val in schema.keys():
 			if type(schema[val]) is dict:
@@ -243,15 +248,15 @@ class labelbox_schema(object):
 					keys.remove(schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def get_thumbnail(self, filename):
 		if self.bounding_box_thumbs:
 			# loads image string
-			img_str = self.init.storage.loadFile(filename)
+			img_str = self.init.storage.load_file(filename)
 			# formats to cv2
 			nparr = np.fromstring(img_str.read(), np.uint8)
 			img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -313,11 +318,11 @@ class labelbox_schema(object):
 			
 			return string_res
 		else: 
-			return self.init.storage.loadFile(filename)
+			return self.init.storage.load_file(filename)
 
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		# finds the images
 		idx = int(schema['len'])
@@ -327,7 +332,7 @@ class labelbox_schema(object):
 				labels = self.get_labels_global(key)
 				
 				dp['key'] = key
-				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
+				dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
 				dp['classes'] = [self.label_name(label[0]) for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
@@ -341,7 +346,7 @@ class labelbox_schema(object):
 
 		if len(modified) > 0:
 			self.recompute_schema_file()
-			schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+			schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		for key in removed:
 			if self.is_image(key):
@@ -360,8 +365,8 @@ class labelbox_schema(object):
 		schema['len'] = idx
 
 		# stores dp
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
@@ -381,7 +386,7 @@ class labelbox_schema(object):
 
 	def get_resolution(self, key):
 		# reads image
-		img_str = self.init.storage.loadFileGlobal(key)
+		img_str = self.init.storage.load_file_global(key)
 		
 		# formats to cv2
 		nparr = np.fromstring(img_str.read(), np.uint8)
@@ -392,7 +397,7 @@ class labelbox_schema(object):
 
 	def get_resolution_values(self, key):
 		# reads image
-		img_str = self.init.storage.loadFile(key)
+		img_str = self.init.storage.load_file(key)
 		
 		# formats to cv2
 		nparr = np.fromstring(img_str.read(), np.uint8)
@@ -403,7 +408,7 @@ class labelbox_schema(object):
 
 	def get_resolution_values_global(self, key):
 		# reads image
-		img_str = self.init.storage.loadFileGlobal(key)
+		img_str = self.init.storage.load_file_global(key)
 		
 		# formats to cv2
 		nparr = np.fromstring(img_str.read(), np.uint8)
@@ -417,7 +422,7 @@ class labelbox_schema(object):
 
 	def get_labels(self, filename, version='current'):
 		# reads the labels
-		labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename(version)))
+		labelbox_file = json.load(self.init.storage.load_file_global(self.get_labels_filename(version)))
 
 		labels = {}
 		i = 0
@@ -443,7 +448,7 @@ class labelbox_schema(object):
 
 	def get_labels_global(self, filename, version='current'):
 		# reads the labels
-		labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename(version)))
+		labelbox_file = json.load(self.init.storage.load_file_global(self.get_labels_filename(version)))
 
 		labels = {}
 		i = 0
@@ -469,7 +474,7 @@ class labelbox_schema(object):
 
 	def get_labels_filename(self, version = 'current'):
 		# reads the labels
-		current = json.load(self.init.storage.loadFileGlobal(self.init.prefix_meta+'current.json'))
+		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
 		json_name = ''
 		for key in current['keys']:
 			if os.path.splitext(os.path.basename(key))[1] == '.json':
@@ -482,7 +487,7 @@ class labelbox_schema(object):
 
 	def set_labels(self, filename, labels_array):
 		# reads the labels
-		labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename()))
+		labelbox_file = json.load(self.init.storage.load_file_global(self.get_labels_filename()))
 		
 		res = self.get_resolution_values(filename)
 
@@ -509,7 +514,7 @@ class labelbox_schema(object):
 								j_arr.append(j)
 								break
 						j += 1
-				self.init.storage.addFileFromBinaryGlobal(self.get_labels_filename(),io.BytesIO(json.dumps(labelbox_file).encode('ascii')))
+				self.init.storage.add_file_from_binary_global(self.get_labels_filename(),io.BytesIO(json.dumps(labelbox_file).encode('ascii')))
 				return True
 			idx += 1
 
@@ -524,30 +529,30 @@ class labelbox_schema(object):
 		idx = 0
 		if type_ == 'copy':
 			labelbox_new = []
-			labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename()))
+			labelbox_file = json.load(self.init.storage.load_file_global(self.get_labels_filename()))
 					
 			for f in self.status['keys']:
 				if versions[idx] == 'current':
-					self.init.storage.copyFileGlobal(f,branch_name+f.replace(dataset,''))
+					self.init.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
 					
 				else:
-					self.init.storage.copyFileGlobal(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+					self.init.storage.copy_file_global(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
 									
 				for label in labelbox_file:
 					if label['External ID'] in f:
 						labelbox_new.append(label)
 				idx += 1
 
-			self.init.storage.addFileFromBinaryGlobal(branch_name+self.get_labels_filename().replace(dataset,''),io.BytesIO(json.dumps(labelbox_new).encode('ascii')))
+			self.init.storage.add_file_from_binary_global(branch_name+self.get_labels_filename().replace(dataset,''),io.BytesIO(json.dumps(labelbox_new).encode('ascii')))
 		else:
 			labelbox_new = []
-			labelbox_file = json.load(self.init.storage.loadFileGlobal(self.get_labels_filename()))
+			labelbox_file = json.load(self.init.storage.load_file_global(self.get_labels_filename()))
 				
 			for f in self.status['keys']:
 				if versions[idx] == 'current':
-					self.init.storage.removeFileGlobal(dataset+f)
+					self.init.storage.remove_file_global(dataset+f)
 				else:
-					self.init.storage.copyFileGlobal(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+					self.init.storage.copy_file_global(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
 				k = 0
 				for label in labelbox_file:
 					if label['External ID'] in f:
@@ -556,13 +561,13 @@ class labelbox_schema(object):
 						k += 1
 				idx += 1
 
-			self.init.storage.addFileFromBinaryGlobal(self.get_labels_filename(),io.BytesIO(json.dumps(labelbox_file).encode('ascii')))
-			self.init.storage.addFileFromBinaryGlobal(branch_name+self.get_labels_filename().replace(dataset,''),io.BytesIO(json.dumps(labelbox_new).encode('ascii')))
+			self.init.storage.add_file_from_binary_global(self.get_labels_filename(),io.BytesIO(json.dumps(labelbox_file).encode('ascii')))
+			self.init.storage.add_file_from_binary_global(branch_name+self.get_labels_filename().replace(dataset,''),io.BytesIO(json.dumps(labelbox_new).encode('ascii')))
 		return True
 
 	def read_all_files(self):
 		# queries the json
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 		status = {'keys': [], 'lm': []}
 		for dp in schema:
 			if dp != 'len':
@@ -572,7 +577,7 @@ class labelbox_schema(object):
 		return status
 
 	def apply_filters(self, filters={}):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = json.load(self.init.storage.load_file_global(self.schema_path))
 		status = {'keys': [], 'lm': [], 'dp': []}
 
 		if len(filters) == 0:
@@ -583,6 +588,7 @@ class labelbox_schema(object):
 
 			if dp != 'len':
 				
+				add_num =  []
 				add_class =  []
 				add_res =  []
 				add_name =  []
@@ -591,6 +597,15 @@ class labelbox_schema(object):
 
 				for f in filters:
 					for filt in filters[f]:
+
+						if filt == 'num_classes':
+							min = int(filters[f]['num_classes'][0])
+							max = int(filters[f]['num_classes'][1])
+							if (len(schema[dp]['classes']) <= max) and (len(schema[dp]['classes']) >= min):
+								add_num.append(True)
+							else:
+								add_num.append(False)
+
 						if filt == 'class':
 							if filters[f]['class'] in schema[dp]['classes']:
 								add_class.append(True)
@@ -646,8 +661,10 @@ class labelbox_schema(object):
 					add_tag = [True]
 				if len(add_box) == 0:
 					add_box = [True]
+				if len(add_num) == 0:
+					add_num = [True]
 					
-				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box)])
+				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num)])
 				
 				if add:
 					status['keys'].append(schema[dp]['key'])
@@ -663,13 +680,14 @@ class labelbox_schema(object):
 
 	def get_metadata(self):
 		if self.filtered:
-			schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+			schema = json.load(self.init.storage.load_file_global(self.schema_path))
 		
 			classes = []
 			resolutions = []
 			size = []
 			lm = []
 			tags = []
+			classes_per_image = []
 
 			n_class = {}
 			n_res = {}
@@ -678,6 +696,9 @@ class labelbox_schema(object):
 			n_tags = {}
 
 			for val in self.status['dp']:
+				if not len(schema[val]['classes']) in classes_per_image:
+					classes_per_image.append(len(schema[val]['classes']))
+					
 				for cl in schema[val]['classes']:
 					if not cl in classes:
 						classes.append(cl)
@@ -711,6 +732,6 @@ class labelbox_schema(object):
 						else:
 							n_tags[tag] += 1
 
-			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags}
+			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
 		else:
-			return json.load(self.init.storage.loadFileGlobal(self.meta_path))
+			return json.load(self.init.storage.load_file_global(self.meta_path))

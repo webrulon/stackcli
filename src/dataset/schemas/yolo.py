@@ -15,16 +15,20 @@ class yolo_schema(object):
 	"""docstring for YOLO"""
 	def __init__(self, init):
 		self.init = init
+		self.schema = None
+		self.metadata = None
 		self.schema_path = self.init.prefix_meta + 'schema.json'
 		self.meta_path = self.init.prefix_meta + 'yolo_data.json'
 		self.status = {}
 		self.filtered = False
 		self.bounding_box_thumbs = True
+		ls, _ = self.init.storage.load_dataset_list()
+		self.ls = ls
 
 	def create_schema_file(self):
 		# generates the schema file for a yolo dataset
 		schema = {}
-		current = json.load(self.init.storage.loadFileGlobal(self.init.prefix_meta+'current.json'))
+		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
 
 		k = 0
 		idx = 0
@@ -34,7 +38,6 @@ class yolo_schema(object):
 			if self.is_image(key):
 				dp = {}
 				labels = self.get_labels(key)
-				
 				dp['key'] = key
 				dp['lm'] = current['lm'][idx]
 				dp['classes'] = [labels[label]['0'] for label in labels]
@@ -43,27 +46,35 @@ class yolo_schema(object):
 				dp['tags'] = []
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
-
 				schema[str(k)] = dp
 				k += 1
+
 			idx += 1
-		
+
 		schema['len'] = k
 
 		# stores dp
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+
+		self.schema = schema
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return True
 
+	def get_schema(self):
+		if self.schema == None:
+			self.schema = json.load(self.init.storage.load_file_global(self.schema_path))
+		return self.schema
+
 	def compute_meta_data(self):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 		
 		classes = []
 		resolutions = []
 		size = []
 		lm = []
 		tags = []
+		classes_per_image = []
 
 		n_class = {}
 		n_res = {}
@@ -73,6 +84,10 @@ class yolo_schema(object):
 
 		for val in schema:
 			if val != 'len':
+
+				if not len(schema[val]['classes']) in classes_per_image:
+					classes_per_image.append(len(schema[val]['classes']))
+
 				for cl in schema[val]['classes']:
 					if not cl in classes:
 						classes.append(cl)
@@ -106,33 +121,33 @@ class yolo_schema(object):
 						else:
 							n_tags[tag] += 1
 
-		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags}
+		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
+		self.metadata = metadata
 
-		self.init.storage.addFileFromBinaryGlobal(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return True
 
 	def get_thumbnail(self, filename):
 		if self.bounding_box_thumbs:
 			# loads image string
-			img_str = self.init.storage.loadFile(filename)
+			img_str = self.init.storage.load_file(filename)
 			# formats to cv2
 			nparr = np.fromstring(img_str.read(), np.uint8)
 			img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 			
 			shapes = np.zeros_like(img, np.uint8)
-			borders = np.zeros_like(img, np.uint8)
 
 			dh, dw, _ = img.shape
 
 			basename = os.path.splitext(os.path.basename(filename))[0]
 
-			ls, _ = self.init.storage.loadDatasetList()
+			ls = self.ls
 
 			matches = [match for match in ls if basename+'.txt' in match]
 			 
-			fl = self.init.storage.loadFileGlobal(matches[0])
+			fl = self.init.storage.load_file_global(matches[0])
 
 			for dt in fl.readlines():
 
@@ -184,11 +199,11 @@ class yolo_schema(object):
 			
 			return string_res
 		else: 
-			return self.init.storage.loadFile(filename)
+			return self.init.storage.load_file(filename)
 
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 
 		# finds the images
 		idx = int(schema['len'])
@@ -198,7 +213,7 @@ class yolo_schema(object):
 				labels = self.get_labels(key)
 				
 				dp['key'] = key
-				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
+				dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
 				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
@@ -219,7 +234,7 @@ class yolo_schema(object):
 				labels = self.get_labels(key)
 				
 				dp['key'] = key
-				dp['lm'] = self.init.storage.loadFileMetadataGlobal(key)['last_modified']
+				dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
 				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
@@ -255,44 +270,44 @@ class yolo_schema(object):
 		schema['len'] = idx
 
 		# stores dp
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+		self.schema = schema
 
 		return self.compute_meta_data()
 
 	def get_tags(self, key):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
-
+		schema = self.get_schema()
+		
 		for val in schema.keys():
 			if type(schema[val]) is dict:
 				if key in schema[val]['key']:
 					if 'tags' in schema[val].keys():
-						print('getting it')
 						return schema[val]['tags']
 		return []
 
 	def add_tag(self, key, tag):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 
 		idx = 0
-		for val in schema.keys():
-			if type(schema[val]) is dict:
-				if key == schema[val]['key']:
-					if 'tags' in schema[val].keys():
-						if not tag in schema[val]['tags']:
-							schema[val]['tags'].append(tag)
+		for val in self.schema.keys():
+			if type(self.schema[val]) is dict:
+				if key == self.schema[val]['key']:
+					if 'tags' in self.schema[val].keys():
+						if not tag in self.schema[val]['tags']:
+							self.schema[val]['tags'].append(tag)
 					else:
-						schema[val]['tags'] = []
-						schema[val]['tags'].append(tag)
+						self.schema[val]['tags'] = []
+						self.schema[val]['tags'].append(tag)
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def add_many_tag(self, keys, tag):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 
 		idx = 0
 		for val in schema.keys():
@@ -307,13 +322,13 @@ class yolo_schema(object):
 					keys.remove(schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def remove_tag(self, key, tag):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 
 		for val in schema.keys():
 			if type(schema[val]) is dict:
@@ -323,13 +338,13 @@ class yolo_schema(object):
 							schema[val]['tags'].remove(tag)
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def remove_all_tags(self, key):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 
 		for val in schema.keys():
 			if type(schema[val]) is dict:
@@ -338,13 +353,13 @@ class yolo_schema(object):
 						schema[val]['tags'] = []
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def many_remove_all_tags(self, keys):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 
 		for val in schema.keys():
 			if type(schema[val]) is dict:
@@ -354,8 +369,8 @@ class yolo_schema(object):
 					keys.remove(schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.addFileFromBinaryGlobal(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.resetBuffer()
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
@@ -368,7 +383,7 @@ class yolo_schema(object):
 
 	def has_image(self, key, path = False):
 		basename = os.path.splitext(os.path.basename(key))[0]
-		ls, _ = self.init.storage.loadDatasetList()
+		ls = self.ls
 		matches = [match for match in ls if basename in match]
 
 		for m in matches:
@@ -381,7 +396,7 @@ class yolo_schema(object):
 
 	def get_resolution(self, key):
 		# reads image
-		img_str = self.init.storage.loadFileGlobal(key)
+		img_str = self.init.storage.load_file_global(key)
 		
 		# formats to cv2
 		nparr = np.fromstring(img_str.read(), np.uint8)
@@ -398,24 +413,27 @@ class yolo_schema(object):
 		if version == 'current':
 			basename = os.path.splitext(os.path.basename(filename))[0]
 
-			ls, _ = self.init.storage.loadDatasetList()
+			if self.ls != None:
+				ls = self.ls
+			else:
+				ls, _ = self.init.storage.load_dataset_list()
+				self.ls = ls
 
 			matches = [match for match in ls if basename+'.txt' in match]
-			
 			try: 
-				labels_str = self.init.storage.loadFileGlobal(matches[0])
+				labels_str = self.init.storage.load_file_global(matches[0])
 			except:
 				return {}
 		else:
 			assert(int(version) > 0)
 
 			basename = os.path.splitext(os.path.basename(filename))[0]
-			ls, _ = self.init.storage.loadDatasetList()
+			ls = self.ls
 
 			matches = [match for match in ls if basename+'.txt' in match]
 			
 			path = self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
-			labels_str = self.init.storage.loadFileGlobal(path)
+			labels_str = self.init.storage.load_file_global(path)
 
 		labels = {}
 		i = 0
@@ -432,14 +450,13 @@ class yolo_schema(object):
 					labels[str(i)][str(j)] = 0
 				j += 1
 			i = i + 1
-
 		return labels
 
 	def get_labels_filename(self, filename, version = 'current'):
 		if version == 'current':
 			basename = os.path.splitext(os.path.basename(filename))[0]
 
-			ls, _ = self.init.storage.loadDatasetList()
+			ls = self.ls
 
 			matches = [match for match in ls if basename+'.txt' in match]
 			
@@ -448,7 +465,7 @@ class yolo_schema(object):
 			assert(int(version) > 0)
 
 			basename = os.path.splitext(os.path.basename(filename))[0]
-			ls, _ = self.init.storage.loadDatasetList()
+			ls = self.ls
 
 			matches = [match for match in ls if basename+'.txt' in match]
 			
@@ -457,7 +474,7 @@ class yolo_schema(object):
 	def set_labels(self, filename, labels_array):
 		# reads the labels
 		basename = os.path.splitext(os.path.basename(filename))[0]
-		ls, _ = self.init.storage.loadDatasetList()
+		ls = self.ls
 		matches = [match for match in ls if basename+'.txt' in match]
 
 		labels_string = ''
@@ -471,7 +488,7 @@ class yolo_schema(object):
 
 			labels_string = labels_string + f'{cl} {w} {h} {x} {y}\n'
 
-		self.init.storage.addFileFromBinaryGlobal(matches[0],io.BytesIO(labels_string.encode("utf-8")))
+		self.init.storage.add_file_from_binary_global(matches[0],io.BytesIO(labels_string.encode("utf-8")))
 
 		return True
 
@@ -488,37 +505,37 @@ class yolo_schema(object):
 			for f in self.status['keys']:
 				if versions[idx] == 'current':
 					basename = os.path.splitext(os.path.basename(f))[0]
-					ls, _ = self.init.storage.loadDatasetList()
+					ls = self.ls
 					matches = [match for match in ls if basename+'.txt' in match]
 				else:
 					assert(int(versions[idx]) > 0)
 					basename = os.path.splitext(os.path.basename(f))[0]
-					ls, _ = self.init.storage.loadDatasetList()
+					ls = self.ls
 					matches = [match for match in ls if basename+'.txt' in match]
 					path = self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
 
 				if versions[idx] == 'current':
-					self.init.storage.copyFileGlobal(f,branch_name+f.replace(dataset,''))
-					self.init.storage.copyFileGlobal(matches[0],branch_name+matches[0].replace(dataset,''))
+					self.init.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
+					self.init.storage.copy_file_global(matches[0],branch_name+matches[0].replace(dataset,''))
 				else:
-					self.init.storage.copyFileGlobal(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+					self.init.storage.copy_file_global(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
 					basename = os.path.splitext(os.path.basename(f))[0]
-					ls, _ = self.init.storage.loadDatasetList()
+					ls = self.ls
 					matches2 = [match for match in ls if basename+'.txt' in match]
-					self.init.storage.copyFileGlobal(matches[0],branch_name+matches2[0].replace(dataset,''))
+					self.init.storage.copy_file_global(matches[0],branch_name+matches2[0].replace(dataset,''))
 				idx += 1
 		else:
 			for f in self.status['keys']:
 				if versions[idx] == 'current':
-					self.init.storage.removeFileGlobal(dataset+f)
+					self.init.storage.remove_file_global(dataset+f)
 				else:
-					self.init.storage.copyFileGlobal(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+					self.init.storage.copy_file_global(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
 				idx += 1
 		return True
 
 	def read_all_files(self):
 		# queries the json
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 		status = {'keys': [], 'lm': []}
 		for dp in schema:
 			if dp != 'len':
@@ -529,13 +546,14 @@ class yolo_schema(object):
 
 	def get_metadata(self):
 		if self.filtered:
-			schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+			schema = self.get_schema()
 		
 			classes = []
 			resolutions = []
 			size = []
 			lm = []
 			tags = []
+			classes_per_image = []
 
 			n_class = {}
 			n_res = {}
@@ -544,6 +562,9 @@ class yolo_schema(object):
 			n_tags = {}
 
 			for val in self.status['dp']:
+				if not len(schema[val]['classes']) in classes_per_image:
+					classes_per_image.append(len(schema[val]['classes']))
+					
 				for cl in schema[val]['classes']:
 					if not cl in classes:
 						classes.append(cl)
@@ -576,13 +597,12 @@ class yolo_schema(object):
 							n_tags[tag] = 1
 						else:
 							n_tags[tag] += 1
-
-			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags}
+			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
 		else:
-			return json.load(self.init.storage.loadFileGlobal(self.meta_path))
+			return json.load(self.init.storage.load_file_global(self.meta_path))
 
 	def apply_filters(self, filters={}):
-		schema = json.load(self.init.storage.loadFileGlobal(self.schema_path))
+		schema = self.get_schema()
 		status = {'keys': [], 'lm': [], 'dp': []}
 
 		if len(filters) == 0:
@@ -593,6 +613,7 @@ class yolo_schema(object):
 
 			if dp != 'len':
 				
+				add_num =  []
 				add_class =  []
 				add_res =  []
 				add_name =  []
@@ -601,6 +622,15 @@ class yolo_schema(object):
 
 				for f in filters:
 					for filt in filters[f]:
+
+						if filt == 'num_classes':
+							min_cl = int(filters[f]['num_classes'][0])
+							max_cl = int(filters[f]['num_classes'][1])
+							if (len(schema[dp]['classes']) <= max_cl) and (len(schema[dp]['classes']) >= min_cl):
+								add_num.append(True)
+							else:
+								add_num.append(False)
+						
 						if filt == 'class':
 							if filters[f]['class'] in schema[dp]['classes']:
 								add_class.append(True)
@@ -658,8 +688,10 @@ class yolo_schema(object):
 					add_tag = [True]
 				if len(add_box) == 0:
 					add_box = [True]
+				if len(add_num) == 0:
+					add_num = [True]
 					
-				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box)])
+				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num)])
 				
 				if add:
 					status['keys'].append(schema[dp]['key'])

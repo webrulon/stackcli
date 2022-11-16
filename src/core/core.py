@@ -16,12 +16,12 @@ path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 def commit(init, comment = ''):
 	# get new files
-	new_files, new_lm, old_files, old_lm = init.getListtoCompare()
+	new_files, new_lm, old_files, old_lm = init.get_list_to_compare()
 
 	if comment != '':
 		comment = ', ' + comment
 
-	init.storage.resetBuffer()
+	init.storage.reset_buffer()
 	# checks who is the user
 	idx = 0
 	if init.user == None:
@@ -32,7 +32,6 @@ def commit(init, comment = ''):
 	commits = []
 	toadd = []
 	toremove = []
-	tomodify = []
 
 	added = []
 	modified = []
@@ -40,20 +39,20 @@ def commit(init, comment = ''):
 
 	for idx, f in enumerate(old_files):
 		# relative file location
-		f_relative = f.replace(init.prefix_curr,"")
+		f_relative = f
 
 		# checks if the file was modified or remove
 		if f_relative in new_files:
 			if new_lm[new_files.index(f_relative)] != old_lm[idx]:
 				# checks the latest diff and sets the new path
-				n = init.getLatestDiffNumber(f_relative) + 1
+				n = init.get_latest_diff_number(f_relative) + 1
 				diff = init.prefix_diffs + f_relative + '/' + str(n).zfill(10)
 
 				# computes the diff and stores it
 				if init.storage.type == 'local':
-					storeDiff(init.storage,diff,f_relative,f)
+					store_diff(init.storage,diff,f_relative,f)
 				else:
-					storeDiff(init.storage,diff,f_relative,f)
+					store_diff(init.storage,diff,f_relative,f)
 
 				commit = {
 					'key'	: f_relative,
@@ -72,13 +71,13 @@ def commit(init, comment = ''):
 	
 				commitpath = init.prefix_commit + f_relative + '/' + str(n).zfill(10)
 				commits.append(commitpath)
-				init.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
-				updateFileHistory(init,f_relative,commit)
+				init.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+				update_file_history(init,f_relative,commit)
 		else:
 			# checks the latest diff and sets the new path
-			n = init.getLatestDiffNumber(f_relative) + 1
+			n = init.get_latest_diff_number(f_relative) + 1
 			diff = init.prefix_diffs + f_relative + '/' + str(n).zfill(10)
-			init.storage.addFileFromBinaryGlobal(diff,io.BytesIO("".encode('ascii')))
+			init.storage.add_file_from_binary_global(diff,io.BytesIO("".encode('ascii')))
 
 			commit = {
 				'key'	: f_relative,
@@ -99,12 +98,12 @@ def commit(init, comment = ''):
 
 			commitpath = prefix_commit + f_relative + '/' + str(n).zfill(10)
 			commits.append(commitpath)
-			init.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
-			updateFileHistory(init,f_relative,commit)
+			init.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+			update_file_history(init,f_relative,commit)
 
-	init.storage.resetBuffer()
+	init.storage.reset_buffer()
 
-	old_rel_files = [x.replace(init.prefix_curr,"") for x in old_files]
+	old_rel_files = old_files
 
 	for idx, f in enumerate(new_files):
 		# checks if the file was modified or remove
@@ -112,13 +111,13 @@ def commit(init, comment = ''):
 
 			if not '.DS_Store' in f:
 				# checks the latest diff and sets the new path
-				n = init.getLatestDiffNumber(f) + 1
+				n = init.get_latest_diff_number(f) + 1
 				diff = init.prefix_diffs + f + '/' + str(n).zfill(10)
 
 				if init.storage.type == 'local':
-					storeDiff(init.storage,diff,f,f)
+					store_diff(init.storage,diff,f,f)
 				else:
-					storeDiff(init.storage,diff,f,f)
+					store_diff(init.storage,diff,f,f)
 
 				commit = {
 					'key'	: f,
@@ -139,19 +138,19 @@ def commit(init, comment = ''):
 
 				commitpath = prefix_commit + f + '/' + str(n).zfill(10)
 				commits.append(commitpath)
-				init.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
-				updateFileHistory(init,f,commit)
-	init.storage.resetBuffer()	
+				init.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+				update_file_history(init,f,commit)
+	init.storage.reset_buffer()	
 
 	# updates the current version in .stack
 	if len(commits):
-		init.copyCurrentCommit(toadd,toremove)
-		updateHistory(init,commits)
-	init.storage.resetBuffer()
+		init.copy_current_commit(toadd,toremove)
+		update_history(init,commits)
+	init.storage.reset_buffer()
 
 	return (len(commits) > 0), added, modified, removed
 
-def computeDiff(bin1,bin2):
+def compute_diff(bin1,bin2):
 	"""
 	Get unified string diff between two strings. Trims top two lines.
 	Returns empty string if strings are identical.
@@ -164,7 +163,7 @@ def computeDiff(bin1,bin2):
 		pass
 	return ''.join([d if d[-1] == '\n' else d+'\n'+_no_eol+'\n' for d in diffs])
 
-def applyDiff(bin1,patch):
+def apply_diff(s,patch):
 	s = s.splitlines(True)
 	p = patch.splitlines(True)
 	t = ''
@@ -197,42 +196,42 @@ def applyDiff(bin1,patch):
 	t += ''.join(s[sl:])
 	return t
 
-def storeDiff(storage, diff_path, key_old, key_new):
+def store_diff(storage, diff_path, key_old, key_new):
 	# loads files
-	# bin_old = storage.loadFileGlobal(key_old)
-	# bin_new = storage.loadFileGlobal(key_new)
+	# bin_old = storage.load_file_global(key_old)
+	# bin_new = storage.load_file_global(key_new)
 
 	# diff surrogate, save latest snapshot
-	storage.copyFileGlobal(key_new,diff_path)
+	storage.copy_file_global(key_new,diff_path)
 	return True
 
-def updateHistory(init,commits):
+def update_history(init,commits):
 	# loads file global
 	metapath = init.prefix_meta+'history.json'
-	history = json.load(init.storage.loadFileGlobal(metapath))
-	init.storage.resetBuffer()
+	history = json.load(init.storage.load_file_global(metapath))
+	init.storage.reset_buffer()
 
 	# adds to the latest commits
 	time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 	history[str(len(history)+1)] = {'commits': commits, 'date': time}
 
-	init.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
-	init.storage.resetBuffer()
+	init.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
+	init.storage.reset_buffer()
 	return True
 
-def updateFileHistory(init,key,commit):
+def update_file_history(init,key,commit):
 	# loads file global
 	metapath = init.prefix_history+key+'/history.json'
-	if init.storage.checkIfEmpty(init.prefix_history+key+'/'): 
+	if init.storage.check_if_empty(init.prefix_history+key+'/'): 
 		history = {}
 		history[1] = commit
 	else:
-		history = json.load(init.storage.loadFileGlobal(metapath))
+		history = json.load(init.storage.load_file_global(metapath))
 		history[str(len(history)+1)] = commit
-		init.storage.resetBuffer()
+		init.storage.reset_buffer()
 		
-	init.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
-	init.storage.resetBuffer()
+	init.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
+	init.storage.reset_buffer()
 	return True
 
 def add(init, files=[], location='?'):
@@ -242,8 +241,8 @@ def add(init, files=[], location='?'):
 	# adds each file
 	for file in files:
 		print('adding '+file+'...')
-		init.storage.addFile(file, '', location)
-	init.storage.resetBuffer()
+		init.storage.add_file(file, '', location)
+	init.storage.reset_buffer()
 	return True
 
 def add_from_binary(init, filename='', binary='', location='?'):
@@ -252,65 +251,65 @@ def add_from_binary(init, filename='', binary='', location='?'):
 	
 	# adds each file
 	print('adding '+filename+'...')
-	init.storage.addFileFromBinary(filename, binary)
-	init.storage.resetBuffer()
+	init.storage.add_file_from_binary(filename, binary)
+	init.storage.reset_buffer()
 	return True
 
 def rename_file(init, key, new_key):
 	# renames the files
-	init.storage.copyFile(key,new_key)
-	init.storage.removeFile(key)
+	init.storage.copy_file(key,new_key)
+	init.storage.remove_file(key)
 
 	# renames the diffs
-	n_vers = init.getLatestDiffNumber(key)
+	n_vers = init.get_latest_diff_number(key)
 	for v in range(1,n_vers+1):
 		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
 		nxt_diff = init.prefix_diffs + new_key + '/' + str(v).zfill(10)
-		init.storage.copyFileGlobal(prv_diff,nxt_diff)
-		init.storage.removeFileGlobal(prv_diff)
+		init.storage.copy_file_global(prv_diff,nxt_diff)
+		init.storage.remove_file_global(prv_diff)
 
 	prv_diff = init.prefix_history + key + '/history.json'
 	nxt_diff = init.prefix_history + new_key + '/history.json'
-	init.storage.copyFileGlobal(prv_diff,nxt_diff)
+	init.storage.copy_file_global(prv_diff,nxt_diff)
 
 	print('rename file ' + key + ' to ' + new_key)
 	return True
 
 def copy_file_to_new_dataset(init, key, new_dataset):
 	# renames the files
-	init.storage.copyFileGlobal(init.storage.dataset+key,new_dataset+key)
+	init.storage.copy_file_global(init.storage.dataset+key,new_dataset+key)
 
 	# renames the diffs
-	n_vers = init.getLatestDiffNumber(key)
+	n_vers = init.get_latest_diff_number(key)
 	for v in range(1,n_vers+1):
 		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
 		nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
-		init.storage.copyFileGlobal(prv_diff,nxt_diff)
+		init.storage.copy_file_global(prv_diff,nxt_diff)
 		
 	prv_diff = init.prefix_history + key + '/history.json'
 	nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
-	init.storage.copyFileGlobal(prv_diff,nxt_diff)
+	init.storage.copy_file_global(prv_diff,nxt_diff)
 
 	print('rename file ' + key + ' to ' + new_dataset)
 	return True
 
 def move_file_to_dataset(init, key, new_dataset):
 	# renames the files
-	init.storage.copyFileGlobal(init.storage.dataset+key,new_dataset+key)
-	init.storage.removeFileGlobal(init.storage.dataset+key)
+	init.storage.copy_file_global(init.storage.dataset+key,new_dataset+key)
+	init.storage.remove_file_global(init.storage.dataset+key)
 
 	# renames the diffs
-	n_vers = init.getLatestDiffNumber(key)
+	n_vers = init.get_latest_diff_number(key)
 	for v in range(1,n_vers+1):
 		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
 		nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
-		init.storage.copyFileGlobal(prv_diff,nxt_diff)
-		init.storage.removeFileGlobal(prv_diff)
+		init.storage.copy_file_global(prv_diff,nxt_diff)
+		init.storage.remove_file_global(prv_diff)
 
 	prv_diff = init.prefix_history + key + '/history.json'
 	nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
-	init.storage.copyFileGlobal(prv_diff,nxt_diff)
-	init.storage.removeFileGlobal(prv_diff)
+	init.storage.copy_file_global(prv_diff,nxt_diff)
+	init.storage.remove_file_global(prv_diff)
 
 	print('moving file ' + key + ' to ' + new_dataset)
 	return True
@@ -322,7 +321,7 @@ def remove(init, files=[], location='?'):
 	# adds each file
 	for file in files:
 		print('deleting file '+location+file+'...')
-		init.storage.removeFile(location+file)
+		init.storage.remove_file(location+file)
 	return True
 
 def removeGlobal(init, files=[], location='?'):
@@ -332,19 +331,19 @@ def removeGlobal(init, files=[], location='?'):
 	# adds each file
 	for file in files:
 		print('deleting file '+location+file+'...')
-		init.storage.removeFileGlobal(location+file)
+		init.storage.remove_file_global(location+file)
 	return True
 
 def remove_full(init, key):
 	# diff location
-	n_versions = init.getLatestDiffNumber(key)
-	init.storage.removeFile(key)
+	n_versions = init.get_latest_diff_number(key)
+	init.storage.remove_file(key)
 	for version in range(1,n_versions+1):
 		diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 
 		# generates an empty diff
-		init.storage.addFileFromBinaryGlobal(diff,io.BytesIO("".encode('ascii')))
-		init.storage.resetBuffer()
+		init.storage.add_file_from_binary_global(diff,io.BytesIO("".encode('ascii')))
+		init.storage.reset_buffer()
 
 	return True
 
@@ -353,47 +352,47 @@ def remove_diff(init, key, version):
 	diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 
 	# generates an empty diff
-	init.storage.addFileFromBinaryGlobal(diff,io.BytesIO("".encode('ascii')))
-	init.storage.resetBuffer()
+	init.storage.add_file_from_binary_global(diff,io.BytesIO("".encode('ascii')))
+	init.storage.reset_buffer()
 	return True
 
-def revertFile(init, key, version):
+def revert_file(init, key, version):
 	# finds the commit version
 	diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
-	init.storage.copyFileGlobal(diff,key)
+	init.storage.copy_file_global(diff,key)
 	print('reverted file ' + key + ' to version ' + str(version))
 	return True
 
-def revertCommit(init, target_version):
+def revert_commit(init, target_version):
 	if int(target_version) == 0:
 		return False
 
 	# finds the commit version
 	metapath = init.prefix_meta+'history.json'
-	history = json.load(init.storage.loadFileGlobal(metapath))
+	history = json.load(init.storage.load_file_global(metapath))
 
 	print('reverting dataset to version ' + str(target_version))
 
 	for i in range(len(history),int(target_version),-1):
 		for commit_ in history[str(i)]['commits']:
 			if init.storage.type == 'local':
-				cmit = json.load(init.storage.loadFileGlobal(commit_))
+				cmit = json.load(init.storage.load_file_global(commit_))
 			else:
-				cmit = json.load(init.storage.loadFileGlobal(commit_))
-			init.storage.resetBuffer()
+				cmit = json.load(init.storage.load_file_global(commit_))
+			init.storage.reset_buffer()
 			if cmit['type'] == 'add':
 				removeGlobal(init, [cmit['key']])
 			elif cmit['type'] == 'remove':
-				revertFile(init,cmit['key'],cmit['version']-1)
+				revert_file(init,cmit['key'],cmit['version']-1)
 			else:
-				revertFile(init,cmit['key'],cmit['version'])
-			init.storage.resetBuffer()
+				revert_file(init,cmit['key'],cmit['version'])
+			init.storage.reset_buffer()
 	return True
 
 def get_key_history(init, key):
 	# finds the commit version
 	metapath = init.prefix_history+key+'/history.json'
-	history = json.load(init.storage.loadFileGlobal(metapath))
+	history = json.load(init.storage.load_file_global(metapath))
 	return history
 
 def pull(init, files=[],version='current'):
@@ -402,13 +401,13 @@ def pull(init, files=[],version='current'):
 		# saves each file
 		for key in files:
 			newFile = open(os.path.basename(key), "wb")
-			binary = init.storage.loadFileGlobal(key)
+			binary = init.storage.load_file_global(key)
 			newFile.write(binary.read())
 	else:
 		gtfo = False
 		# finds the commit of interest
 		metapath = init.prefix_meta+'history.json'
-		history = json.load(init.storage.loadFileGlobal(metapath))
+		history = json.load(init.storage.load_file_global(metapath))
 		for key in files:
 			if key[-1] == '/':
 				print('Do not pull directories')
@@ -417,15 +416,15 @@ def pull(init, files=[],version='current'):
 				for commit in history[str(i)]['commits']:
 					# reads each file version
 					if init.storage.type == 'local':
-						cmit = json.load(init.storage.loadFileGlobal(commit))
+						cmit = json.load(init.storage.load_file_global(commit))
 					else:
-						cmit = json.load(init.storage.loadFileGlobal(commit))
+						cmit = json.load(init.storage.load_file_global(commit))
 					if str(cmit['version']) == version and cmit['key'] == key:
 						if cmit['type'] != 'remove':
 							newFile = open(os.path.basename(key), "wb")
 							key = init.prefix_diffs + key + '/' + str(cmit['version']).zfill(10)
-							newFile.write(init.storage.loadFileGlobal(key).read())
-							init.storage.resetBuffer()
+							newFile.write(init.storage.load_file_global(key).read())
+							init.storage.reset_buffer()
 						gtfo = True
 					if gtfo:
 						break
@@ -433,15 +432,15 @@ def pull(init, files=[],version='current'):
 				gtfo = False
 				break
 
-	init.storage.resetBuffer()
+	init.storage.reset_buffer()
 
 	return True
 
-def printHistory(init):
+def print_history(init):
 	# loads file global
 	metapath = init.prefix_meta+'history.json'
-	history = json.load(init.storage.loadFileGlobal(metapath))
-	init.storage.resetBuffer()
+	history = json.load(init.storage.load_file_global(metapath))
+	init.storage.reset_buffer()
 
 	print('\n--------------------------')
 	print('- History of the dataset -')
@@ -454,9 +453,9 @@ def printHistory(init):
 		for commit in history[str(i)]['commits']:
 			# reads each file version
 			if init.storage.type == 'local':
-				cmit = json.load(init.storage.loadFileGlobal(commit))
+				cmit = json.load(init.storage.load_file_global(commit))
 			else:
-				cmit = json.load(init.storage.loadFileGlobal(commit))
+				cmit = json.load(init.storage.load_file_global(commit))
 			print('-- '+cmit['comment']+' by '+cmit['source'])
 			idx += 1
 			if idx > 4:
@@ -465,13 +464,13 @@ def printHistory(init):
 
 	print('')
 
-	init.storage.resetBuffer()
+	init.storage.reset_buffer()
 
-def printDiff(init, v2, v1, file=''):
+def print_diff(init, v2, v1, file=''):
 	# loads file global
 	metapath = init.prefix_meta+'history.json'
-	history = json.load(init.storage.loadFileGlobal(metapath))
-	init.storage.resetBuffer()
+	history = json.load(init.storage.load_file_global(metapath))
+	init.storage.reset_buffer()
 
 	v2 = int(v2)
 	v1 = int(v1) 
@@ -486,9 +485,9 @@ def printDiff(init, v2, v1, file=''):
 			for commit in history[str(i)]['commits']:
 				# reads each file version
 				if init.storage.type == 'local':
-					cmit = json.load(init.storage.loadFileGlobal(commit))
+					cmit = json.load(init.storage.load_file_global(commit))
 				else:
-					cmit = json.load(init.storage.loadFileGlobal(commit))
+					cmit = json.load(init.storage.load_file_global(commit))
 				print('-- '+cmit['comment']+' by '+cmit['source'])
 	else:
 		print('Comparing file '+file+' between commit '+str(v2)+' and commit '+str(v1))
@@ -498,24 +497,24 @@ def printDiff(init, v2, v1, file=''):
 			for commit in history[str(i)]['commits']:
 				# reads each file version
 				if init.storage.type == 'local':
-					cmit = json.load(init.storage.loadFileGlobal(commit))
+					cmit = json.load(init.storage.load_file_global(commit))
 				else:
-					cmit = json.load(init.storage.loadFileGlobal(commit))
+					cmit = json.load(init.storage.load_file_global(commit))
 				# print(cmit['comment']+' by '+cmit['source'])
 				if cmit['key'] == init.storage.dataset+file:
 					print('Version: '+str(cmit['version'])+' Date: '+ history[str(i)]['date'])
 					print('-- '+cmit['comment']+' by '+cmit['source'])
 				if str(cmit['version']) == '1':
-					init.storage.resetBuffer()
+					init.storage.reset_buffer()
 					return True
 					break
-		init.storage.resetBuffer()
+		init.storage.reset_buffer()
 
-def printStatus(init):
+def print_status(init):
 	# loads file global
 	metapath = init.prefix_meta+'current.json'
-	current = json.load(init.storage.loadFileGlobal(metapath))
-	init.storage.resetBuffer()
+	current = json.load(init.storage.load_file_global(metapath))
+	init.storage.reset_buffer()
 	if len(current['keys']) > 0:
 		print('\n-------------------------')
 		print('- Status of the dataset -')
@@ -524,7 +523,7 @@ def printStatus(init):
 		for i in range(len(current['keys'])):
 			print('\t-- '+current['keys'][i] + '\tlast modified: '+str(current['lm'][i]))
 
-		init.storage.resetBuffer()
+		init.storage.reset_buffer()
 		print()
 	else:
 		print('everything is ok!')

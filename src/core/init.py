@@ -14,113 +14,69 @@ class Initializer(object):
 	def __init__(self, storage ,user=None):
 		super(Initializer, self).__init__()
 		self.storage = storage
-		self.dataset = storage.loadDataset()
+		self.dataset = storage.load_dataset()
 		self.user = user
 		self.schema = 'Files'
 		
 		# prefixes
 		if self.storage.type == 'local':
 			self.prefix_meta = path_home + '/.stack/' +  self.storage.dataset
-			self.prefix_curr = path_home + '/.stack/' +  self.storage.dataset + 'current/'
 			self.prefix_commit = path_home + '/.stack/' + self.storage.dataset + 'commits/'
 			self.prefix_history = path_home + '/.stack/' + self.storage.dataset + 'history/'
 			self.prefix_diffs = path_home + '/.stack/' + self.storage.dataset + 'diffs/'
 		else:
 			self.prefix_meta = '.stack/'+self.storage.dataset
-			self.prefix_curr = '.stack/'+self.storage.dataset+'current/'
 			self.prefix_commit = '.stack/'+self.storage.dataset+'commits/'
 			self.prefix_history = '.stack/'+self.storage.dataset+'history/'
 			self.prefix_diffs = '.stack/'+self.storage.dataset+'diffs/'
 
 		self.start_check()
 
-	def defineSchema(self):
-		# defines the dataset schema for exporting and visualizing
-		return True
-
-	def removeSetup(self):
+	def remove_setup(self):
 		if self.storage.type == 'local':
-			self.storage.removeFileGlobal(path_home+'/.stack/')
+			self.storage.remove_file_global(path_home+'/.stack/')
 		else:
-			self.storage.removeFileGlobal('.stack/')
+			self.storage.remove_file_global('.stack/')
 		return True
 
 	def start_check(self):
 		# checks if the dataset exists
 		if not self.verify_setup():
-			self.setupDataset()
+			self.setup_dataset()
 		return True
 
 	def verify_setup(self):
 		# verifies if a setup .stack/ directory exists
-		if self.storage.checkIfEmpty(self.prefix_meta):
+		if self.storage.check_if_empty(self.prefix_meta):
 			return False
 
-		if self.storage.checkIfEmpty(self.prefix_curr):
+		if self.storage.check_if_empty(self.prefix_diffs):
 			return False
 
-		if self.storage.checkIfEmpty(self.prefix_diffs):
-			return False
-
-		if self.storage.checkIfEmpty(self.prefix_commit):
+		if self.storage.check_if_empty(self.prefix_commit):
 			return False
 
 		return True
 
-	def setupDataset(self):
+	def setup_dataset(self):
 		# performs all key operations
-		self.copyCurrent()
-		self.setupDiffs()
-		self.setupCommits()
-		self.setupHistory()
+		self.setup_diffs()
+		self.setup_commits()
+		self.setup_history()
 		
 		return True
 
-	def copyCurrent(self):
-		# backup of the current version to keep track of changes
-		if self.storage.checkIfEmpty(self.prefix_curr):
-			for file in self.dataset:
-				self.storage.copyFileGlobal(file['key'],self.prefix_curr+file['key'])
-		else:
-			self.storage.removeFile(self.prefix_curr)
-			self.dataset = self.storage.loadDataset()
-			for file in self.dataset:
-				if not '.DS_STORE' in file['key']:
-					self.storage.copyFileGlobal(file['key'],self.prefix_curr+file['key'])	
-		self.storage.resetBuffer()
-
-		# saves the metadata of the backup
-		metapath = self.prefix_meta + 'current.json'
-		keys, lm = self.storage.loadDatasetList()
-		current = {'keys': keys, 'lm': lm}
-		self.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
-		self.storage.resetBuffer()
-		return True
-
-	def copyCurrentCommit(self, toadd, todelete):
-		# backup of the current version to keep track of changes
-		if self.storage.checkIfEmpty(self.prefix_curr):
-			for file in toadd:
-				self.storage.copyFileGlobal(file,self.prefix_curr+file)
-			for file in todelete:
-				self.storage.removeFileGlobal(self.prefix_curr+file)
-		else:
-			for file in toadd:
-				self.storage.copyFileGlobal(file,self.prefix_curr+file)
-			for file in todelete:
-				self.storage.removeFileGlobal(self.prefix_curr+file)
-		self.storage.resetBuffer()
-
+	def copy_current_commit(self, toadd, todelete):
 		# saves the metadata of the backup
 		metapath = self.prefix_meta + 'current.json'
 		
-		keys, lm = self.storage.loadDatasetList()
+		keys, lm = self.storage.load_dataset_list()
 		current = {'keys': keys, 'lm': lm}
-		self.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
-		self.storage.resetBuffer()
+		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
+		self.storage.reset_buffer()
 		return True
 
-	def setupDiffs(self):
+	def setup_diffs(self):
 		# adds all files, creates a diff for each
 		# located in .stack/meta/diffs/abcde/DIFF_ID
 
@@ -128,10 +84,10 @@ class Initializer(object):
 		for file in self.dataset:
 			# TODO: let's name the diffs with just numbering for now
 			diff = self.prefix_diffs + file['key'] + '/' + str(1).zfill(10)
-			self.storage.copyFileGlobal(file['key'],diff)		
+			self.storage.copy_file_global(file['key'],diff)		
 		return True
 
-	def setupHistory(self):
+	def setup_history(self):
 		# meta-data
 		# located in .stack/meta/history.json
 		""" 
@@ -151,11 +107,11 @@ class Initializer(object):
 		time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 		history = {1: {'commits': commits, 'date': time}}
 		metapath = self.prefix_meta+'history.json'
-		self.storage.addFileFromBinaryGlobal(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
+		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
 
 		return True
 
-	def setupCommits(self):
+	def setup_commits(self):
 		# meta-data for each commit
 		# located in .stack/meta/commits/abcde/COMMIT_ID
 		""" 
@@ -196,21 +152,21 @@ class Initializer(object):
 			history = {}
 			history[1] = commit
 			commitpath = self.prefix_commit + file['key'] + '/' + str(1).zfill(10)
-			self.storage.addFileFromBinaryGlobal(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
+			self.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
 			
-			self.storage.resetBuffer()
+			self.storage.reset_buffer()
 			
 			histpath = self.prefix_history + file['key'] + '/history.json'
-			self.storage.addFileFromBinaryGlobal(histpath,io.BytesIO(json.dumps(history).encode('ascii')))
-			self.storage.resetBuffer()
+			self.storage.add_file_from_binary_global(histpath,io.BytesIO(json.dumps(history).encode('ascii')))
+			self.storage.reset_buffer()
 
-		self.storage.resetBuffer()
+		self.storage.reset_buffer()
 		
 		return True
 
-	def getLatestDiffNumber(self, key):
+	def get_latest_diff_number(self, key):
 		# checks all the diffs
-		diff_path, _ = self.storage.loadListInPath(self.prefix_diffs + key + '/')
+		diff_path, _ = self.storage.load_list_in_path(self.prefix_diffs + key + '/')
 		
 		# gets the list in number
 		diff_path = [int(x.replace(self.prefix_diffs + key + '/','')) for x in diff_path]
@@ -219,12 +175,12 @@ class Initializer(object):
 			return max(diff_path)
 		else:
 			return 0
-
-	def getListtoCompare(self):
+	
+	def get_list_to_compare(self):
 		# get new files
-		new_files, new_lm = self.storage.loadDatasetList()
+		new_files, new_lm = self.storage.load_dataset_list()
 		metapath = self.prefix_meta + 'current.json'
-		current = json.load(self.storage.loadFileGlobal(metapath))
+		current = json.load(self.storage.load_file_global(metapath))
 
 		return new_files, new_lm, current['keys'], current['lm']
 
@@ -235,28 +191,25 @@ def main():
 	from src.storage.classes.s3 import S3Bucket
 	
 	cloud = S3Bucket('stacktest123')
-	cloud.connectBucket()
-	cloud.createDataset('dataset1/')
+	cloud.connect_bucket()
+	cloud.create_dataset('dataset1/')
 	print('dataset created')
 
 	init = Initializer(cloud)
 	print('init created')
 
-	init.copyCurrent()
-	print('current version copied')
-
-	init.setupDiffs()
+	init.setup_diffs()
 	print('first diffs added')
 
-	init.setupCommits()
+	init.setup_commits()
 	print('first commits added')
 
-	init.setupHistory()
+	init.setup_history()
 	print('first change added')
 
-	init.storage.copyFile('image.png','image2.png')
+	init.storage.copy_file('image.png','image2.png')
 	
-	nf,_,of,_ = init.getListtoCompare()
+	nf,_,of,_ = init.get_list_to_compare()
 	print('list of new files')
 	print(nf)
 
