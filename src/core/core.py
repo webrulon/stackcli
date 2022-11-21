@@ -16,7 +16,10 @@ path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 def commit(init, comment = ''):
 	# get new files
+	print('reading the data list')
+	t0 = time.time()
 	new_files, new_lm, old_files, old_lm = init.get_list_to_compare()
+	print(f'time get data list {time.time() - t0}s for {len(old_files)} datapoints')
 
 	if comment != '':
 		comment = ', ' + comment
@@ -36,13 +39,17 @@ def commit(init, comment = ''):
 	added = []
 	modified = []
 	removed = []
+	print('starting a commit')
+	t0 = time.time()
+
+	new_files_s = set(new_files)
 
 	for idx, f in enumerate(old_files):
 		# relative file location
 		f_relative = f
 
 		# checks if the file was modified or remove
-		if f_relative in new_files:
+		if f_relative in new_files_s:
 			if new_lm[new_files.index(f_relative)] != old_lm[idx]:
 				# checks the latest diff and sets the new path
 				n = init.get_latest_diff_number(f_relative) + 1
@@ -103,11 +110,11 @@ def commit(init, comment = ''):
 
 	init.storage.reset_buffer()
 
-	old_rel_files = old_files
+	old_rel_files_s = set(old_files)
 
 	for idx, f in enumerate(new_files):
 		# checks if the file was modified or remove
-		if not (f in old_rel_files):
+		if not (f in old_rel_files_s):
 
 			if not '.DS_Store' in f:
 				# checks the latest diff and sets the new path
@@ -141,6 +148,8 @@ def commit(init, comment = ''):
 				init.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
 				update_file_history(init,f,commit)
 	init.storage.reset_buffer()	
+
+	print(f'time to do all comparisons {time.time() - t0}s for {len(old_files)} datapoints')
 
 	# updates the current version in .stack
 	if len(commits):
@@ -324,7 +333,7 @@ def remove(init, files=[], location='?'):
 		init.storage.remove_file(location+file)
 	return True
 
-def removeGlobal(init, files=[], location='?'):
+def remove_global(init, files=[], location='?'):
 	if location == '?':
 		location = ''
 
@@ -381,7 +390,7 @@ def revert_commit(init, target_version):
 				cmit = json.load(init.storage.load_file_global(commit_))
 			init.storage.reset_buffer()
 			if cmit['type'] == 'add':
-				removeGlobal(init, [cmit['key']])
+				remove_global(init, [cmit['key']])
 			elif cmit['type'] == 'remove':
 				revert_file(init,cmit['key'],cmit['version']-1)
 			else:

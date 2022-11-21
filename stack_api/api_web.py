@@ -25,7 +25,8 @@ try:
     api = api_core.API()
     initialized = api.start_check()
     api.set_schema()
-    api.commit('',False)
+    # print('doing an initial commit')
+    # api.commit('',False)
 except:
     print('no config file')
     api = api_core.API()
@@ -82,14 +83,6 @@ async def init_gskey(file: UploadFile = File(description="A file read as UploadF
 async def get_training_log(data: dict):
     return {'success': True}
 
-@app.get("/directories")
-async def directories():
-    import os
-    from pathlib import Path
-    print(path_home)
-    print(str(os.path.abspath('.')))
-    return {'success': True}
-
 @app.post("/set_branch")
 async def set_branch_api(data: dict):
     try: 
@@ -100,7 +93,7 @@ async def set_branch_api(data: dict):
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
     try: 
-        return {'success': api.disconnectDataset(uri)}
+        return {'success': api.disconnect_dataset(uri)}
     except:
         return {'success': False}
 
@@ -204,7 +197,7 @@ async def label_versions_api(key='',l=5, page=0):
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
     try:
-        return api.lastNcommits(n)
+        return api.last_n_commits(n)
     except:
         return {}
 
@@ -260,7 +253,7 @@ async def commit_api(comment=''):
 @app.get("/get_commit_metadata")
 async def get_commit_meta_api(commit):
     try:
-        return api.loadCommitMetadata(commit)
+        return api.load_commit_metadata(commit)
     except:
         return {}
 
@@ -398,6 +391,6 @@ async def set_hash_for_data():
     except:
         return {'success': False}
 
-@app.get("/get_description")
-async def get_description():
-    return Response(content='')
+@app.get("/get_readme")
+async def get_readme():
+    return Response(content=api.get_readme())

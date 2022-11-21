@@ -495,7 +495,6 @@ class labelbox_schema(object):
 						
 		for elem in labelbox_file:
 			if elem['External ID'] in filename:
-				j_arr = []
 				for i in range(len(labels_array)-1):
 					cl = labels_array[str(i)]['0']
 					x = float(labels_array[str(i)]['1'])
@@ -504,16 +503,17 @@ class labelbox_schema(object):
 					h = float(labels_array[str(i)]['4'])
 
 					bbox = {'top': (y-h/2)*float(res['h']), 'left': (x-w/2)*float(res['w']), 'height': h*int(res['h']), 'width': w*int(res['w'])}
+					
+					if (i >= len(labelbox_file[idx]['Label']['objects'])):
+						copy = labelbox_file[idx]['Label']['objects'][i-1].copy()
+						labelbox_file[idx]['Label']['objects'].append(copy)
 
-					j = 0
-
-					for obj in labelbox_file[idx]['Label']['objects']:
-						if obj['value'] == cl:
-							if not j in j_arr:
-								labelbox_file[idx]['Label']['objects'][j]['bbox'] = bbox
-								j_arr.append(j)
-								break
-						j += 1
+					labelbox_file[idx]['Label']['objects'][i]['value'] = cl
+					labelbox_file[idx]['Label']['objects'][i]['bbox'] = bbox
+					print(labelbox_file[idx]['Label']['objects'])
+				if(len(labelbox_file[idx]['Label']['objects']) > len(labels_array)-1):
+					for i in range(len(labels_array)-1,len(labelbox_file[idx]['Label']['objects'])):
+						labelbox_file[idx]['Label']['objects'].pop()
 				self.init.storage.add_file_from_binary_global(self.get_labels_filename(),io.BytesIO(json.dumps(labelbox_file).encode('ascii')))
 				return True
 			idx += 1

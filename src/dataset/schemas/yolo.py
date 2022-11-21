@@ -11,6 +11,14 @@ from pathlib import Path
 from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
+
+from multiprocessing import Pool
+from multiprocessing import freeze_support
+
+def run_multiprocessing(func, i, n_processors):
+    with Pool(processes=n_processors) as pool:
+        return pool.map(func, i)
+
 class yolo_schema(object):
 	"""docstring for YOLO"""
 	def __init__(self, init):
@@ -24,6 +32,32 @@ class yolo_schema(object):
 		self.bounding_box_thumbs = True
 		ls, _ = self.init.storage.load_dataset_list()
 		self.ls = ls
+
+	def get_schema_from_key(self, key):
+		dp = {}
+		labels = self.get_labels(key)
+		dp['key'] = key
+		dp['lm'] = ''
+		dp['classes'] = [labels[label]['0'] for label in labels]
+		dp['labels'] = labels
+		dp['n_classes'] = len(dp['classes'])
+		dp['tags'] = []
+		dp['resolution'] = self.get_resolution(key)
+		dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
+		return dp
+
+	def create_schema_file_in_parallel(self):
+		schema = {}
+		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
+
+		t0 = time.time()
+		with Pool(processes=6) as pool:
+			arr_res =  pool.map(self.get_schema_from_key, current['keys'])
+		
+		schema['len'] = len(arr_res)
+		print(f'time to compute parallelized {time.time()-t0}s')
+
+		return True
 
 	def create_schema_file(self):
 		# generates the schema file for a yolo dataset
@@ -48,13 +82,11 @@ class yolo_schema(object):
 				dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
 				schema[str(k)] = dp
 				k += 1
-
 			idx += 1
 
 		schema['len'] = k
 
 		# stores dp
-
 		self.schema = schema
 		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
 		self.init.storage.reset_buffer()
@@ -63,7 +95,10 @@ class yolo_schema(object):
 
 	def get_schema(self):
 		if self.schema == None:
-			self.schema = json.load(self.init.storage.load_file_global(self.schema_path))
+			try:
+				self.schema = json.load(self.init.storage.load_file_global(self.schema_path))
+			except:
+				self.create_schema_file()
 		return self.schema
 
 	def compute_meta_data(self):
@@ -84,7 +119,6 @@ class yolo_schema(object):
 
 		for val in schema:
 			if val != 'len':
-
 				if not len(schema[val]['classes']) in classes_per_image:
 					classes_per_image.append(len(schema[val]['classes']))
 
@@ -277,19 +311,15 @@ class yolo_schema(object):
 		return self.compute_meta_data()
 
 	def get_tags(self, key):
-		schema = self.get_schema()
-		
-		for val in schema.keys():
-			if type(schema[val]) is dict:
-				if key in schema[val]['key']:
-					if 'tags' in schema[val].keys():
-						return schema[val]['tags']
+		keys = self.schema.keys()
+		for val in keys:
+			if type(self.schema[val]) is dict:
+				if key in self.schema[val]['key']:
+					if 'tags' in self.schema[val].keys():
+						return self.schema[val]['tags']
 		return []
 
 	def add_tag(self, key, tag):
-		schema = self.get_schema()
-
-		idx = 0
 		for val in self.schema.keys():
 			if type(self.schema[val]) is dict:
 				if key == self.schema[val]['key']:
@@ -301,75 +331,68 @@ class yolo_schema(object):
 						self.schema[val]['tags'].append(tag)
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def add_many_tag(self, keys, tag):
-		schema = self.get_schema()
-
-		idx = 0
-		for val in schema.keys():
-			if type(schema[val]) is dict:
-				if schema[val]['key'] in keys:
-					if 'tags' in schema[val].keys():
-						if not tag in schema[val]['tags']:
-							schema[val]['tags'].append(tag)
+		for val in self.schema.keys():
+			if type(self.schema[val]) is dict:
+				if self.schema[val]['key'] in keys:
+					if 'tags' in self.schema[val].keys():
+						if not tag in self.schema[val]['tags']:
+							self.schema[val]['tags'].append(tag)
 					else:
-						schema[val]['tags'] = []
-						schema[val]['tags'].append(tag)
-					keys.remove(schema[val]['key'])
+						self.schema[val]['tags'] = []
+						self.schema[val]['tags'].append(tag)
+					keys.remove(self.schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def remove_tag(self, key, tag):
-		schema = self.get_schema()
-
-		for val in schema.keys():
-			if type(schema[val]) is dict:
-				if key in schema[val]['key']:
-					if 'tags' in schema[val].keys():
-						if tag in schema[val]['tags']:
-							schema[val]['tags'].remove(tag)
+		keys = self.schema.keys()
+		for val in keys:
+			if type(self.schema[val]) is dict:
+				if key in self.schema[val]['key']:
+					if 'tags' in self.schema[val].keys():
+						if tag in self.schema[val]['tags']:
+							self.schema[val]['tags'].remove(tag)
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def remove_all_tags(self, key):
-		schema = self.get_schema()
-
-		for val in schema.keys():
-			if type(schema[val]) is dict:
-				if key in schema[val]['key']:
-					if 'tags' in schema[val].keys():
-						schema[val]['tags'] = []
+		keys = self.schema.keys()
+		for val in keys:
+			if type(self.schema[val]) is dict:
+				if key in self.schema[val]['key']:
+					if 'tags' in self.schema[val].keys():
+						self.schema[val]['tags'] = []
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
 
 	def many_remove_all_tags(self, keys):
-		schema = self.get_schema()
-
-		for val in schema.keys():
-			if type(schema[val]) is dict:
-				if schema[val]['key'] in keys:
-					if 'tags' in schema[val].keys():
-						schema[val]['tags'] = []
-					keys.remove(schema[val]['key'])
+		for val in self.schema.keys():
+			if type(self.schema[val]) is dict:
+				if self.schema[val]['key'] in keys:
+					if 'tags' in self.schema[val].keys():
+						self.schema[val]['tags'] = []
+					keys.remove(self.schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -414,10 +437,11 @@ class yolo_schema(object):
 			basename = os.path.splitext(os.path.basename(filename))[0]
 
 			if self.ls != None:
-				ls = self.ls
+				ls = set(self.ls)
 			else:
 				ls, _ = self.init.storage.load_dataset_list()
 				self.ls = ls
+				ls = set(ls)
 
 			matches = [match for match in ls if basename+'.txt' in match]
 			try: 
@@ -428,7 +452,7 @@ class yolo_schema(object):
 			assert(int(version) > 0)
 
 			basename = os.path.splitext(os.path.basename(filename))[0]
-			ls = self.ls
+			ls = set(self.ls)
 
 			matches = [match for match in ls if basename+'.txt' in match]
 			
@@ -488,8 +512,12 @@ class yolo_schema(object):
 
 			labels_string = labels_string + f'{cl} {w} {h} {x} {y}\n'
 
-		self.init.storage.add_file_from_binary_global(matches[0],io.BytesIO(labels_string.encode("utf-8")))
-
+		if (len(matches) > 0):
+			self.init.storage.add_file_from_binary_global(matches[0],io.BytesIO(labels_string.encode("utf-8")))
+		else:
+			string = basename+'.txt'
+			self.init.storage.add_file_from_binary(string,io.BytesIO(labels_string.encode("utf-8")))
+			
 		return True
 
 	def branch(self, branch_name, type_ ='copy', versions=[]):

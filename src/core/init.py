@@ -60,6 +60,7 @@ class Initializer(object):
 
 	def setup_dataset(self):
 		# performs all key operations
+		self.copy_current()
 		self.setup_diffs()
 		self.setup_commits()
 		self.setup_history()
@@ -75,6 +76,16 @@ class Initializer(object):
 		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
 		self.storage.reset_buffer()
 		return True
+
+	def copy_current(self):
+		# backup of the current version to keep track of changes
+		metapath = self.prefix_meta + 'current.json'
+		keys, lm = self.storage.load_dataset_list()
+		current = {'keys': keys, 'lm': lm}
+		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
+		self.storage.reset_buffer()
+		return True
+
 
 	def setup_diffs(self):
 		# adds all files, creates a diff for each

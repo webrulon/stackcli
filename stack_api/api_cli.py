@@ -106,7 +106,7 @@ def disconnect_cli(uri: str):
         the list of datasets tracked (does not delete diffs or history)
     '''
     try:
-        return {'success': api.disconnectDataset(uri)}
+        return {'success': api.disconnect_dataset(uri)}
     except:
         return {'success': False}
 

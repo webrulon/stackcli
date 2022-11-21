@@ -26,6 +26,7 @@ class API(object):
         self.Initializer = None
         self.config = None
         self.schema_class = None
+        self.current = None
         self.filtered = False
         self.filters = {}
         if not Path(path_home+'/datasets.stack').exists():
@@ -201,8 +202,8 @@ class API(object):
         if self.config['schema'] == 'yolo':
             self.schema_class = yolo_schema(self.Initializer)
             try:
-                metapath = self.schema_class.meta_path
-                json.load(self.Initializer.storage.load_file_global(metapath))
+                metapath = self.schema_class.schema_path
+                self.schema_class.schema = json.load(self.Initializer.storage.load_file_global(metapath))
             except:
                 print('creating schema file')
                 self.schema_class.create_schema_file()
@@ -464,7 +465,7 @@ class API(object):
         self.set_config()
         return True
 
-    def disconnectDataset(self, storage=''):
+    def disconnect_dataset(self, storage=''):
         assert(len(storage) > 0)
         datasets = self.get_datasets()
         print('disconnecting from ' + storage)
@@ -526,14 +527,14 @@ class API(object):
         
         if version == 'current':
             # saves each file
-            for key in files:
+            for key in file:
                 binary = self.Initializer.storage.load_file_global(key)
         else:
             gtfo = False
             # finds the commit of interest
             metapath = self.Initializer.prefix_meta+'history.json'
             history = self.Initializer.load(self.Initializer.storage.load_file_global(metapath))
-            for key in files:
+            for key in file:
                 if key[-1] == '/':
                     print('Do not pull directories')
                     return False
@@ -553,7 +554,7 @@ class API(object):
                         if gtfo:
                             break
                 if gtfo:
-                    gtfo = Falsfe
+                    gtfo = False
                     break
 
         self.Initializer.storage.reset_buffer()
@@ -626,6 +627,15 @@ class API(object):
             self.schema_class.add_many_tag(keys, tag)
         return True
 
+    def get_readme(self):
+        ls, _ = self.Initializer.storage.load_dataset_list()
+        matches = [match for match in ls if 'readme' in match.lower()]
+        print(matches)
+        if len(matches) == 0:
+            return ''
+        else:
+            return self.Initializer.storage.load_file_global(matches[0]).read()
+    
     def selection_remove_all_tags(self, keys):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.many_remove_all_tags(keys)
@@ -700,7 +710,12 @@ class API(object):
         else:
             if self.filtered:
                 metapath = self.Initializer.prefix_meta+'current.json'
-                schema = json.load(self.Initializer.storage.load_file_global(metapath))
+                if self.current != None:
+                    schema = self.current
+                else:
+                    schema = json.load(self.Initializer.storage.load_file_global(metapath))
+                    self.current = schema
+
                 status = {'keys': [], 'lm': []}
 
                 idx = 0
@@ -711,9 +726,7 @@ class API(object):
                                 if self.filters[f]['name'] in key:
                                     status['keys'].append(schema['keys'][idx])
                                     status['lm'].append(schema['lm'][idx])
-
                     idx += 1
-
                 return status
             else:
                 metapath = self.Initializer.prefix_meta+'current.json'
@@ -740,7 +753,7 @@ class API(object):
             else:
                 cmit = json.load(self.Initializer.storage.load_file_global(commit))
             self.Initializer.storage.reset_buffer()
-            removeGlobal(self.Initializer, [cmit['diff']])
+            remove_global(self.Initializer, [cmit['diff']])
 
         return True
 
@@ -772,7 +785,7 @@ class API(object):
 
         return True
 
-    def loadCommitMetadata(self, commit_file):
+    def load_commit_metadata(self, commit_file):
         try:
             return json.load(self.Initializer.storage.load_file_global(commit_file))
         except:
@@ -901,7 +914,7 @@ class API(object):
         metapath = self.Initializer.prefix_meta+'history.json'
         return json.load(self.Initializer.storage.load_file_global(metapath))
 
-    def lastNcommits(self, n = 0):
+    def last_n_commits(self, n = 0):
         metapath = self.Initializer.prefix_meta+'history.json'
         history = json.load(self.Initializer.storage.load_file_global(metapath))
         self.Initializer.storage.reset_buffer()
