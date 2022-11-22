@@ -1,6 +1,7 @@
 import sys
 sys.path.append( '../../..' )
 from datetime import *
+from tzlocal import get_localzone
 import cv2
 import numpy as np
 import time
@@ -696,9 +697,9 @@ class yolo_schema(object):
 								add_tag.append(False)
 
 						if filt == 'date':
-							d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d')
-							d_max = datetime.strptime(filters[f]['date'][1], '%Y/%m-%d')
-							date = datetime.strptime(schema[dp]['lm'], '%m/%d/%Y, %H:%M:%S')
+							d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d').date()
+							d_max = datetime.strptime(filters[f]['date'][1], '%Y/%m-%d').date()
+							date = datetime.strptime(schema[dp]['lm'], '%m/%d/%Y, %H:%M:%S').astimezone(get_localzone()).date()
 
 							if date <= d_max and date >= d_min:
 								add_date.append(True)

@@ -38,3 +38,6 @@ URLObject==2.4.3
 user-agents==2.2.0
 s3transfer==0.6.0
 uvicorn==0.17.6
+numpy
+Cython
+tzlocal
