@@ -577,9 +577,9 @@ class labelbox_schema(object):
 		return status
 
 	def apply_filters(self, filters={}):
-		schema = json.load(self.init.storage.load_file_global(self.schema_path))
+		schema = self.get_schema()
 		status = {'keys': [], 'lm': [], 'dp': []}
-
+		
 		if len(filters) == 0:
 			self.filtered = False
 			return self.status
@@ -593,19 +593,20 @@ class labelbox_schema(object):
 				add_res =  []
 				add_name =  []
 				add_tag =  []
+				add_date =  []
 				add_box =  []
 
 				for f in filters:
 					for filt in filters[f]:
 
 						if filt == 'num_classes':
-							min = int(filters[f]['num_classes'][0])
-							max = int(filters[f]['num_classes'][1])
-							if (len(schema[dp]['classes']) <= max) and (len(schema[dp]['classes']) >= min):
+							min_cl = int(filters[f]['num_classes'][0])
+							max_cl = int(filters[f]['num_classes'][1])
+							if (len(schema[dp]['classes']) <= max_cl) and (len(schema[dp]['classes']) >= min_cl):
 								add_num.append(True)
 							else:
 								add_num.append(False)
-
+						
 						if filt == 'class':
 							if filters[f]['class'] in schema[dp]['classes']:
 								add_class.append(True)
@@ -620,8 +621,10 @@ class labelbox_schema(object):
 
 						if filt == 'name':
 							if filters[f]['name'] in schema[dp]['key']:
+								print(f'yes')
 								add_name.append(True)
 							else:
+								print(f'no')
 								add_name.append(False)
 
 						if filt == 'tag':
@@ -632,6 +635,16 @@ class labelbox_schema(object):
 									add_tag.append(False)
 							else:
 								add_tag.append(False)
+
+						if filt == 'date':
+							d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d')
+							d_max = datetime.strptime(filters[f]['date'][1], '%Y/%m-%d')
+							date = datetime.strptime(schema[dp]['lm'], '%m/%d/%Y, %H:%M:%S')
+
+							if date <= d_max and date >= d_min:
+								add_date.append(True)
+							else:
+								add_date.append(False)
 
 						if filt == 'box_area':
 
@@ -663,8 +676,10 @@ class labelbox_schema(object):
 					add_box = [True]
 				if len(add_num) == 0:
 					add_num = [True]
+				if len(add_date) == 0:
+					add_date = [True]
 					
-				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num)])
+				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_date)])
 				
 				if add:
 					status['keys'].append(schema[dp]['key'])

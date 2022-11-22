@@ -67,16 +67,6 @@ class Initializer(object):
 		
 		return True
 
-	def copy_current_commit(self, toadd, todelete):
-		# saves the metadata of the backup
-		metapath = self.prefix_meta + 'current.json'
-		
-		keys, lm = self.storage.load_dataset_list()
-		current = {'keys': keys, 'lm': lm}
-		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
-		self.storage.reset_buffer()
-		return True
-
 	def copy_current(self):
 		# backup of the current version to keep track of changes
 		metapath = self.prefix_meta + 'current.json'

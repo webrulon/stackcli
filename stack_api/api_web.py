@@ -217,26 +217,26 @@ async def status_api():
 
 @app.get("/schema_metadata")
 async def schema_metadata_api():
-    # try:
-    return api.schema_metadata()
-    # except:
-    #     return {}
+    try:
+        return api.schema_metadata()
+    except:
+        return {}
 
 @app.get("/current")
 async def current_api(page=0,max_pp=12):
-    # try:
-    full_json = api.status()
-    idx_i = int(page)*int(max_pp)
-    idx_f = (int(page)+1)*int(max_pp)
+    try:
+        full_json = api.status()
+        idx_i = int(page)*int(max_pp)
+        idx_f = (int(page)+1)*int(max_pp)
 
-    current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
+        current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
 
-    current['keys'] = full_json['keys'][idx_i:idx_f]
-    current['lm'] = full_json['lm'][idx_i:idx_f]
+        current['keys'] = full_json['keys'][idx_i:idx_f]
+        current['lm'] = full_json['lm'][idx_i:idx_f]
 
-    return current
-    # except:
-    #     return {'keys': {}, 'lm': {}}
+        return current
+    except:
+        return {'keys': {}, 'lm': {}}
 
 @app.post("/set_filter/")
 async def set_filter_api(data: dict):
@@ -375,10 +375,10 @@ async def get_labels_api(filename, version='current'):
 
 @app.post("/set_labels")
 async def set_labels_api(data: dict):
-    # try:
-    return api.set_labels(data)
-    # except:
-    #     return {}
+    try:
+        return api.set_labels(data)
+    except:
+        return {}
 
 @app.get("/set_hash_data")
 async def set_hash_for_data():

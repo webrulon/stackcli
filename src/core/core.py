@@ -49,8 +49,13 @@ def commit(init, comment = ''):
 		f_relative = f
 
 		# checks if the file was modified or remove
-		if f_relative in new_files_s:
-			if new_lm[new_files.index(f_relative)] != old_lm[idx]:
+		try:
+			idx_ = new_files.index(f_relative)
+		except:
+			idx_ = -1
+
+		if idx_ > -1:
+			if new_lm[idx_] != old_lm[idx]:
 				# checks the latest diff and sets the new path
 				n = init.get_latest_diff_number(f_relative) + 1
 				diff = init.prefix_diffs + f_relative + '/' + str(n).zfill(10)
@@ -108,6 +113,7 @@ def commit(init, comment = ''):
 			init.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
 			update_file_history(init,f_relative,commit)
 
+	print(f'time to do first comparisons {time.time() - t0}s for {len(old_files)} datapoints')
 	init.storage.reset_buffer()
 
 	old_rel_files_s = set(old_files)
@@ -115,7 +121,6 @@ def commit(init, comment = ''):
 	for idx, f in enumerate(new_files):
 		# checks if the file was modified or remove
 		if not (f in old_rel_files_s):
-
 			if not '.DS_Store' in f:
 				# checks the latest diff and sets the new path
 				n = init.get_latest_diff_number(f) + 1
@@ -153,7 +158,7 @@ def commit(init, comment = ''):
 
 	# updates the current version in .stack
 	if len(commits):
-		init.copy_current_commit(toadd,toremove)
+		init.copy_current()
 		update_history(init,commits)
 	init.storage.reset_buffer()
 

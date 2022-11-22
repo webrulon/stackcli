@@ -13,7 +13,6 @@ path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 
 from multiprocessing import Pool
-from multiprocessing import freeze_support
 
 def run_multiprocessing(func, i, n_processors):
     with Pool(processes=n_processors) as pool:
@@ -240,6 +239,11 @@ class yolo_schema(object):
 		schema = self.get_schema()
 
 		# finds the images
+
+		print(added)
+		print(modified)
+		print(removed)
+
 		idx = int(schema['len'])
 		for key in added:
 			if self.is_image(key):
@@ -263,44 +267,42 @@ class yolo_schema(object):
 		for key in modified:
 			if self.is_image(key) or self.has_image(key):
 				if self.has_image(key):
-					key = self.has_image(key, path=True)
+					key_img = self.has_image(key, path=True)
+				else:
+					key_img = key
 				dp = {}
-				labels = self.get_labels(key)
+				labels = self.get_labels(key_img)
 				
-				dp['key'] = key
+				dp['key'] = key_img
 				dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
 				dp['classes'] = [labels[label]['0'] for label in labels]
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
-				dp['tags'] = self.get_tags(key)
-				dp['resolution'] = self.get_resolution(key)
-				dp['size'] = self.init.storage.get_size_of_file_global(key)
-
-				print(dp)
+				dp['tags'] = self.get_tags(key_img)
+				dp['resolution'] = self.get_resolution(key_img)
+				dp['size'] = self.init.storage.get_size_of_file_global(key_img)
 
 				ref = 0
 
 				for k, v in schema.items():
 					if k != 'len':
-						if v['key'] == key:
+						if v['key'] == key_img:
 							ref = k
 
 				schema[ref] = dp
 
 		for key in removed:
 			if self.is_image(key):
-				ref = 0
-
+				ref = []
 				for k, v in schema.items():
-					if v != 'len':
+					if k != 'len':
 						if v['key'] == key:
-							ref = k
-
-				del schema[ref]
-				for k in range(ref, idx):
-					schema[k] = schema[str(int(k) + 1)]
-				idx -= 1
-
+							ref.append(k)
+				for k in ref:
+					del schema[k]
+					for k_ in range(int(k), idx-1):
+						schema[k_] = schema[str(int(k_) + 1)]
+					idx -= 1
 		schema['len'] = idx
 
 		# stores dp
@@ -517,7 +519,7 @@ class yolo_schema(object):
 		else:
 			string = basename+'.txt'
 			self.init.storage.add_file_from_binary(string,io.BytesIO(labels_string.encode("utf-8")))
-			
+
 		return True
 
 	def branch(self, branch_name, type_ ='copy', versions=[]):
@@ -540,7 +542,7 @@ class yolo_schema(object):
 					basename = os.path.splitext(os.path.basename(f))[0]
 					ls = self.ls
 					matches = [match for match in ls if basename+'.txt' in match]
-					path = self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
+					path = self.init.prefix_diffs + matches[0] + '/' + str(int(versions[idx])).zfill(10)
 
 				if versions[idx] == 'current':
 					self.init.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
@@ -625,6 +627,10 @@ class yolo_schema(object):
 							n_tags[tag] = 1
 						else:
 							n_tags[tag] += 1
+
+			print(lm)
+			lm.sort()
+			print(lm)
 			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
 		else:
 			return json.load(self.init.storage.load_file_global(self.meta_path))
@@ -632,7 +638,7 @@ class yolo_schema(object):
 	def apply_filters(self, filters={}):
 		schema = self.get_schema()
 		status = {'keys': [], 'lm': [], 'dp': []}
-
+		
 		if len(filters) == 0:
 			self.filtered = False
 			return self.status
@@ -646,6 +652,7 @@ class yolo_schema(object):
 				add_res =  []
 				add_name =  []
 				add_tag =  []
+				add_date =  []
 				add_box =  []
 
 				for f in filters:
@@ -688,6 +695,16 @@ class yolo_schema(object):
 							else:
 								add_tag.append(False)
 
+						if filt == 'date':
+							d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d')
+							d_max = datetime.strptime(filters[f]['date'][1], '%Y/%m-%d')
+							date = datetime.strptime(schema[dp]['lm'], '%m/%d/%Y, %H:%M:%S')
+
+							if date <= d_max and date >= d_min:
+								add_date.append(True)
+							else:
+								add_date.append(False)
+
 						if filt == 'box_area':
 
 							a_min = min(float(filters[f]['box_area'][0])/100, float(filters[f]['box_area'][1])/100)
@@ -718,8 +735,10 @@ class yolo_schema(object):
 					add_box = [True]
 				if len(add_num) == 0:
 					add_num = [True]
+				if len(add_date) == 0:
+					add_date = [True]
 					
-				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num)])
+				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_date)])
 				
 				if add:
 					status['keys'].append(schema[dp]['key'])
