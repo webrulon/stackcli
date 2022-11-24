@@ -3,12 +3,14 @@ import sys
 sys.path.append( '..' )
 from src.core.init import Initializer
 from src.core.core import *
+from src.training.projects import projects
+
 from src.storage.classes.s3 import S3Bucket
 from src.storage.classes.gcs import GCSBucket
 from src.storage.classes.local import Local
 
-from src.dataset.schemas.yolo import yolo_schema
-from src.dataset.schemas.labelbox import labelbox_schema
+from src.dataset.object_detection.yolo import yolo_schema
+from src.dataset.object_detection.labelbox import labelbox_schema
 
 from pathlib import Path
 import pickle
@@ -28,6 +30,7 @@ class API(object):
         self.schema_class = None
         self.current = None
         self.filtered = False
+        self.projects = None
         self.filters = {}
         if not Path(path_home+'/datasets.stack').exists():
             self.set_datasets({})
@@ -944,3 +947,30 @@ class API(object):
     def diff(self, v1, v0, file=''):
         print_diff(self.Initializer, v1, v0, file)
         return True
+
+    def server_init_experiment(self, uri, project):
+        if path_home in uri:
+            uri = uri.replace(path_home,'')
+        if uri != self.config['storage']:
+            self.init(uri)
+            self.connect_post_api()
+            self.set_schema()
+
+        self.projects = projects(self.Initializer, project=project)
+        self.projects.init_project()
+
+    def server_add_log(self, data):
+        assert(not self.projects is None)
+        self.projects.add_log(data)
+
+    def server_get_models(self):
+        assert(not self.projects is None)
+        return self.projects.models()
+
+    def server_upload_model(self, model, label):
+        assert(not self.projects is None)
+        return self.projects.add_model(model, label)
+
+    def server_get_model(self, label):
+        assert(not self.projects is None)
+        return self.projects.get_model(label)

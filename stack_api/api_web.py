@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
 from pathlib import Path
 
-# API Definition
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -41,7 +40,7 @@ except:
     if initilized:
         api.start_check()
 
-# End-points
+# frontend entry-points
 @app.post("/init_web/")
 async def init_web(data: dict):
     try:
@@ -78,10 +77,6 @@ async def init_gskey(file: UploadFile = File(description="A file read as UploadF
         return {'success': True}
     except:
         return {'success': False}
-
-@app.get("/get_training_log")
-async def get_training_log(data: dict):
-    return {'success': True}
 
 @app.post("/set_branch")
 async def set_branch_api(data: dict):
@@ -380,17 +375,37 @@ async def set_labels_api(data: dict):
     except:
         return {}
 
-@app.get("/set_hash_data")
-async def set_hash_for_data():
-    try:
-        import sys 
-        # import pickle
-        # file = open('pickled_api.example', 'wb')
-        # pickle.dump(api, file)
-        return {'success': f'size of api_core() is {sys.getsizeof(api)}'}
-    except:
-        return {'success': False}
 
 @app.get("/get_readme")
 async def get_readme():
     return Response(content=api.get_readme())
+
+# stacklib entry-points
+
+@app.get("/init_experiment")
+async def init_experiment(data: dict):
+    api.server_init_experiment(uri=data['uri'],project=data['project'])
+    return {'success': True}
+
+@app.post("/add_log")
+async def add_log(data: dict):
+    api.server_add_log(data)
+    return {'success': True}
+
+@app.post("/get_models")
+async def get_models():
+    return api.server_get_models()
+
+@app.post("/add_model")
+async def add_model(data: UploadFile):
+    api.server_upload_model(model=data.file, label=data.json['label'])
+    return {'success': True}
+
+@app.post("/get_model")
+async def get_model(data: dict):
+    return StreamingResponse(api.server_get_model(data['label']))
+
+@app.post("/logout_experiment")
+async def logout_experiment(project):
+    api.server_logout_experiment(project)
+    return {'success': True}
