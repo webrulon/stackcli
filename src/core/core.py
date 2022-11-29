@@ -28,7 +28,10 @@ def commit(init, comment = ''):
 	# checks who is the user
 	idx = 0
 	if init.user == None:
-		username = socket.gethostbyname(socket.gethostname())
+		try:
+			username = socket.gethostbyname(socket.gethostname())
+		except:
+			username = 'unknown'
 	else:
 		username = init.user.username
 
@@ -71,7 +74,7 @@ def commit(init, comment = ''):
 					'diff'	: diff,
 					'version' : n,
 					'type'	: 'modified',
-					'date'	: new_lm[idx],
+					'date'	: new_lm[idx_],
 					'source': username,
 					'comment' : 'modified '+ f_relative + comment,
 				}

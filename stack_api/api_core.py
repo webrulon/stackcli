@@ -226,6 +226,48 @@ class API(object):
             self.schema_class.create_schema_file()
             self.schema_class.compute_meta_data()
 
+    def merge(self, father='', child=''):
+        if father[-1] != '/':
+            father += '/'
+        if child[-1] != '/':
+            child += '/'
+
+        if 's3://' in father:
+            uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+            if uri in child:
+                uri = ''
+        elif 'gs://' in father:
+            uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+            if uri in child:
+                uri = ''
+        else:
+            uri = ''
+
+        if path_home in child:
+            child = child.replace(path_home,'')
+
+        if path_home in father:
+            father = father.replace(path_home,'')
+
+        self.init(uri+child)
+        self.connect_post_api()
+        self.set_schema()
+
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.merge(goal=father)
+        else:
+            dataset = self.Initializer.storage.dataset
+            if self.Initializer.storage.type == 'local':
+                father = path_home + '/' + father + '/'
+            status = self.status()
+            for f in status['keys']:
+                self.Initializer.storage.copy_file_global(f,father+f.replace(dataset,''))
+
+        self.init(father)
+        self.connect_post_api()
+        self.set_schema()
+        return True
+    
     def branch(self, branch_name='new_branch123/', branch_type='copy'):
         if branch_name[-1] != '/':
             branch_name += '/'
@@ -624,6 +666,34 @@ class API(object):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.add_tag(key, tag)
         return True
+    
+    def add_slice(self, slice_name):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.add_slice(slice_name)
+        return True
+
+    def remove_slice(self, slice_name):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.remove_slice(slice_name)
+            self.schema_class.apply_filters()
+        return True
+
+    def reset_slices(self):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.sliced = False
+            self.schema_class.selected_slices = []
+            self.schema_class.apply_filters()
+        return True
+    
+    def get_slices(self):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            return self.schema_class.get_slices()
+        return {}
+    
+    def select_slices(self, slices = []):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.select_slice(slices=slices)
+        return True
 
     def selection_add_tag(self, keys, tag):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
@@ -772,7 +842,133 @@ class API(object):
             self.filtered = True
         return True
 
-    def remove_key_full(self, key, version):
+    def reset_filters(self):
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.filtered = False
+            self.schema_class.apply_filters()
+        else:
+            self.filtered = False
+        return True
+
+    def get_hierarchy(self):
+        metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+        # try:
+        return json.load(self.Initializer.storage.load_file_global(metapath))
+        # except:
+
+    def set_current_hierarchy(self, hierarchy):
+        metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+        self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
+        self.Initializer.storage.reset_buffer()
+        return True
+    
+    def set_hierarchy(self, parent='', child=''):
+        metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+        try:
+            hierarchy = json.load(self.Initializer.storage.load_file_global(metapath))
+        except:
+            hierarchy = {'parent': '', 'children': []}
+
+        if self.config['type'] == 's3':
+            uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+        elif self.config['type'] == 'gcs':
+            uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+        else:
+            uri = ''
+
+        parent = parent.replace(path_home,'')
+        child = child.replace(path_home,'')
+
+        if parent != '':
+            if not uri in parent:
+                parent = uri + parent
+            hierarchy['parent'] = parent
+        if child != '':
+            if not uri in child:
+                child = uri + child
+            hierarchy['children'].append(child)
+        self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
+        self.Initializer.storage.reset_buffer()
+        return True
+
+    def remove_child(self, child=''):
+        metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+        try:
+            hierarchy = json.load(self.Initializer.storage.load_file_global(metapath))
+        except:
+            hierarchy = {'parent': '', 'children': []}
+        if self.config['type'] == 's3':
+            uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+        elif self.config['type'] == 'gcs':
+            uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+        else:
+            uri = ''
+
+        if child != '':
+            if not uri in child:
+                child = uri + child
+            if child in hierarchy['children']:
+                hierarchy['children'].remove(child)
+        self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
+        self.Initializer.storage.reset_buffer()
+        return True
+
+    def remove_parent(self):
+        metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+        try:
+            hierarchy = json.load(self.Initializer.storage.load_file_global(metapath))
+        except:
+            hierarchy = {'parent': '', 'children': []}
+        hierarchy['parent'] = ''
+        self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
+        self.Initializer.storage.reset_buffer()
+        return True
+
+    def add_child_to_current(self, child=''):
+        metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+        try:
+            hierarchy = json.load(self.Initializer.storage.load_file_global(metapath))
+            self.Initializer.storage.reset_buffer()
+        except:
+            hierarchy = {'parent': '', 'children': []}
+        if self.config['type'] == 's3':
+            uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+        elif self.config['type'] == 'gcs':
+            uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+        else:
+            uri = ''
+
+        if child != '':
+            if not uri in child:
+                child = uri + child
+            if not child in hierarchy['children']:
+                hierarchy['children'].append(child)
+        self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
+        self.Initializer.storage.reset_buffer()
+        return True
+
+    def add_parent_to_current(self, parent=''):
+        metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+        try:
+            hierarchy = json.load(self.Initializer.storage.load_file_global(metapath))
+        except:
+            hierarchy = {'parent': '', 'children': []}
+        if self.config['type'] == 's3':
+            uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+        elif self.config['type'] == 'gcs':
+            uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+        else:
+            uri = ''
+
+        if parent != '':
+            if not uri in parent:
+                parent = uri + parent
+            hierarchy['parent'] = parent
+        self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
+        self.Initializer.storage.reset_buffer()
+        return True
+
+    def remove_key_full(self, key):
         remove_full(self.Initializer,self.Initializer.storage.dataset+key)
         return True
 
@@ -787,7 +983,6 @@ class API(object):
             self.schema_class.update_schema_file(added, modified, deleted)
 
         return True
-
     def load_commit_metadata(self, commit_file):
         try:
             return json.load(self.Initializer.storage.load_file_global(commit_file))
@@ -899,7 +1094,7 @@ class API(object):
     def revert(self, version=0):
         assert(version != '')
         revert_commit(self.Initializer, int(version))
-        commit(self.Initializer, 'reverted to version ' + str(version))
+        self.commit('reverted to version ' + str(version))
 
     def revert_file(self, key, version):
         try: 

@@ -59,16 +59,17 @@ async def init_web(data: dict):
 
 @app.get("/connect/")
 async def connect(uri):
-    try:
-        assert(not '.stack' in uri)
-        if path_home in uri:
-            uri = uri.replace(path_home,'')
-        api.init(uri)
-        api.connect_post_api()
-        api.set_schema()
-        return {'success': True}
-    except:
-        return {'success': False}
+    # try:
+    assert(not '.stack' in uri)
+    if path_home in uri:
+        uri = uri.replace(path_home,'')
+    api.init(uri)
+    api.connect_post_api()
+    api.set_schema()
+    api.commit()
+    return {'success': True}
+    # except:
+    #     return {'success': False}
 
 @app.post("/init_gskey/")
 async def init_gskey(file: UploadFile = File(description="A file read as UploadFile")):
@@ -80,14 +81,212 @@ async def init_gskey(file: UploadFile = File(description="A file read as UploadF
 
 @app.post("/set_branch")
 async def set_branch_api(data: dict):
-    try: 
-        return {'success': api.branch(data['branch_name'], data['branch_type'])}
+    try:
+        parent = api.Initializer.storage.dataset
+        api.set_hierarchy(child = data['branch_name'])
+        api.branch(data['branch_name'], data['branch_type'])
+        api.set_hierarchy(parent = parent)
+        return {'success': True}
     except:
         return {'success': False}
 
+@app.get("/get_current_hierarchy")
+async def get_current_hierarchy_api():
+    # try:
+    print(api.get_hierarchy())
+    return api.get_hierarchy()
+    # except:
+    #     return {'parents': '', 'children': []}
+
+@app.get("/get_hierarchy")
+async def get_hierarchy_api(uri):
+    try:
+        assert(not '.stack' in uri)
+        if path_home in uri:
+            uri = uri.replace(path_home,'')
+        api.init(uri)
+        api.connect_post_api()
+        api.set_schema()
+        return api.get_hierarchy()
+    except:
+        return {'parents': '', 'children': []}
+
+@app.get("/get_branches")
+async def get_branches_api():
+    try:
+        hierarchy = api.get_hierarchy()
+        return hierarchy['children']
+    except:
+        return []
+
+@app.get("/set_hierarchy")
+async def set_hierarchy_api(uri_parent, uri_child):
+    try:
+        assert((not '.stack' in uri_parent) and (not '.stack' in uri_child))
+
+        uri_parent = uri_parent.replace(path_home,'')
+        uri_child = uri_child.replace(path_home,'')
+        
+        api.init(uri_parent)
+        api.connect_post_api()
+        api.set_schema()
+        api.set_hierarchy(child = uri_child)
+
+        api.init(uri_child)
+        api.connect_post_api()
+        api.set_schema()
+        api.set_hierarchy(parent = uri_parent)
+
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.post("/set_current_hierarchy")
+async def set_current_hierarchy_api(hierarchy: dict):
+    try:
+        assert('parent' in hierarchy.keys())
+        assert('children' in hierarchy.keys())
+
+        assert(type(hierarchy['parent']) is str)
+        assert(type(hierarchy['children']) is list)
+        
+        return {'success': api.set_current_hierarchy(hierarchy)}
+    except:
+        return {'success': {'parent': '', 'children': []}}
+
+@app.get("/add_child_to_current")
+async def add_child_to_current_api(child):
+    # try:
+    print(api.get_hierarchy())
+    child = child.replace(path_home,'')
+    api.add_child_to_current(child)
+    parent = api.Initializer.storage.dataset
+    parent = parent.replace(path_home,'')
+    print(api.get_hierarchy())
+    # try:
+    api.init(child)
+    api.connect_post_api()
+    api.set_schema()
+    api.add_parent_to_current(parent)
+    # except:
+    #     pass
+    api.init(parent)
+    api.connect_post_api()
+    api.set_schema()
+    return {'success': True}
+    # except:
+    #     return {'success': {'parent': '', 'children': []}}
+
+@app.get("/add_parent_to_current")
+async def add_parent_to_current_api(parent):
+    try:
+        parent = parent.replace(path_home,'')
+        api.add_parent_to_current(parent)
+        child = api.Initializer.storage.dataset
+        child = child.replace(path_home,'')
+        try:
+            api.init(parent)
+            api.connect_post_api()
+            api.set_schema()
+            api.add_child_to_current(child)
+        except:
+            pass
+        api.init(child)
+        api.connect_post_api()
+        api.set_schema()
+        
+        return {'success': True}
+    except:
+        return {'success': {'parent': '', 'children': []}}
+
+@app.get("/current_remove_child")
+async def current_remove_child(uri=''):
+    try:
+        uri = uri.replace(path_home,'')
+        api.remove_child(child=uri)
+        parent = api.Initializer.storage.dataset
+        parent = parent.replace(path_home,'')
+        try:
+            api.init(uri)
+            api.connect_post_api()
+            api.set_schema()
+            api.remove_parent()
+        except:
+            pass
+        api.init(parent)
+        api.connect_post_api()
+        api.set_schema()
+        return {'success': True}
+    except:
+        return {'success': {'parent': '', 'children': []}}
+
+@app.post("/merge")
+async def merge_api(data: dict):
+    try: 
+        api.merge(father=data['father'], child=data['child'])
+        api.commit(f"merged branch {data['child']} to {data['father']}")
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.get("/merge_child_to_master")
+async def merge_child_to_master_api(uri):
+    # try:
+    print(uri)
+    master = api.Initializer.storage.dataset
+    api.merge(father=master, child=uri)
+    api.commit(f"merged branch {uri} to {master}")
+    return {'success': True}
+    # except:
+    #     return {'success': False}
+
+@app.get("/merge_current_to_master")
+async def merge_current_to_master_api():
+    # try: 
+    child = api.Initializer.storage.dataset
+    hierarchy = api.get_hierarchy()
+    if type(hierarchy['parent']) is str:
+        if hierarchy['parent'] == '':
+            return {'success': False}
+        else:
+            api.merge(father=hierarchy['parent'], child=child)
+            api.commit(f"merged branch {child} to {hierarchy['parent']}")
+            return {'success': True}
+    # except:
+    #     return {'success': False}
+
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
-    try: 
+    try:
+        api.init(uri)
+        api.connect_post_api()
+        api.set_schema()
+        hierarchy = api.get_hierarchy()
+        if len(hierarchy['children']) > 0:
+            for child in hierarchy['children']:
+                api.remove_child(child=child)
+                try:
+                    api.init(child)
+                    api.connect_post_api()
+                    api.set_schema()
+                    api.remove_parent()
+                except:
+                    pass
+            api.init(uri)
+            api.connect_post_api()
+            api.set_schema()
+        if type(hierarchy['parent']) is str:
+            if hierarchy['parent'] != '':
+                assert(not '.stack' in hierarchy['parent'])
+                if path_home in hierarchy['parent']:
+                    hierarchy['parent'] = hierarchy['parent'].replace(path_home,'')
+                try:
+                    api.init(hierarchy['parent'])
+                    api.connect_post_api()
+                    api.set_schema()
+                    api.remove_child(child=uri)
+                except: 
+                    pass    
         return {'success': api.disconnect_dataset(uri)}
     except:
         return {'success': False}
@@ -108,10 +307,10 @@ async def uri_api():
 
 @app.get("/schema")
 async def schema_api():
-    try:
-        return {'value': api.config['schema']}
-    except:
-        return {'value': 'files'}
+    # try:
+    return {'value': api.config['schema']}
+    # except:
+    #     return {'value': 'files'}
 
 @app.get("/history")
 async def history_api():
@@ -212,26 +411,23 @@ async def status_api():
 
 @app.get("/schema_metadata")
 async def schema_metadata_api():
-    try:
-        return api.schema_metadata()
-    except:
-        return {}
+    return api.schema_metadata()
 
 @app.get("/current")
 async def current_api(page=0,max_pp=12):
-    try:
-        full_json = api.status()
-        idx_i = int(page)*int(max_pp)
-        idx_f = (int(page)+1)*int(max_pp)
+    # try:
+    full_json = api.status()
+    idx_i = int(page)*int(max_pp)
+    idx_f = (int(page)+1)*int(max_pp)
 
-        current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
+    current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
 
-        current['keys'] = full_json['keys'][idx_i:idx_f]
-        current['lm'] = full_json['lm'][idx_i:idx_f]
+    current['keys'] = full_json['keys'][idx_i:idx_f]
+    current['lm'] = full_json['lm'][idx_i:idx_f]
 
-        return current
-    except:
-        return {'keys': {}, 'lm': {}}
+    return current
+    # except:
+    #     return {'keys': {}, 'lm': {}}
 
 @app.post("/set_filter/")
 async def set_filter_api(data: dict):
@@ -345,21 +541,21 @@ async def get_csv_diff(key, v1='current', v2='current'):
 
 @app.get("/revert_key_version")
 async def revert_key_version_api(key, version=-1, label='raw'):
-    try:
-        api.revert_file(key, version)
-        api.commit('reverted file ' + key)
-        return {'sucess': True}
-    except:
-        return {'sucess': False}
+    # try:
+    api.revert_file(key, version)
+    api.commit('reverted file ' + key)
+    return {'sucess': True}
+    # except:
+    #     return {'sucess': False}
 
 @app.get("/revert")
 async def revert_api(version=0):
-    try:
-        api.revert(version)
-        api.commit('reverted dataset to version ' + version)
-        return {'success': True}
-    except:
-        return {'success': False}
+    # try:
+    api.revert(version)
+    api.commit('reverted dataset to version ' + version)
+    return {'success': True}
+    # except:
+    #     return {'success': False}
 
 @app.get("/get_labels")
 async def get_labels_api(filename, version='current'):
@@ -375,6 +571,25 @@ async def set_labels_api(data: dict):
     except:
         return {}
 
+@app.get("/add_slice")
+async def add_slice(slice_name):
+    return {'success': api.add_slice(slice_name=slice_name)}
+
+@app.get("/remove_slice")
+async def remove_slice(slice_name):
+    return {'success': api.remove_slice(slice_name=slice_name)}
+
+@app.get("/reset_slices")
+async def reset_slices():
+    return {'success': api.reset_slices()}
+
+@app.post("/select_slice")
+async def select_slice(slices: list):
+    return {'success': api.select_slices(slices=slices)}
+
+@app.get("/get_slices")
+async def get_slices():
+    return api.get_slices()
 
 @app.get("/get_readme")
 async def get_readme():

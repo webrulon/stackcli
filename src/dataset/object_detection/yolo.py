@@ -29,6 +29,8 @@ class yolo_schema(object):
 		self.meta_path = self.init.prefix_meta + 'yolo_data.json'
 		self.status = {}
 		self.filtered = False
+		self.sliced = False
+		self.selected_slices = False
 		self.bounding_box_thumbs = True
 		ls, _ = self.init.storage.load_dataset_list()
 		self.ls = ls
@@ -78,6 +80,7 @@ class yolo_schema(object):
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
 				dp['tags'] = []
+				dp['slices'] = []
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
 				schema[str(k)] = dp
@@ -110,17 +113,27 @@ class yolo_schema(object):
 		lm = []
 		tags = []
 		classes_per_image = []
+		slices = []
 
 		n_class = {}
 		n_res = {}
 		n_lm = {}
 		n_size = {}
 		n_tags = {}
+		n_slices = {}
 
 		for val in schema:
-			if val != 'len':
+			if type(self.schema[val]) is dict:
 				if not len(schema[val]['classes']) in classes_per_image:
 					classes_per_image.append(len(schema[val]['classes']))
+				
+				if 'slice' in schema[val].keys():
+					for sl in schema[val]['slices']:
+						if not sl in slices:
+							slices.append(sl)
+							n_slices[sl] = 1
+						else:
+							n_slices[sl] += 1
 
 				for cl in schema[val]['classes']:
 					if not cl in classes:
@@ -155,7 +168,7 @@ class yolo_schema(object):
 						else:
 							n_tags[tag] += 1
 
-		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
+		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
 		self.metadata = metadata
 
 		self.init.storage.add_file_from_binary_global(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
@@ -166,7 +179,10 @@ class yolo_schema(object):
 	def get_thumbnail(self, filename):
 		if self.bounding_box_thumbs:
 			# loads image string
+			t0 = time.time()
 			img_str = self.init.storage.load_file(filename)
+			print(f'time to load from s3 {time.time()-t0}s')
+			
 			# formats to cv2
 			nparr = np.fromstring(img_str.read(), np.uint8)
 			img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -187,7 +203,10 @@ class yolo_schema(object):
 
 				# Split string to float
 				res = dt.split()
-				cl = int(res[0])
+				try:
+					cl = int(res[0])
+				except:
+					cl = res[0]
 				x = float(res[1])
 				y = float(res[2])
 				w = float(res[3])
@@ -206,7 +225,7 @@ class yolo_schema(object):
 				colour += ('00' + hex((hsh >> 16) & 0xFF))[-2:].replace('x','0')
 				
 				colour = colour[1:]
-
+				
 				color = tuple(int(colour[i:i+2],16) for i in (4,2,0))
 				
 				l = int((x - w / 2) * dw)
@@ -227,8 +246,11 @@ class yolo_schema(object):
 				cv2.rectangle(img, (l, t), (r, b), color, 1)
 
 			mask = shapes.astype(bool)
+
 			img[mask] = cv2.addWeighted(img, 0.5, shapes, 0.5, 0)[mask]
 
+			# retval, buf = cv2.imencode(".webp", img, [cv2.IMWRITE_WEBP_QUALITY, 1])
+			# string_res = io.BytesIO(buf.tostring())
 			string_res = io.BytesIO(cv2.imencode('.jpg', img)[1].tostring())
 			
 			return string_res
@@ -238,12 +260,10 @@ class yolo_schema(object):
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
 		schema = self.get_schema()
-
-		# finds the images
-
 		print(added)
 		print(modified)
 		print(removed)
+		# finds the images
 
 		idx = int(schema['len'])
 		for key in added:
@@ -258,11 +278,11 @@ class yolo_schema(object):
 				dp['n_classes'] = len(dp['classes'])
 				dp['resolution'] = self.get_resolution(key)
 				dp['tags'] = []
+				dp['slices'] = []
 				dp['size'] = self.init.storage.get_size_of_file_global(key)
 
 				schema[str(idx)] = dp
-				print(dp)
-
+				
 				idx += 1
 
 		for key in modified:
@@ -280,13 +300,13 @@ class yolo_schema(object):
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
 				dp['tags'] = self.get_tags(key_img)
+				dp['slices'] = self.get_slices_key(key_img)
 				dp['resolution'] = self.get_resolution(key_img)
 				dp['size'] = self.init.storage.get_size_of_file_global(key_img)
 
 				ref = 0
-
 				for k, v in schema.items():
-					if k != 'len':
+					if type(v) is dict:
 						if v['key'] == key_img:
 							ref = k
 
@@ -296,14 +316,20 @@ class yolo_schema(object):
 			if self.is_image(key):
 				ref = []
 				for k, v in schema.items():
-					if k != 'len':
+					if type(v) is dict:
 						if v['key'] == key:
 							ref.append(k)
 				for k in ref:
 					del schema[k]
-					for k_ in range(int(k), idx-1):
-						schema[k_] = schema[str(int(k_) + 1)]
 					idx -= 1
+				copy_schema = {}
+				idx_copy = 0
+				for k, v in schema.items():
+					if type(v) is dict:
+						copy_schema[str(idx_copy)] = v
+						idx_copy += 1
+
+				schema = copy_schema
 		schema['len'] = idx
 
 		# stores dp
@@ -312,7 +338,7 @@ class yolo_schema(object):
 		self.schema = schema
 
 		return self.compute_meta_data()
-
+	
 	def get_tags(self, key):
 		keys = self.schema.keys()
 		for val in keys:
@@ -523,45 +549,45 @@ class yolo_schema(object):
 
 		return True
 
-	def branch(self, branch_name, type_ ='copy', versions=[]):
+	def branch(self, branch_name, type_ ='copy'):
 		dataset = self.init.storage.dataset
 		if self.init.storage.type == 'local':
 			branch_name = path_home + '/' + branch_name + '/'
-
-		if len(versions) == 0:
-			for f in self.status['keys']:
-				versions.append('current')
-		idx = 0
 		if type_ == 'copy':
 			for f in self.status['keys']:
-				if versions[idx] == 'current':
-					basename = os.path.splitext(os.path.basename(f))[0]
-					ls = self.ls
-					matches = [match for match in ls if basename+'.txt' in match]
-				else:
-					assert(int(versions[idx]) > 0)
-					basename = os.path.splitext(os.path.basename(f))[0]
-					ls = self.ls
-					matches = [match for match in ls if basename+'.txt' in match]
-					path = self.init.prefix_diffs + matches[0] + '/' + str(int(versions[idx])).zfill(10)
-
-				if versions[idx] == 'current':
-					self.init.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
-					self.init.storage.copy_file_global(matches[0],branch_name+matches[0].replace(dataset,''))
-				else:
-					self.init.storage.copy_file_global(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
-					basename = os.path.splitext(os.path.basename(f))[0]
-					ls = self.ls
-					matches2 = [match for match in ls if basename+'.txt' in match]
-					self.init.storage.copy_file_global(matches[0],branch_name+matches2[0].replace(dataset,''))
-				idx += 1
+				basename = os.path.splitext(os.path.basename(f))[0]
+				ls = self.ls
+				matches = [match for match in ls if basename+'.txt' in match]
+				
+				self.init.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
+				self.init.storage.copy_file_global(matches[0],branch_name+matches[0].replace(dataset,''))
 		else:
 			for f in self.status['keys']:
-				if versions[idx] == 'current':
-					self.init.storage.remove_file_global(dataset+f)
-				else:
-					self.init.storage.copy_file_global(self.init.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
-				idx += 1
+				basename = os.path.splitext(os.path.basename(f))[0]
+				ls = self.ls
+				matches = [match for match in ls if basename+'.txt' in match]
+				
+				self.init.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
+				self.init.storage.copy_file_global(matches[0],branch_name+matches[0].replace(dataset,''))
+				self.init.storage.remove_file_global(dataset+f)
+				self.init.storage.remove_file_global(dataset+matches[0])
+		return True
+
+	def merge(self, goal):
+		dataset = self.init.storage.dataset
+		if self.init.storage.type == 'local':
+			goal = goal.replace(path_home,'')
+			goal = path_home + '/' + goal + '/'
+		if self.filtered:
+			status = self.status['keys']
+		else:
+			status = self.read_all_files()
+		for f in status['keys']:
+			basename = os.path.splitext(os.path.basename(f))[0]
+			ls = self.ls
+			matches = [match for match in ls if basename+'.txt' in match]
+			self.init.storage.copy_file_global(f,goal+f.replace(dataset,''))
+			self.init.storage.copy_file_global(matches[0],goal+matches[0].replace(dataset,''))
 		return True
 
 	def read_all_files(self):
@@ -569,7 +595,7 @@ class yolo_schema(object):
 		schema = self.get_schema()
 		status = {'keys': [], 'lm': []}
 		for dp in schema:
-			if dp != 'len':
+			if type(self.schema[dp]) is dict:
 				status['keys'].append(schema[dp]['key'])
 				status['lm'].append(schema[dp]['lm'])
 		self.status = status
@@ -585,17 +611,27 @@ class yolo_schema(object):
 			lm = []
 			tags = []
 			classes_per_image = []
+			slices = []
 
 			n_class = {}
 			n_res = {}
 			n_lm = {}
 			n_size = {}
 			n_tags = {}
+			n_slices = {}
 
 			for val in self.status['dp']:
 				if not len(schema[val]['classes']) in classes_per_image:
 					classes_per_image.append(len(schema[val]['classes']))
-					
+				
+				if 'slices' in schema[val].keys():
+					for sl in schema[val]['slices']:
+						if not sl in slices:
+							slices.append(sl)
+							n_slices[sl] = 1
+						else:
+							n_slices[sl] += 1
+
 				for cl in schema[val]['classes']:
 					if not cl in classes:
 						classes.append(cl)
@@ -628,127 +664,195 @@ class yolo_schema(object):
 							n_tags[tag] = 1
 						else:
 							n_tags[tag] += 1
-
-			print(lm)
-			lm.sort()
-			print(lm)
-			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
+			return {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
 		else:
 			return json.load(self.init.storage.load_file_global(self.meta_path))
 
+	def reset_filters(self):
+		self.filtered = False
+		return True
+	
 	def apply_filters(self, filters={}):
 		schema = self.get_schema()
 		status = {'keys': [], 'lm': [], 'dp': []}
-		
+
 		if len(filters) == 0:
 			self.filtered = False
 			return self.status
 
 		for dp in schema:
+			if type(self.schema[dp]) is dict:
+				if self.sliced:
+					if 'slices' in schema[dp].keys():
+						pre_add = any([sl in schema[dp]['slices'] for sl in self.selected_slices])
+					else:
+						pre_add = False
+				else:
+					pre_add = True
 
-			if dp != 'len':
-				
-				add_num =  []
-				add_class =  []
-				add_res =  []
-				add_name =  []
-				add_tag =  []
-				add_date =  []
-				add_box =  []
+				if pre_add:
+					add_num =  []
+					add_class =  []
+					add_res =  []
+					add_name =  []
+					add_tag =  []
+					add_date =  []
+					add_box =  []
 
-				for f in filters:
-					for filt in filters[f]:
-
-						if filt == 'num_classes':
-							min_cl = int(filters[f]['num_classes'][0])
-							max_cl = int(filters[f]['num_classes'][1])
-							if (len(schema[dp]['classes']) <= max_cl) and (len(schema[dp]['classes']) >= min_cl):
-								add_num.append(True)
-							else:
-								add_num.append(False)
-						
-						if filt == 'class':
-							if filters[f]['class'] in schema[dp]['classes']:
-								add_class.append(True)
-							else:
-								add_class.append(False)
+					for f in filters:
+						for filt in filters[f]:
+							if filt == 'num_classes':
 								
-						if filt == 'resolution':
-							if filters[f]['resolution'] == schema[dp]['resolution']:
-								add_res.append(True)
-							else:
-								add_res.append(False)
+								min_cl = int(filters[f]['num_classes'][0])
+								max_cl = int(filters[f]['num_classes'][1])
+								
+								if (len(schema[dp]['classes']) <= max_cl) and (len(schema[dp]['classes']) >= min_cl):
+									add_num.append(True)
+								else:
+									add_num.append(False)
+							
+							if filt == 'class':
+								if filters[f]['class'] in schema[dp]['classes']:
+									add_class.append(True)
+								else:
+									add_class.append(False)
+									
+							if filt == 'resolution':
+								if filters[f]['resolution'] == schema[dp]['resolution']:
+									add_res.append(True)
+								else:
+									add_res.append(False)
 
-						if filt == 'name':
-							if filters[f]['name'] in schema[dp]['key']:
-								print(f'yes')
-								add_name.append(True)
-							else:
-								print(f'no')
-								add_name.append(False)
+							if filt == 'name':
+								if filters[f]['name'] in schema[dp]['key']:
+									add_name.append(True)
+								else:
+									add_name.append(False)
 
-						if filt == 'tag':
-							if 'tags' in schema[dp]:
-								if filters[f]['tag'] in schema[dp]['tags']:
-									add_tag.append(True)
+							if filt == 'tag':
+								if 'tags' in schema[dp]:
+									if filters[f]['tag'] in schema[dp]['tags']:
+										add_tag.append(True)
+									else:
+										add_tag.append(False)
 								else:
 									add_tag.append(False)
-							else:
-								add_tag.append(False)
 
-						if filt == 'date':
-							d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d').date()
-							d_max = datetime.strptime(filters[f]['date'][1], '%Y/%m-%d').date()
-							date = datetime.strptime(schema[dp]['lm'], '%m/%d/%Y, %H:%M:%S').astimezone(get_localzone()).date()
+							if filt == 'date':
+								d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d').date()
+								d_max = datetime.strptime(filters[f]['date'][1], '%Y/%m-%d').date()
+								date = datetime.strptime(schema[dp]['lm'], '%m/%d/%Y, %H:%M:%S').astimezone(get_localzone()).date()
 
-							if date <= d_max and date >= d_min:
-								add_date.append(True)
-							else:
-								add_date.append(False)
+								if date <= d_max and date >= d_min:
+									add_date.append(True)
+								else:
+									add_date.append(False)
 
-						if filt == 'box_area':
+							if filt == 'box_area':
 
-							a_min = min(float(filters[f]['box_area'][0])/100, float(filters[f]['box_area'][1])/100)
-							a_max = max(float(filters[f]['box_area'][0])/100, float(filters[f]['box_area'][1])/100)
+								a_min = min(float(filters[f]['box_area'][0])/100, float(filters[f]['box_area'][1])/100)
+								a_max = max(float(filters[f]['box_area'][0])/100, float(filters[f]['box_area'][1])/100)
 
-							if 'labels' in schema[dp]:
-								if len(schema[dp]['labels']) == 0:
-									add_box.append(False)
-
-								for i in range(len(schema[dp]['labels'])):
-									area = float(schema[dp]['labels'][str(i)]['3']) * float(schema[dp]['labels'][str(i)]['4'])
-									if (area >= a_min) and (area <= a_max):
-										add_box.append(True)
-									else:
+								if 'labels' in schema[dp]:
+									if len(schema[dp]['labels']) == 0:
 										add_box.append(False)
-							else:
-								add_box.append(False)
-				
-				if len(add_class) == 0:
-					add_class = [True]
-				if len(add_res) == 0:
-					add_res = [True]
-				if len(add_name) == 0:
-					add_name = [True]
-				if len(add_tag) == 0:
-					add_tag = [True]
-				if len(add_box) == 0:
-					add_box = [True]
-				if len(add_num) == 0:
-					add_num = [True]
-				if len(add_date) == 0:
-					add_date = [True]
+
+									for i in range(len(schema[dp]['labels'])):
+										area = float(schema[dp]['labels'][str(i)]['3']) * float(schema[dp]['labels'][str(i)]['4'])
+										if (area >= a_min) and (area <= a_max):
+											add_box.append(True)
+										else:
+											add_box.append(False)
+								else:
+									add_box.append(False)
 					
-				add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_date)])
-				
-				if add:
-					status['keys'].append(schema[dp]['key'])
-					status['lm'].append(schema[dp]['lm'])
-					status['dp'].append(dp)
+					if len(add_class) == 0:
+						add_class = [True]
+					if len(add_res) == 0:
+						add_res = [True]
+					if len(add_name) == 0:
+						add_name = [True]
+					if len(add_tag) == 0:
+						add_tag = [True]
+					if len(add_box) == 0:
+						add_box = [True]
+					if len(add_num) == 0:
+						add_num = [True]
+					if len(add_date) == 0:
+						add_date = [True]
+						
+					add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_date)])
+					if add:
+						status['keys'].append(schema[dp]['key'])
+						status['lm'].append(schema[dp]['lm'])
+						status['dp'].append(dp)
 
 		self.filtered = True
 		self.status = status
 		return status
 
+	def add_slice(self, slice_name=''):
+		status = set(self.status['keys'])
+		for val in self.schema.keys():
+			if type(self.schema[val]) is dict:
+				if self.schema[val]['key'] in status:
+					if 'slices' in self.schema[val].keys():
+						if not slice_name in self.schema[val]['slices']:
+							self.schema[val]['slices'].append(slice_name)
+					else:
+						self.schema[val]['slices'] = [slice_name]
+
+		# stores schema file
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+
+		return self.compute_meta_data()
+
+	def remove_slice(self, slice_name=''):
+		for val in self.schema.keys():
+			if type(self.schema[val]) is dict:
+				if 'slices' in self.schema[val].keys():
+					if slice_name in self.schema[val]['slices']:
+						self.schema[val]['slices'].remove(slice_name)
+
+		# stores schema file
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+
+		return self.compute_meta_data()
+
+	def get_slices(self):
+		schema = self.get_schema()
+		n_slices = {}
+		slices = []
+		for val in schema:
+			if type(self.schema[val]) is dict:
+				if 'slices' in schema[val].keys():
+						for sl in schema[val]['slices']:
+							if not sl in slices:
+								slices.append(sl)
+								n_slices[sl] = 1
+							else:
+								n_slices[sl] += 1
+		return n_slices
+
+	def get_slices_key(self, key):
+		keys = self.schema.keys()
+		for val in keys:
+			if type(self.schema[val]) is dict:
+				if key in self.schema[val]['key']:
+					if 'slices' in self.schema[val].keys():
+						return self.schema[val]['slices']
+		return []
+		
+	def select_slice(self, slices=[]):
+		if len(slices) == 0:
+			self.sliced = False
+			self.selected_slices = []
+			return self.status
+		self.sliced = True
+		self.selected_slices = slices
+		return self.apply_filters({'slic': []})
+	
 	def get_status(self):
 		return self.status

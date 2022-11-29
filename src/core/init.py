@@ -24,11 +24,13 @@ class Initializer(object):
 			self.prefix_commit = path_home + '/.stack/' + self.storage.dataset + 'commits/'
 			self.prefix_history = path_home + '/.stack/' + self.storage.dataset + 'history/'
 			self.prefix_diffs = path_home + '/.stack/' + self.storage.dataset + 'diffs/'
+			self.prefix_versions = path_home + '/.stack/' + self.storage.dataset + 'versions/'
 		else:
 			self.prefix_meta = '.stack/'+self.storage.dataset
 			self.prefix_commit = '.stack/'+self.storage.dataset+'commits/'
 			self.prefix_history = '.stack/'+self.storage.dataset+'history/'
 			self.prefix_diffs = '.stack/'+self.storage.dataset+'diffs/'
+			self.prefix_versions = '/.stack/' + self.storage.dataset + 'versions/'
 
 		self.start_check()
 
@@ -39,10 +41,18 @@ class Initializer(object):
 			self.storage.remove_file_global('.stack/')
 		return True
 
+	def remove_dataset_setup(self):
+		self.storage.remove_file_global(self.prefix_meta)
+		return True
+
 	def start_check(self):
 		# checks if the dataset exists
 		if not self.verify_setup():
 			self.setup_dataset()
+
+		if self.storage.check_if_empty(self.prefix_versions):
+			self.setup_versions()
+
 		return True
 
 	def verify_setup(self):
@@ -50,10 +60,13 @@ class Initializer(object):
 		if self.storage.check_if_empty(self.prefix_meta):
 			return False
 
-		if self.storage.check_if_empty(self.prefix_diffs):
+		if self.storage.check_if_empty(self.prefix_diffs) and (len(self.dataset) > 0):
 			return False
 
-		if self.storage.check_if_empty(self.prefix_commit):
+		if self.storage.check_if_empty(self.prefix_commit) and (len(self.dataset) > 0):
+			return False
+
+		if self.storage.check_if_empty(self.prefix_versions):
 			return False
 
 		return True
@@ -61,11 +74,30 @@ class Initializer(object):
 	def setup_dataset(self):
 		# performs all key operations
 		self.copy_current()
+		self.setup_hierarchy()
 		self.setup_diffs()
 		self.setup_commits()
 		self.setup_history()
+		self.setup_versions()
 		
 		return True
+
+	def setup_hierarchy(self):
+		metapath = self.prefix_meta + 'hierarchy.json'
+		hierarchy = {'parent': '', 'children': []}
+		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
+		self.storage.reset_buffer()
+		return True
+
+	def setup_versions(self):
+		keys = {}
+		for file in self.dataset:
+			diff_path = self.prefix_diffs + file['key'] + '/' + str(1).zfill(10)
+
+		time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+		history = {0: {'version': '', 'date': time, 'label': 'First version'}}
+		metapath = self.prefix_versions + 'versions.json'
+		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
 
 	def copy_current(self):
 		# backup of the current version to keep track of changes
@@ -75,7 +107,6 @@ class Initializer(object):
 		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(current).encode('ascii')))
 		self.storage.reset_buffer()
 		return True
-
 
 	def setup_diffs(self):
 		# adds all files, creates a diff for each
@@ -99,9 +130,7 @@ class Initializer(object):
 		"""
 		commits = []
 		for file in self.dataset:
-			
 			prefix_commit = self.prefix_commit
-
 			commitpath = prefix_commit + file['key'] + '/' + str(1).zfill(10)
 			commits.append(commitpath)
 
@@ -168,6 +197,18 @@ class Initializer(object):
 	def get_latest_diff_number(self, key):
 		# checks all the diffs
 		diff_path, _ = self.storage.load_list_in_path(self.prefix_diffs + key + '/')
+		
+		# gets the list in number
+		diff_path = [int(x.replace(self.prefix_diffs + key + '/','')) for x in diff_path]
+		
+		if len(diff_path):
+			return max(diff_path)
+		else:
+			return 0
+
+	def get_latest_version_number(self):
+		# checks all the diffs
+		diff_path, _ = self.storage.load_list_in_path(self.prefix_versions)
 		
 		# gets the list in number
 		diff_path = [int(x.replace(self.prefix_diffs + key + '/','')) for x in diff_path]
