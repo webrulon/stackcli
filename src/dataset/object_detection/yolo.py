@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import time
 import os
+import copy
 import io
 import json
 from pathlib import Path
@@ -20,7 +21,6 @@ def run_multiprocessing(func, i, n_processors):
         return pool.map(func, i)
 
 class yolo_schema(object):
-	"""docstring for YOLO"""
 	def __init__(self, init):
 		self.init = init
 		self.schema = None
@@ -32,6 +32,12 @@ class yolo_schema(object):
 		self.sliced = False
 		self.selected_slices = False
 		self.bounding_box_thumbs = True
+		
+		self.in_version = False
+		self.version_keys = None
+		self.selected_version = None
+		self.version_schema = ''
+
 		ls, _ = self.init.storage.load_dataset_list()
 		self.ls = ls
 
@@ -50,7 +56,7 @@ class yolo_schema(object):
 
 	def create_schema_file_in_parallel(self):
 		schema = {}
-		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
+		current = self.init.load_current()
 
 		t0 = time.time()
 		with Pool(processes=6) as pool:
@@ -64,8 +70,8 @@ class yolo_schema(object):
 	def create_schema_file(self):
 		# generates the schema file for a yolo dataset
 		schema = {}
-		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
-
+		current = self.init.load_current()
+		print(current)
 		k = 0
 		idx = 0
 
@@ -93,13 +99,60 @@ class yolo_schema(object):
 		self.schema = schema
 		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
 		self.init.storage.reset_buffer()
+		self.copy_schema_to_latest_version_checkpoint()
+
+		return True
+
+	def copy_schema_to_latest_version_checkpoint(self):
+		try:
+			versions = self.init.load_versions()
+		except:
+			self.init.setup_versions()
+			versions = self.init.load_versions()
+
+		schema_copy_path = self.init.prefix_versions + '/schemas/' + f'{len(versions.keys())}.json' 
+		schema_copy = copy.deepcopy(self.schema)
+
+		for dp in schema_copy:
+			if type(schema_copy[dp]) is dict:
+				ver = self.init.get_latest_diff_number(schema_copy[dp]['key'])
+				schema_copy[dp]['key'] = self.init.prefix_diffs + schema_copy[dp]['key'] + '/' + str(ver).zfill(10)
+
+		self.init.storage.add_file_from_binary_global(schema_copy_path,io.BytesIO(json.dumps(schema_copy).encode('ascii')))
+		keys = list(versions.keys())
+		versions[keys[-1]]['schema_path'] = schema_copy_path
+
+		metapath = self.init.prefix_versions + 'versions.json'
+		self.init.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(versions).encode('ascii')))
+		return True
+
+	def select_version(self, version, schema_file, keys):
+		self.in_version = True
+		self.selected_version = version
+		self.version_schema = schema_file
+		self.ls = keys.values()
+
+	def reset_to_current_version(self):
+		self.in_version = False
+		self.version_keys = None
+		self.selected_version = None
+		self.schema = None
+		self.filtered = None
+		self.sliced = None
+
+		ls, _ = self.init.storage.load_dataset_list()
+		self.ls = ls
+		self.schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		return True
 
 	def get_schema(self):
 		if self.schema == None:
 			try:
-				self.schema = json.load(self.init.storage.load_file_global(self.schema_path))
+				if self.in_version:
+					self.schema = json.load(self.init.storage.load_file_global(self.version_schema))
+				else:
+					self.schema = json.load(self.init.storage.load_file_global(self.schema_path))
 			except:
 				self.create_schema_file()
 		return self.schema
@@ -171,8 +224,9 @@ class yolo_schema(object):
 		metadata = {'classes': classes, 'resolutions': resolutions, 'size': size, 'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_class': n_class, 'n_res': n_res, 'n_lm': n_lm, 'n_tags': n_tags, 'classes_per_image': classes_per_image}
 		self.metadata = metadata
 
-		self.init.storage.add_file_from_binary_global(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
-		self.init.storage.reset_buffer()
+		if not self.in_version:
+			self.init.storage.add_file_from_binary_global(self.meta_path,io.BytesIO(json.dumps(metadata).encode('ascii')))
+			self.init.storage.reset_buffer()
 
 		return True
 
@@ -180,23 +234,25 @@ class yolo_schema(object):
 		if self.bounding_box_thumbs:
 			# loads image string
 			t0 = time.time()
-			img_str = self.init.storage.load_file(filename)
+			img_str = self.init.storage.load_file_global(filename)
 			print(f'time to load from s3 {time.time()-t0}s')
 			
 			# formats to cv2
 			nparr = np.fromstring(img_str.read(), np.uint8)
 			img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-			
+			# trans_mask = img[:,:,3] == 0
+			#replace areas of transparency with white and not transparent
+			# img[trans_mask] = [255, 255, 255, 255]
+
 			shapes = np.zeros_like(img, np.uint8)
 
 			dh, dw, _ = img.shape
-
+			if self.in_version:
+				filename = os.path.dirname(filename.replace(self.init.prefix_diffs,''))
 			basename = os.path.splitext(os.path.basename(filename))[0]
-
+			
 			ls = self.ls
-
 			matches = [match for match in ls if basename+'.txt' in match]
-			 
 			fl = self.init.storage.load_file_global(matches[0])
 
 			for dt in fl.readlines():
@@ -207,10 +263,16 @@ class yolo_schema(object):
 					cl = int(res[0])
 				except:
 					cl = res[0]
-				x = float(res[1])
-				y = float(res[2])
-				w = float(res[3])
-				h = float(res[4])
+				try:
+					x = float(res[1])
+					y = float(res[2])
+					w = float(res[3])
+					h = float(res[4])
+				except:
+					x = 0
+					y = 0
+					w = 0
+					h = 0
 
 				color_str = str(cl)[::-1] + "c" + str(cl)
 				
@@ -255,7 +317,7 @@ class yolo_schema(object):
 			
 			return string_res
 		else: 
-			return self.init.storage.load_file(filename)
+			return self.init.storage.load_file_global(filename)
 
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
@@ -360,7 +422,10 @@ class yolo_schema(object):
 						self.schema[val]['tags'].append(tag)
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -378,7 +443,10 @@ class yolo_schema(object):
 					keys.remove(self.schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -393,7 +461,10 @@ class yolo_schema(object):
 							self.schema[val]['tags'].remove(tag)
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -407,7 +478,10 @@ class yolo_schema(object):
 						self.schema[val]['tags'] = []
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -421,7 +495,10 @@ class yolo_schema(object):
 					keys.remove(self.schema[val]['key'])
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -463,14 +540,11 @@ class yolo_schema(object):
 	def get_labels(self, filename, version='current'):
 		# reads the labels
 		if version == 'current':
+			if self.in_version:
+				filename = os.path.dirname(filename.replace(self.init.prefix_diffs,''))
 			basename = os.path.splitext(os.path.basename(filename))[0]
 
-			if self.ls != None:
-				ls = set(self.ls)
-			else:
-				ls, _ = self.init.storage.load_dataset_list()
-				self.ls = ls
-				ls = set(ls)
+			ls = set(self.ls)
 
 			matches = [match for match in ls if basename+'.txt' in match]
 			try: 
@@ -479,10 +553,11 @@ class yolo_schema(object):
 				return {}
 		else:
 			assert(int(version) > 0)
-
+			if self.in_version:
+				filename = os.path.dirname(filename.replace(self.init.prefix_diffs,''))
 			basename = os.path.splitext(os.path.basename(filename))[0]
 			ls = set(self.ls)
-
+			
 			matches = [match for match in ls if basename+'.txt' in match]
 			
 			path = self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
@@ -507,21 +582,17 @@ class yolo_schema(object):
 
 	def get_labels_filename(self, filename, version = 'current'):
 		if version == 'current':
+			if self.in_version:
+				filename = os.path.dirname(filename.replace(self.init.prefix_diffs,''))
 			basename = os.path.splitext(os.path.basename(filename))[0]
-
 			ls = self.ls
-
 			matches = [match for match in ls if basename+'.txt' in match]
-			
 			return matches[0]
 		else:
 			assert(int(version) > 0)
-
 			basename = os.path.splitext(os.path.basename(filename))[0]
 			ls = self.ls
-
 			matches = [match for match in ls if basename+'.txt' in match]
-			
 			return self.init.prefix_diffs + matches[0] + '/' + str(int(version)).zfill(10)
 
 	def set_labels(self, filename, labels_array):
@@ -548,7 +619,7 @@ class yolo_schema(object):
 			self.init.storage.add_file_from_binary(string,io.BytesIO(labels_string.encode("utf-8")))
 
 		return True
-
+	
 	def branch(self, branch_name, type_ ='copy'):
 		dataset = self.init.storage.dataset
 		if self.init.storage.type == 'local':
@@ -593,16 +664,17 @@ class yolo_schema(object):
 	def read_all_files(self):
 		# queries the json
 		schema = self.get_schema()
-		status = {'keys': [], 'lm': []}
+		status = {'keys': [], 'lm': [], 'dp': []}
 		for dp in schema:
 			if type(self.schema[dp]) is dict:
 				status['keys'].append(schema[dp]['key'])
 				status['lm'].append(schema[dp]['lm'])
+				status['dp'].append(dp)
 		self.status = status
 		return status
 
 	def get_metadata(self):
-		if self.filtered:
+		if self.filtered or self.in_version:
 			schema = self.get_schema()
 		
 			classes = []
@@ -803,7 +875,10 @@ class yolo_schema(object):
 						self.schema[val]['slices'] = [slice_name]
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -816,7 +891,10 @@ class yolo_schema(object):
 						self.schema[val]['slices'].remove(slice_name)
 
 		# stores schema file
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 
 		return self.compute_meta_data()
@@ -856,3 +934,4 @@ class yolo_schema(object):
 	
 	def get_status(self):
 		return self.status
+	

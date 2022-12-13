@@ -150,7 +150,6 @@ def commit(init, comment = ''):
 				added.append(f)
 
 				prefix_commit = init.prefix_commit
-
 				commitpath = prefix_commit + f + '/' + str(n).zfill(10)
 				commits.append(commitpath)
 				init.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
@@ -166,6 +165,26 @@ def commit(init, comment = ''):
 	init.storage.reset_buffer()
 
 	return (len(commits) > 0), added, modified, removed
+
+def add_version(init, label=''):
+		keys = {}
+		dataset = init.storage.load_dataset()
+		metapath = init.prefix_versions + 'versions.json'
+		history = json.load(init.storage.load_file_global(metapath))
+		ver_path = init.prefix_versions + f'/{len(history.keys())}.json'
+		
+		for file in dataset:
+			ver = init.get_latest_diff_number(file['key'])
+			keys[file['key']] = init.prefix_diffs + file['key'] + '/' + str(ver).zfill(10)
+
+		init.storage.add_file_from_binary_global(ver_path,io.BytesIO(json.dumps(keys).encode('ascii')))
+		time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+		
+		if label == '':
+			label = f'Version {len(history.keys())}'
+
+		history[str(len(history.keys()))] = {'path': ver_path, 'schema_path': '', 'date': time, 'label': label}
+		init.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
 
 def compute_diff(bin1,bin2):
 	"""
@@ -508,7 +527,7 @@ def print_diff(init, v2, v1, file=''):
 				print('-- '+cmit['comment']+' by '+cmit['source'])
 	else:
 		print('Comparing file '+file+' between commit '+str(v2)+' and commit '+str(v1))
-		idx = 0;
+		idx = 0
 		# prints history
 		for i in range(v2,v1,-1):
 			for commit in history[str(i)]['commits']:
@@ -529,8 +548,7 @@ def print_diff(init, v2, v1, file=''):
 
 def print_status(init):
 	# loads file global
-	metapath = init.prefix_meta+'current.json'
-	current = json.load(init.storage.load_file_global(metapath))
+	current = init.load_current()
 	init.storage.reset_buffer()
 	if len(current['keys']) > 0:
 		print('\n-------------------------')

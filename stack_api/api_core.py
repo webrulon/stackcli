@@ -29,6 +29,11 @@ class API(object):
         self.config = None
         self.schema_class = None
         self.current = None
+        
+        self.in_version = False
+        self.selected_version = None
+        self.version_keys = None
+
         self.filtered = False
         self.projects = None
         self.filters = {}
@@ -170,17 +175,27 @@ class API(object):
 
     def load_thumbnail(self, file):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
-            try: 
-                return self.schema_class.get_thumbnail(file)
-            except:
-                return self.load_file_binary(file, 'current')    
+            # try: 
+            return self.schema_class.get_thumbnail(file)
+            # except:
+            #     return self.load_file_binary(file, 'current')    
         else:
             return self.load_file_binary(file, 'current')
 
     def set_labels(self, data):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
-            filename = data['keyId']
+            if self.in_version:
+                filename =  os.path.dirname(data['keyId'].replace(self.Initializer.prefix_diffs,''))
+                in_version = True
+                version = self.selected_version
+                self.reset_version()
+            else:
+                in_version = False
+                filename = data['keyId']
             self.schema_class.set_labels(filename, data)
+
+            if in_version:
+                self.select_version(version)
         return {'success': True}
 
     def set_datasets(self, datasets):
@@ -222,11 +237,13 @@ class API(object):
                 self.schema_class.compute_meta_data()
 
     def reset_schema(self):
+        self.reset_version()
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.create_schema_file()
             self.schema_class.compute_meta_data()
 
     def merge(self, father='', child=''):
+        self.reset_version()
         if father[-1] != '/':
             father += '/'
         if child[-1] != '/':
@@ -268,12 +285,67 @@ class API(object):
         self.set_schema()
         return True
     
-    def branch(self, branch_name='new_branch123/', branch_type='copy'):
-        if branch_name[-1] != '/':
-            branch_name += '/'
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
-            trial = self.schema_class.branch(branch_name=branch_name,type_=branch_type)
-            if trial:
+    def branch(self, branch_name='new_branch123/', branch_type='copy', branch_title=''):
+        if not self.in_version:
+            if branch_name[-1] != '/':
+                branch_name += '/'
+            if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+                trial = self.schema_class.branch(branch_name=branch_name,type_=branch_type)
+                if trial:
+                    if self.config['type'] == 's3':
+                        uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
+                    elif self.config['type'] == 'gcs':
+                        uri = 'gs://'+self.Initializer.storage.BUCKET_NAME+'/'
+                    else:
+                        uri = ''
+
+                    if uri in branch_name:
+                        branch_name = branch_name.replace(uri,'')
+
+                    schme = self.config['schema']
+
+                    if branch_name[-1] != '/':
+                        branch_name += '/'
+
+                    self.init(uri+branch_name)
+
+                    if branch_title == '':
+                        branch_title = branch_name
+
+                    self.reconnect_post_web(branch_title, schme)
+                    self.set_schema()
+                    self.start_check()
+                    self.commit('created branch ' + branch_name)
+                    return True
+                else:
+                    return False
+            else:
+                type_ = branch_type
+                dataset = self.Initializer.storage.dataset
+                if self.Initializer.storage.type == 'local':
+                    branch_name = path_home + '/' + branch_name + '/'
+
+                status = self.status()
+                versions = []
+                if len(versions) == 0:
+                    for f in status['keys']:
+                        versions.append('current')
+                idx = 0
+                if type_ == 'copy':
+                    for f in status['keys']:
+                        if versions[idx] == 'current':
+                            self.Initializer.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
+                        else:
+                            self.Initializer.storage.copy_file_global(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+                        idx += 1
+                else:
+                    for f in self.status['keys']:
+                        if versions[idx] == 'current':
+                            self.Initializer.storage.remove_file_global(dataset+f)
+                        else:
+                            self.Initializer.storage.copy_file_global(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
+                        idx += 1
+
                 if self.config['type'] == 's3':
                     uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
                 elif self.config['type'] == 'gcs':
@@ -292,35 +364,17 @@ class API(object):
                 self.set_schema()
                 self.start_check()
                 self.commit('created branch ' + branch_name)
-                return True
-            else:
-                return False
         else:
-            type_ = branch_type
             dataset = self.Initializer.storage.dataset
             if self.Initializer.storage.type == 'local':
                 branch_name = path_home + '/' + branch_name + '/'
 
             status = self.status()
-            versions = []
-            if len(versions) == 0:
-                for f in status['keys']:
-                    versions.append('current')
             idx = 0
-            if type_ == 'copy':
-                for f in status['keys']:
-                    if versions[idx] == 'current':
-                        self.Initializer.storage.copy_file_global(f,branch_name+f.replace(dataset,''))
-                    else:
-                        self.Initializer.storage.copy_file_global(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
-                    idx += 1
-            else:
-                for f in self.status['keys']:
-                    if versions[idx] == 'current':
-                        self.Initializer.storage.remove_file_global(dataset+f)
-                    else:
-                        self.Initializer.storage.copy_file_global(self.Initializer.prefix_diffs+f+'/'+str(int(versions[idx])).zfill(10),branch_name+f)
-                    idx += 1
+            for f in status['keys']:
+                f_base = os.path.dirname(f.replace(self.Initializer.prefix_diffs,''))
+                self.Initializer.storage.copy_file_global(f,branch_name+f_base.replace(dataset,''))
+                idx += 1
 
             if self.config['type'] == 's3':
                 uri = 's3://'+self.Initializer.storage.BUCKET_NAME+'/'
@@ -485,6 +539,7 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
+            print(config)
             cloud.create_dataset(config['dataset'], verbose=True)
             self.Initializer = Initializer(cloud)
             self.dataset_name = config['dataset']
@@ -541,6 +596,7 @@ class API(object):
         return {'storage': self.storage_name, 'schema': dataset_meta['schema'], 'dataset': dataset_meta['name'], 'storage_dataset': self.Initializer.storage.dataset}
 
     def add(self, path, subpath=''):
+        self.reset_version()
         if len(subpath)>1:
             if subpath[-1] != '/':
                 subpath = subpath + '/'
@@ -559,17 +615,11 @@ class API(object):
             print('downloading all contents')
             return self.pull_all(version)
         else:
-            if not self.Initializer.storage.dataset in file:
-                file = self.Initializer.storage.dataset + file
-                print('downloading ' + file)
             pull(self.Initializer, [file], version)
         return True
 
     def pull_file(self, file, version = 'current'):
-        
-        if not self.Initializer.storage.dataset in file:
-            file = self.Initializer.storage.dataset + file
-        
+         
         if version == 'current':
             # saves each file
             for key in file:
@@ -637,10 +687,13 @@ class API(object):
         return {'commits': response, 'len': len(history[str(int(version))]['commits'])}
 
     def key_versions(self, key = '', l = 5, page = 0):
+        if self.Initializer.prefix_diffs in key:
+            key = os.path.dirname(key.replace(self.Initializer.prefix_diffs,''))
+
         assert(int(l) > 0)
         assert(int(page) >= 0)
 
-        key_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
+        key_hist = get_key_history(self.Initializer, key)
         response = {}
         i_p = len(key_hist) - int(page)*int(l)
         i_f = max(len(key_hist) - int(l)*(int(page)+1),0)
@@ -691,6 +744,7 @@ class API(object):
         return {}
     
     def select_slices(self, slices = []):
+        self.reset_version()
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.select_slice(slices=slices)
         return True
@@ -725,10 +779,12 @@ class API(object):
         return True
 
     def label_versions(self, key, l = 5, page = 0):
-        assert(int(l) > 0)
-        assert(int(page) >= 0)
         if self.config['schema'] == 'yolo':
+            if not self.in_version and self.Initializer.prefix_diffs in key:
+                key = os.path.dirname(key.replace(self.Initializer.prefix_diffs,''))
             labels_key = self.schema_class.get_labels_filename(key)
+            if self.Initializer.prefix_diffs in labels_key:
+                labels_key = os.path.dirname(labels_key.replace(self.Initializer.prefix_diffs,''))
             labels_hist = get_key_history(self.Initializer, labels_key)
             response = {}
             idx = 0
@@ -744,6 +800,8 @@ class API(object):
 
         elif self.config['schema'] == 'labelbox':
             labels_key = self.schema_class.get_labels_filename()
+            if self.in_version:
+                labels_key = os.path.dirname(labels_key.replace(self.Initializer.prefix_diffs,''))
             labels_hist = get_key_history(self.Initializer, labels_key)
             response = {}
             idx = 0
@@ -758,7 +816,9 @@ class API(object):
                 idx = idx+1
         else:
             labels_key = key
-            labels_hist = get_key_history(self.Initializer, self.Initializer.storage.dataset + key)
+            if self.in_version:
+                labels_key = os.path.dirname(labels_key.replace(self.Initializer.prefix_diffs,''))
+            labels_hist = get_key_history(self.Initializer, key)
             response = {}
             i_p = len(labels_hist) - int(page)*int(l)
             i_f = max(len(labels_hist) - int(l)*(int(page)+1),0)
@@ -771,7 +831,6 @@ class API(object):
                 response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'raw'
                 idx = idx+1
-
         return {'commits': response, 'len': len(labels_hist), 'keyId': labels_key}
 
     def status(self):
@@ -782,12 +841,18 @@ class API(object):
                 return self.schema_class.read_all_files()
         else:
             if self.filtered:
-                metapath = self.Initializer.prefix_meta+'current.json'
-                if self.current != None:
-                    schema = self.current
+                if self.in_version:
+                    if self.current != None:
+                        schema = self.current
+                    else:
+                        schema = self.Initializer.load_current_version(self.selected_version)
+                        self.current = schema
                 else:
-                    schema = json.load(self.Initializer.storage.load_file_global(metapath))
-                    self.current = schema
+                    if self.current != None:
+                        schema = self.current
+                    else:
+                        schema = self.Initializer.load_current()
+                        self.current = schema
 
                 status = {'keys': [], 'lm': []}
 
@@ -802,17 +867,18 @@ class API(object):
                     idx += 1
                 return status
             else:
-                metapath = self.Initializer.prefix_meta+'current.json'
-                return json.load(self.Initializer.storage.load_file_global(metapath))
+                return self.Initializer.load_current()
 
     def remove(self, key, subpath=''):
         if len(subpath)>1:
             if subpath[-1] != '/':
                 subpath = subpath + '/'
+        key = key.replace(self.Initializer.storage.dataset,'')
         remove(self.Initializer,[key],subpath)
         return True
 
     def remove_commit(self, version = '-1'):
+        self.reset_version()
         assert(int(version) >= 0)
         
         metapath = self.Initializer.prefix_meta+'history.json'
@@ -831,7 +897,8 @@ class API(object):
         return True
 
     def remove_key_diff(self, key, version):
-        remove_diff(self.Initializer,self.Initializer.storage.dataset+key,int(version))
+        if not self.in_version:
+            remove_diff(self.Initializer,key,int(version))
         return True
 
     def set_filters(self, filters):
@@ -850,11 +917,60 @@ class API(object):
             self.filtered = False
         return True
 
+    def get_versions(self):
+        versions = self.Initializer.load_versions()
+        if self.in_version:
+            versions['current_v'] = self.selected_version
+        else:
+            versions['current_v'] = -1
+        return versions
+
+    def add_version(self, label = ''):
+        add_version(self.Initializer, label)
+        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            self.schema_class.copy_schema_to_latest_version_checkpoint()
+        return True
+
+    def select_version(self, version):
+        versions = self.Initializer.load_versions()
+        if version in versions.keys():
+            self.in_version = True
+            self.selected_version = version
+            self.version_keys = json.load(self.Initializer.storage.load_file_global(versions[version]['path']))
+            if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+                self.schema_class.schema = None
+                self.schema_class.select_version(version, versions[version]['schema_path'], self.version_keys)
+                self.schema_class.get_schema()
+                self.schema_class.read_all_files()
+            self.current = self.Initializer.load_current_version(version)
+            print(self.current)
+            return True
+        else:
+            self.reset_version()
+            return False
+
+    def reset_version(self):
+        if self.in_version:
+            self.in_version = False
+            self.version_keys = None
+            self.current = self.Initializer.load_current()
+            self.filtered = False
+            if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+                self.schema_class.schema = None
+                self.schema_class.in_version = False
+                self.schema_class.version_keys = None
+                self.schema_class.reset_to_current_version()
+                self.schema_class.read_all_files()
+                self.filtered = False
+        return True
+
     def get_hierarchy(self):
         metapath = self.Initializer.prefix_meta + 'hierarchy.json'
-        # try:
-        return json.load(self.Initializer.storage.load_file_global(metapath))
-        # except:
+        try:
+            return json.load(self.Initializer.storage.load_file_global(metapath))
+        except:
+            self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps({'parent': '', 'children': []}).encode('ascii')))
+            return {'parent': '', 'children': []}
 
     def set_current_hierarchy(self, hierarchy):
         metapath = self.Initializer.prefix_meta + 'hierarchy.json'
@@ -969,10 +1085,11 @@ class API(object):
         return True
 
     def remove_key_full(self, key):
-        remove_full(self.Initializer,self.Initializer.storage.dataset+key)
+        remove_full(self.Initializer,key)
         return True
 
     def commit(self, comment='',cmd=True):
+        self.reset_version()
         res, added, modified, deleted = commit(self.Initializer, comment)
         if cmd:
             if res: 
@@ -983,6 +1100,7 @@ class API(object):
             self.schema_class.update_schema_file(added, modified, deleted)
 
         return True
+
     def load_commit_metadata(self, commit_file):
         try:
             return json.load(self.Initializer.storage.load_file_global(commit_file))
@@ -997,10 +1115,10 @@ class API(object):
     def load_file_binary(self, file, version='current'):
         if version=='current':
             print('loading ' + file + '...')
-            return self.Initializer.storage.load_file(file)
+            return self.Initializer.storage.load_file_global(file)
         elif int(version) >= 1:
             print('loading ' + file + ' version '+ version +'...')
-            path = self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10)
+            path = self.Initializer.prefix_diffs + file + '/' + str(int(version)).zfill(10)
             return self.Initializer.storage.load_file_global(path)
         else:
             assert(False)
@@ -1014,10 +1132,10 @@ class API(object):
 
         if version=='current':
             print('loading ' + file + '...')
-            data  = self.Initializer.storage.load_file(file)
+            data  = self.Initializer.storage.load_file_global(file)
         elif int(version) >= 1:
             print('loading ' + file + ' version '+ version +'...')
-            data  =  self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(version)).zfill(10))
+            data  =  self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs+ file + '/' + str(int(version)).zfill(10))
         else:
             assert(False)
 
@@ -1036,14 +1154,14 @@ class API(object):
 
     def load_csv_diff_metadata(self, file, v1, v2):
         if v1 == 'current':
-            d1 = self.Initializer.storage.load_file(file)
+            d1 = self.Initializer.storage.load_file_global(file)
         else:
-            d1 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
+            d1 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + file + '/' + str(int(v1)).zfill(10))
 
         if v2 == 'current':
-            d2 = self.Initializer.storage.load_file(file)
+            d2 = self.Initializer.storage.load_file_global(file)
         else:
-            d2 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
+            d2 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + file + '/' + str(int(v2)).zfill(10))
 
         from csv_diff import load_csv, compare
         import codecs
@@ -1063,14 +1181,14 @@ class API(object):
 
     def load_csv_diff(self, file, v1, v2):
         if v1 == 'current':
-            d1 = self.Initializer.storage.load_file(file)
+            d1 = self.Initializer.storage.load_file_global(file)
         else:
-            d1 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v1)).zfill(10))
+            d1 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + file + '/' + str(int(v1)).zfill(10))
 
         if v2 == 'current':
-            d2 = self.Initializer.storage.load_file(file)
+            d2 = self.Initializer.storage.load_file_global(file)
         else:
-            d2 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + self.Initializer.storage.dataset + file + '/' + str(int(v2)).zfill(10))
+            d2 = self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs + file + '/' + str(int(v2)).zfill(10))
 
         from csv_diff import load_csv, compare
         import codecs
@@ -1092,18 +1210,15 @@ class API(object):
         return True
 
     def revert(self, version=0):
+        self.reset_version()
         assert(version != '')
         revert_commit(self.Initializer, int(version))
         self.commit('reverted to version ' + str(version))
 
     def revert_file(self, key, version):
         try: 
-            if self.Initializer.storage.dataset in key:
-                revert_file(self.Initializer, key, int(version))
-            else:
-                revert_file(self.Initializer, self.Initializer.storage.dataset+key, int(version))
+            revert_file(self.Initializer, key, int(version))
             self.Initializer.storage.reset_buffer()
-
             return True
         except:
             return False
@@ -1151,12 +1266,16 @@ class API(object):
             self.connect_post_api()
             self.set_schema()
 
-        self.projects = projects(self.Initializer, project=project)
+        self.projects = projects(init=self.Initializer, project=project)
         self.projects.init_project()
 
     def server_add_log(self, data):
         assert(not self.projects is None)
         self.projects.add_log(data)
+
+    def server_add_prediction(self, data):
+        assert(not self.projects is None)
+        self.projects.add_prediction(data)
 
     def server_get_models(self):
         assert(not self.projects is None)
@@ -1169,3 +1288,28 @@ class API(object):
     def server_get_model(self, label):
         assert(not self.projects is None)
         return self.projects.get_model(label)
+
+    def server_logout_experiment(self):
+        assert(not self.projects is None)
+        self.projects = None
+
+    def get_projects(self):
+        prefix_projects = self.Initializer.prefix_meta + 'projects/' + 'projects.json'
+        return json.load(self.Initializer.storage.load_file_global(prefix_projects))         
+
+    def get_logs(self, project):
+        prefix_projects = self.Initializer.prefix_meta + 'projects/' + project + '/experiments/experiments.json'
+        return json.load(self.Initializer.storage.load_file_global(prefix_projects))         
+    
+    def get_logs_experiment(self, log):
+        return json.load(self.Initializer.storage.load_file_global(log))         
+    
+    def get_predictions_list(self, project):
+        prefix_projects = self.Initializer.prefix_meta + 'projects/'
+        path = prefix_projects + project + '/predictions.json'
+        return json.load(self.Initializer.storage.load_file_global(path))
+
+    def get_prediction(self, prediction):
+        return json.load(self.Initializer.storage.load_file_global(prediction))         
+        
+        

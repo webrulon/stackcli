@@ -12,7 +12,6 @@ from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 class labelbox_schema(object):
-	"""docstring for YOLO"""
 	def __init__(self, init):
 		self.init = init
 		self.schema_path = self.init.prefix_meta + 'schema.json'
@@ -23,11 +22,15 @@ class labelbox_schema(object):
 		self.sliced = False
 		self.schema = None
 		self.bounding_box_thumbs = True
+		self.in_version = False
+		self.version_keys = None
+		self.selected_version = None
+		self.version_schema = ''
 
 	def create_schema_file(self):
 		# generates the schema file for a labelbox bounding box dataset
 		schema = {}
-		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
+		current = self.init.load_current()
 		json_name = self.get_labels_filename()
 		self.labelbox_file = json.load(self.init.storage.load_file_global(json_name))
 
@@ -63,7 +66,7 @@ class labelbox_schema(object):
 	
 	def recompute_schema_file(self):
 		schema = {}
-		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
+		current = self.init.load_current()
 		json_name = self.get_labels_filename()
 		self.labelbox_file = json.load(self.init.storage.load_file_global(json_name))
 
@@ -269,7 +272,7 @@ class labelbox_schema(object):
 	def get_thumbnail(self, filename):
 		if self.bounding_box_thumbs:
 			# loads image string
-			img_str = self.init.storage.load_file(filename)
+			img_str = self.init.storage.load_file_global(filename)
 			# formats to cv2
 			nparr = np.fromstring(img_str.read(), np.uint8)
 			img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -331,7 +334,7 @@ class labelbox_schema(object):
 			
 			return string_res
 		else: 
-			return self.init.storage.load_file(filename)
+			return self.init.storage.load_file_global(filename)
 
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
@@ -360,7 +363,7 @@ class labelbox_schema(object):
 
 		if len(modified) > 0:
 			self.recompute_schema_file()
-			schema = json.load(self.init.storage.load_file_global(self.schema_path))
+			schema = self.get_schema()
 
 		for key in removed:
 			if self.is_image(key):
@@ -417,7 +420,7 @@ class labelbox_schema(object):
 
 	def get_resolution_values(self, key):
 		# reads image
-		img_str = self.init.storage.load_file(key)
+		img_str = self.init.storage.load_file_global(key)
 		
 		# formats to cv2
 		nparr = np.fromstring(img_str.read(), np.uint8)
@@ -494,7 +497,7 @@ class labelbox_schema(object):
 
 	def get_labels_filename(self, version = 'current'):
 		# reads the labels
-		current = json.load(self.init.storage.load_file_global(self.init.prefix_meta+'current.json'))
+		current = self.init.load_current()
 		json_name = ''
 		for key in current['keys']:
 			if os.path.splitext(os.path.basename(key))[1] == '.json':

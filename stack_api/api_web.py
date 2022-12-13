@@ -1,10 +1,12 @@
 import sys
 sys.path.append( '..' )
 import stack_api.api_core as api_core
-from fastapi import FastAPI, File, UploadFile, Response
+import json
+from fastapi import FastAPI, File, UploadFile, Response, Body
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
 from pathlib import Path
+from pydantic import BaseModel
 
 app = FastAPI()
 app.add_middleware(
@@ -14,6 +16,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"], 
 )
+
+class Rate(BaseModel):
+    label: str
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate_to_json
+
+    @classmethod
+    def validate_to_json(cls, value):
+        if isinstance(value, str):
+            return cls(**json.loads(value))
+        return value
+
 
 from src.comm.docker_ver import *
 import os
@@ -67,6 +83,7 @@ async def connect(uri):
     api.connect_post_api()
     api.set_schema()
     api.commit()
+    api.reset_version()
     return {'success': True}
     # except:
     #     return {'success': False}
@@ -84,7 +101,7 @@ async def set_branch_api(data: dict):
     try:
         parent = api.Initializer.storage.dataset
         api.set_hierarchy(child = data['branch_name'])
-        api.branch(data['branch_name'], data['branch_type'])
+        api.branch(data['branch_name'], data['branch_type'], data['branch_title'])
         api.set_hierarchy(parent = parent)
         return {'success': True}
     except:
@@ -92,11 +109,10 @@ async def set_branch_api(data: dict):
 
 @app.get("/get_current_hierarchy")
 async def get_current_hierarchy_api():
-    # try:
-    print(api.get_hierarchy())
-    return api.get_hierarchy()
-    # except:
-    #     return {'parents': '', 'children': []}
+    try:
+        return api.get_hierarchy()
+    except:
+        return {'parents': '', 'children': []}
 
 @app.get("/get_hierarchy")
 async def get_hierarchy_api(uri):
@@ -110,6 +126,34 @@ async def get_hierarchy_api(uri):
         return api.get_hierarchy()
     except:
         return {'parents': '', 'children': []}
+
+@app.get("/get_versions")
+async def get_versions_api():
+    try:
+        return api.get_versions()
+    except:
+        return {}
+
+@app.get("/add_version")
+async def add_version_api():
+    # try:
+    return {'success': api.add_version()}
+    # except:
+    #     return {'success': False}
+
+@app.get("/reset_version")
+async def reset_version_api():
+    try:
+        return {'success': api.reset_version()}
+    except:
+        return {'success': False}
+
+@app.get("/select_version")
+async def select_version_api(version):
+    # try:
+    return {'success': api.select_version(str(version))}
+    # except:
+    #     return {'success': False}
 
 @app.get("/get_branches")
 async def get_branches_api():
@@ -156,26 +200,24 @@ async def set_current_hierarchy_api(hierarchy: dict):
 
 @app.get("/add_child_to_current")
 async def add_child_to_current_api(child):
-    # try:
-    print(api.get_hierarchy())
-    child = child.replace(path_home,'')
-    api.add_child_to_current(child)
-    parent = api.Initializer.storage.dataset
-    parent = parent.replace(path_home,'')
-    print(api.get_hierarchy())
-    # try:
-    api.init(child)
-    api.connect_post_api()
-    api.set_schema()
-    api.add_parent_to_current(parent)
-    # except:
-    #     pass
-    api.init(parent)
-    api.connect_post_api()
-    api.set_schema()
-    return {'success': True}
-    # except:
-    #     return {'success': {'parent': '', 'children': []}}
+    try:
+        child = child.replace(path_home,'')
+        api.add_child_to_current(child)
+        parent = api.Initializer.storage.dataset
+        parent = parent.replace(path_home,'')
+        try:
+            api.init(child)
+            api.connect_post_api()
+            api.set_schema()
+            api.add_parent_to_current(parent)
+        except:
+            pass
+        api.init(parent)
+        api.connect_post_api()
+        api.set_schema()
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.get("/add_parent_to_current")
 async def add_parent_to_current_api(parent):
@@ -194,10 +236,9 @@ async def add_parent_to_current_api(parent):
         api.init(child)
         api.connect_post_api()
         api.set_schema()
-        
         return {'success': True}
     except:
-        return {'success': {'parent': '', 'children': []}}
+        return {'success': False}
 
 @app.get("/current_remove_child")
 async def current_remove_child(uri=''):
@@ -218,7 +259,7 @@ async def current_remove_child(uri=''):
         api.set_schema()
         return {'success': True}
     except:
-        return {'success': {'parent': '', 'children': []}}
+        return {'success': False}
 
 @app.post("/merge")
 async def merge_api(data: dict):
@@ -231,29 +272,28 @@ async def merge_api(data: dict):
 
 @app.get("/merge_child_to_master")
 async def merge_child_to_master_api(uri):
-    # try:
-    print(uri)
-    master = api.Initializer.storage.dataset
-    api.merge(father=master, child=uri)
-    api.commit(f"merged branch {uri} to {master}")
-    return {'success': True}
-    # except:
-    #     return {'success': False}
+    try:
+        master = api.Initializer.storage.dataset
+        api.merge(father=master, child=uri)
+        api.commit(f"merged branch {uri} to {master}")
+        return {'success': True}
+    except:
+        return {'success': False}
 
 @app.get("/merge_current_to_master")
 async def merge_current_to_master_api():
-    # try: 
-    child = api.Initializer.storage.dataset
-    hierarchy = api.get_hierarchy()
-    if type(hierarchy['parent']) is str:
-        if hierarchy['parent'] == '':
-            return {'success': False}
-        else:
-            api.merge(father=hierarchy['parent'], child=child)
-            api.commit(f"merged branch {child} to {hierarchy['parent']}")
-            return {'success': True}
-    # except:
-    #     return {'success': False}
+    try: 
+        child = api.Initializer.storage.dataset
+        hierarchy = api.get_hierarchy()
+        if type(hierarchy['parent']) is str:
+            if hierarchy['parent'] == '':
+                return {'success': False}
+            else:
+                api.merge(father=hierarchy['parent'], child=child)
+                api.commit(f"merged branch {child} to {hierarchy['parent']}")
+                return {'success': True}
+    except:
+        return {'success': False}
 
 @app.get("/disconnect")
 async def disconnect_api(uri=''):
@@ -367,6 +407,16 @@ async def add_file_api(file: UploadFile = File(description="A file read as Uploa
     except:
         return {'success': False}
 
+@app.post("/add_multifiles/")
+async def add_multifiles_api(files: list[UploadFile]):
+    try:
+        for file in files:
+            api.upload_file_binary(file.filename, file.file)
+        api.commit('')
+        return {'success': True}
+    except:
+        return {'success': False}
+
 @app.get("/commits_version")
 async def commits_version_api(version=1,l=5, page=0):
     try:
@@ -376,10 +426,10 @@ async def commits_version_api(version=1,l=5, page=0):
 
 @app.get("/key_versions")
 async def key_versions_api(key='',l=5, page=0):
-    try:
-        return api.key_versions(key, l, page)
-    except:
-        return {}
+    # try:
+    return api.key_versions(key, l, page)
+    # except:
+    #     return {}
 
 @app.get("/label_versions")
 async def label_versions_api(key='',l=5, page=0):
@@ -390,10 +440,10 @@ async def label_versions_api(key='',l=5, page=0):
 
 @app.get("/last_n_commits")
 async def last_n_commits_api(n=5):
-    try:
-        return api.last_n_commits(n)
-    except:
-        return {}
+    # try:
+    return api.last_n_commits(n)
+    # except:
+    #     return {}
 
 @app.get("/last_commits_from_hist_api")
 async def last_commits_from_hist_api(n=1):
@@ -566,10 +616,10 @@ async def get_labels_api(filename, version='current'):
 
 @app.post("/set_labels")
 async def set_labels_api(data: dict):
-    try:
-        return api.set_labels(data)
-    except:
-        return {}
+    # try:
+    return api.set_labels(data)
+    # except:
+    #     return {}
 
 @app.get("/add_slice")
 async def add_slice(slice_name):
@@ -612,15 +662,39 @@ async def get_models():
     return api.server_get_models()
 
 @app.post("/add_model")
-async def add_model(data: UploadFile):
-    api.server_upload_model(model=data.file, label=data.json['label'])
+async def add_model(data: Rate = Body(...), file: UploadFile = File(...)):
+    api.server_upload_model(model=file.file, label=data.label)
     return {'success': True}
 
-@app.post("/get_model")
+@app.get("/add_prediction")
+async def add_prediction(data: dict):
+    return StreamingResponse(api.server_add_prediction(data))
+
+@app.get("/get_model")
 async def get_model(data: dict):
     return StreamingResponse(api.server_get_model(data['label']))
 
-@app.post("/logout_experiment")
-async def logout_experiment(project):
-    api.server_logout_experiment(project)
+@app.get("/logout_experiment")
+async def logout_experiment():
+    api.server_logout_experiment()
     return {'success': True}
+
+@app.get("/get_projects")
+async def get_projects():
+    return {'success': api.get_projects()}
+
+@app.get("/get_logs_list")
+async def get_logs_list(project):
+    return {'success': api.get_logs_list(project)}
+
+@app.get("/get_logs_experiment")
+async def get_logs_experiment(log):
+    return {'success': api.get_logs_experiment(log)}
+
+@app.get("/get_predictions_list")
+async def get_predictions_list(prediction):
+    return {'success': api.get_predictions_list(prediction)}
+
+@app.get("/get_prediction")
+async def get_prediction(prediction):
+    return {'success': api.get_prediction(prediction)}

@@ -41,6 +41,24 @@ class Initializer(object):
 			self.storage.remove_file_global('.stack/')
 		return True
 
+	def load_current(self):
+		return json.load(self.storage.load_file_global(self.prefix_meta+'current.json'))
+
+	def load_current_version(self, version):
+		versions = self.load_versions()
+		keys = json.load(self.storage.load_file_global(versions[str(version)]['path']))
+		
+		return {'keys': list(keys.values()), 'lm': [versions[str(version)]['date']] * len(list(keys.values()))}
+	
+	def load_versions(self):
+		metapath = self.prefix_versions + 'versions.json'
+		try:
+			versions = json.load(self.storage.load_file_global(metapath))
+		except:
+			self.setup_versions()
+			versions = json.load(self.storage.load_file_global(metapath))
+		return versions
+
 	def remove_dataset_setup(self):
 		self.storage.remove_file_global(self.prefix_meta)
 		return True
@@ -92,10 +110,14 @@ class Initializer(object):
 	def setup_versions(self):
 		keys = {}
 		for file in self.dataset:
-			diff_path = self.prefix_diffs + file['key'] + '/' + str(1).zfill(10)
+			ver = 1
+			keys[file['key']] = self.prefix_diffs + file['key'] + '/' + str(ver).zfill(10)
 
+		ver_path = self.prefix_versions + '/0.json'
+		self.storage.add_file_from_binary_global(ver_path,io.BytesIO(json.dumps(keys).encode('ascii')))
+		
 		time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-		history = {0: {'version': '', 'date': time, 'label': 'First version'}}
+		history = {0: {'path': ver_path, 'schema_path': '', 'date': time, 'label': 'Version 0'}}
 		metapath = self.prefix_versions + 'versions.json'
 		self.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
 
@@ -196,28 +218,24 @@ class Initializer(object):
 
 	def get_latest_diff_number(self, key):
 		# checks all the diffs
-		diff_path, _ = self.storage.load_list_in_path(self.prefix_diffs + key + '/')
-		
-		# gets the list in number
-		diff_path = [int(x.replace(self.prefix_diffs + key + '/','')) for x in diff_path]
-		
-		if len(diff_path):
-			return max(diff_path)
-		else:
+		histpath = self.prefix_history + key + '/history.json'
+		try:
+			history = json.load(self.storage.load_file_global(histpath))
+			return len(history.keys())
+		except:
+			if not self.verify_setup:
+				self.setup_dataset()
 			return 0
 
 	def get_latest_version_number(self):
 		# checks all the diffs
-		diff_path, _ = self.storage.load_list_in_path(self.prefix_versions)
-		
-		# gets the list in number
-		diff_path = [int(x.replace(self.prefix_diffs + key + '/','')) for x in diff_path]
-		
-		if len(diff_path):
-			return max(diff_path)
-		else:
+		metapath = self.prefix_versions + 'versions.json'
+		try:
+			versions = json.load(self.storage.load_file_global(metapath))
+			return len(versions.keys())
+		except:
 			return 0
-	
+			
 	def get_list_to_compare(self):
 		# get new files
 		new_files, new_lm = self.storage.load_dataset_list()
