@@ -175,10 +175,10 @@ class API(object):
 
     def load_thumbnail(self, file):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
-            # try: 
-            return self.schema_class.get_thumbnail(file)
-            # except:
-            #     return self.load_file_binary(file, 'current')    
+            try: 
+                return self.schema_class.get_thumbnail(file)
+            except:
+                return self.load_file_binary(file, 'current')    
         else:
             return self.load_file_binary(file, 'current')
 
@@ -539,7 +539,6 @@ class API(object):
 
         if config['type'] == 'local':
             cloud = Local()
-            print(config)
             cloud.create_dataset(config['dataset'], verbose=True)
             self.Initializer = Initializer(cloud)
             self.dataset_name = config['dataset']
@@ -841,6 +840,7 @@ class API(object):
                 return self.schema_class.read_all_files()
         else:
             if self.filtered:
+                print('HERE2')
                 if self.in_version:
                     if self.current != None:
                         schema = self.current
@@ -853,7 +853,6 @@ class API(object):
                     else:
                         schema = self.Initializer.load_current()
                         self.current = schema
-
                 status = {'keys': [], 'lm': []}
 
                 idx = 0
@@ -905,8 +904,11 @@ class API(object):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.apply_filters(filters)
         else:
+            print('filtering')
             self.filters = filters
             self.filtered = True
+            print(filters)
+            print(self.filtered)
         return True
 
     def reset_filters(self):

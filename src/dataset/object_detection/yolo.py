@@ -71,7 +71,6 @@ class yolo_schema(object):
 		# generates the schema file for a yolo dataset
 		schema = {}
 		current = self.init.load_current()
-		print(current)
 		k = 0
 		idx = 0
 
@@ -322,9 +321,6 @@ class yolo_schema(object):
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
 		schema = self.get_schema()
-		print(added)
-		print(modified)
-		print(removed)
 		# finds the images
 
 		idx = int(schema['len'])

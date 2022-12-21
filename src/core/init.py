@@ -84,9 +84,6 @@ class Initializer(object):
 		if self.storage.check_if_empty(self.prefix_commit) and (len(self.dataset) > 0):
 			return False
 
-		if self.storage.check_if_empty(self.prefix_versions):
-			return False
-
 		return True
 
 	def setup_dataset(self):
@@ -96,7 +93,6 @@ class Initializer(object):
 		self.setup_diffs()
 		self.setup_commits()
 		self.setup_history()
-		self.setup_versions()
 		
 		return True
 

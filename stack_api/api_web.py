@@ -76,14 +76,20 @@ async def init_web(data: dict):
 @app.get("/connect/")
 async def connect(uri):
     # try:
+    import time
+    t0 = time.time()
     assert(not '.stack' in uri)
     if path_home in uri:
         uri = uri.replace(path_home,'')
     api.init(uri)
+    print(f'time to init {time.time() - t0}s')
     api.connect_post_api()
+    print(f'time to connect post api {time.time() - t0}s')
     api.set_schema()
-    api.commit()
+    print(f'time to set schema {time.time() - t0}s')
+    # api.commit()
     api.reset_version()
+    print(f'time to set version {time.time() - t0}s')
     return {'success': True}
     # except:
     #     return {'success': False}
