@@ -55,7 +55,8 @@ def connect_cli(uri: str):
 
         api.init(uri)
         api.connect_post_cli()
-        api.start_check()
+        api.set_schema()
+        api.reset_version()
         print('connection succesful')
         return {'success': True}
     except:
@@ -64,7 +65,7 @@ def connect_cli(uri: str):
         return {'success': False}
 
 @app.command("put")
-def add_command(file: str, target_subpath: str=''):
+def put_command(file: str, target_subpath: str=''):
     '''
         Uploads a file to the dataset
     '''
@@ -72,14 +73,14 @@ def add_command(file: str, target_subpath: str=''):
         if len(target_subpath)>1:
             if target_subpath[-1] != '/':
                 target_subpath = target_subpath + '/'
-        add(api.Initializer,[file],target_subpath)
+        api.upload_file_binary(target_subpath, file)
         api.commit('')
         return True
     except:
         return Exception
 
 @app.command("get")
-def pull_command(file):
+def get_command(file):
     '''
         Downloads a file from the dataset
     '''
@@ -89,14 +90,11 @@ def pull_command(file):
         return {}
 
 @app.command("delete")
-def remove_command(file: str, target_subpath: str=''):
+def delete_command(file: str):
     '''
         Deletes a file from the dataset
     '''
-    if len(target_subpath)>1:
-        if target_subpath[-1] != '/':
-            target_subpath = target_subpath + '/'
-    remove(api.Initializer,[file],target_subpath)
+    api.remove(file)
     api.commit('', cmd=False)
 
 @app.command("disconnect")
@@ -106,9 +104,156 @@ def disconnect_cli(uri: str):
         the list of datasets tracked (does not delete diffs or history)
     '''
     try:
+        api.init(uri)
+        api.connect_post_api()
+        api.set_schema()
+        hierarchy = api.get_hierarchy()
+        if len(hierarchy['children']) > 0:
+            for child in hierarchy['children']:
+                api.remove_child(child=child)
+                try:
+                    api.init(child)
+                    api.connect_post_api()
+                    api.set_schema()
+                    api.remove_parent()
+                except:
+                    pass
+            api.init(uri)
+            api.connect_post_api()
+            api.set_schema()
+        if type(hierarchy['parent']) is str:
+            if hierarchy['parent'] != '':
+                assert(not '.stack' in hierarchy['parent'])
+                if path_home in hierarchy['parent']:
+                    hierarchy['parent'] = hierarchy['parent'].replace(path_home,'')
+                try:
+                    api.init(hierarchy['parent'])
+                    api.connect_post_api()
+                    api.set_schema()
+                    api.remove_child(child=uri)
+                except: 
+                    pass    
         return {'success': api.disconnect_dataset(uri)}
     except:
         return {'success': False}
+
+@app.command("slice")
+def slice_cli(name: str, filter_json: str):
+    '''
+        Lists a slice of the filtered dataset and adds it to
+        the list of slices
+    '''
+    try:
+        filter = json.load(open(filter_json, "rb"))
+        api.set_filters(filter)
+        api.add_slice(slice_name=name)
+        api.reset_filters()
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.command("remove_slice")
+def remove_slice_cli(name: str):
+    '''
+        Remove a slice from the list of slices
+    '''
+    try:
+        api.remove_slice(slice_name=name)
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.command("branch")
+def branch_cli(uri: str, name: str = '', filter_json: str = '', type: str = 'copy'):
+    '''
+        Creates a branch of the dataset from the CLI and adds it to
+        the list of datasets tracked
+    '''
+    try:
+        if filter_json != '':
+            filter = json.load(open(filter_json, "rb"))
+            api.set_filters(filter)
+        if name == '':
+            name = uri
+        parent = api.Initializer.storage.dataset
+        api.set_hierarchy(child = name)
+        api.branch(uri, type, name)
+        api.set_hierarchy(parent = parent)
+        if filter_json != '':
+            api.reset_filters()
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.command("merge")
+def merge_cli(child: str, parent: str = ''):
+    '''
+        Merge a child branch of the dataset from the CLI and adds its changes to
+        the a parent branch (us)
+    '''
+    try: 
+        if child == '':
+            if parent == '':
+                child = api.Initializer.storage.dataset
+                hierarchy = api.get_hierarchy()
+                if type(hierarchy['parent']) is str:
+                    if hierarchy['parent'] == '':
+                        return {'success': False}
+                    else:
+                        api.merge(father=hierarchy['parent'], child=child)
+                        api.commit(f"merged branch {child} to {hierarchy['parent']}")
+                        return {'success': True}
+            else:
+                master = api.Initializer.storage.dataset
+                api.merge(father=master, child=child)
+                api.commit(f"merged branch {child} to {master}")
+        else:
+            if parent == '':
+                hierarchy = api.get_hierarchy()
+                if type(hierarchy['parent']) is str:
+                    if hierarchy['parent'] == '':
+                        return {'success': False}
+                    else:
+                        parent = hierarchy['parent']
+            api.merge(father=parent, child=child)
+            api.commit(f"merged branch {child} to {parent}")
+        return {'success': True}
+    except:
+        return {'success': False}
+
+@app.command("checkpoints")
+def get_versions_command():
+    try:
+        print(api.get_versions())
+    except:
+        return {}
+
+@app.command("add_checkpoint")
+def add_version_command(name: str= ''):
+    try:
+        return {'success': api.add_version()}
+    except:
+        return {} 
+
+@app.command('comment')
+def add_tag_api(file: str, comment: str):
+    api.add_tag(file, comment)
+    return {'success': True}
+
+@app.command('get_comments')
+def get_tags_api(file: str):
+    print(api.get_tags(file))
+    return {'success': True}
+
+@app.command('remove_comment')
+def remove_tag_api(file: str, comment: str):
+    api.remove_tag(file, comment)
+    return {'success': True}
+
+@app.command('remove_comments_all')
+def remove_tags_api(file: str):
+    api.selection_remove_all_tags(file)
+    return {'success': True}
 
 @app.command("delete_file_and_diffs")
 def full_remove_key_api(file: str):
@@ -151,7 +296,17 @@ def status_api():
         Prints the status of the dataset
     '''
     try:
-        print_status(api.Initializer)
+        status = api.status()
+        if len(status['keys']) > 0:
+            print('\n-------------------------')
+            print('- Status of the dataset -')
+            print('-------------------------\n')
+            print('List of files in dataset:')
+            for i in range(len(status['keys'])):
+                print('\t-- '+status['keys'][i] + '\tlast modified: '+str(status['lm'][i]))
+        else:
+            print('everything is ok!')
+            print('please add or commit a file')
     except:
         return Exception
 
@@ -165,8 +320,8 @@ def sync_api(comment: str=''):
 @app.command("diff_versions")
 def diff_api(version_a: str, version_b: str, file: str=''):
     '''
-        List the changes applied to the dataset between version_a and 
-        version_b (optional: give it a specific file to compare)
+        List the changes applied to the dataset between version N and 
+        version M (optional: give it a specific file to compare)
     '''
     if int(version_b) > int(version_a):
         tmp = version_a

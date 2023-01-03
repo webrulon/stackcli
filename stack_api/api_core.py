@@ -216,6 +216,20 @@ class API(object):
             print('no datasets to show')
         return True
     
+    def get_dataset_name(self,uri):
+        datasets = self.get_datasets()
+        for s in datasets.keys():
+            if uri == datasets[s]['storage']:
+                return datasets[s]['name']
+        return ''
+
+    def get_dataset_URI(self,name):
+        datasets = self.get_datasets()
+        for s in datasets.keys():
+            if name == datasets[s]['name']:
+                return datasets[s]['storage']
+        return ''
+    
     def set_schema(self):
         if self.config['schema'] == 'yolo':
             self.schema_class = yolo_schema(self.Initializer)
@@ -494,6 +508,11 @@ class API(object):
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
 
+        try: 
+            datasets = self.get_datasets()
+        except:
+            datasets = {}
+
         if config['type'] == 'local':
             cloud = Local()
             cloud.create_dataset(config['dataset'], verbose=True)
@@ -510,21 +529,7 @@ class API(object):
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
-
-        try: 
-            datasets = self.get_datasets()
-        except:
-            datasets = {}
-
-        is_not_there = True
-        for s in datasets.keys():
-            if datasets[s]['storage'] == self.storage_name:
-                is_not_there = False
-
-        if is_not_there:
-            name = input('please give a name to your dataset: ')
-            datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
-            self.set_datasets(datasets)
+            
         self.set_config()
         return True
 
@@ -868,6 +873,22 @@ class API(object):
             else:
                 return self.Initializer.load_current()
 
+    def get_next_key(self,key):
+        status = self.status()
+        idx = status['keys'].index(key)
+        if idx == len(status['keys']) - 1:
+            return status['keys'][0]
+        else:
+            return status['keys'][idx + 1]
+
+    def get_prev_key(self,key):
+        status = self.status()
+        idx = status['keys'].index(key)
+        if idx == 0:
+            return status['keys'][-1]
+        else:
+            return status['keys'][idx - 1]
+
     def remove(self, key, subpath=''):
         if len(subpath)>1:
             if subpath[-1] != '/':
@@ -900,6 +921,7 @@ class API(object):
             remove_diff(self.Initializer,key,int(version))
         return True
 
+    
     def set_filters(self, filters):
         if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
             self.schema_class.apply_filters(filters)
