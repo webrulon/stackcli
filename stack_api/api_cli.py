@@ -240,7 +240,7 @@ def add_tag_api(file: str, comment: str):
     api.add_tag(file, comment)
     return {'success': True}
 
-@app.command('get_comments')
+@app.command('comments')
 def get_tags_api(file: str):
     print(api.get_tags(file))
     return {'success': True}

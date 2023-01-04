@@ -701,7 +701,10 @@ def logout_experiment():
 
 @app.get("/get_projects")
 def get_projects():
-    return api.get_projects()
+    try:
+        return api.get_projects()
+    except:
+        return []
 
 @app.get("/get_logs_list")
 def get_logs_list(project):
