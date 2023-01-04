@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stackcli" # should be "stackai"
-version = "0.1.11"
+version = "0.1.15"
 description = ""
 authors = ["Toni Rosinol <arosinol@getstack.ai>"]
 readme = "README.md"
@@ -24,6 +24,8 @@ maskpass = "^0.3.6"
 google-cloud-storage = "^2.5.0"
 google-cloud-datastore = "^2.8.1"
 csv-diff = "*"
+pandas = "*"
+tzlocal = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
