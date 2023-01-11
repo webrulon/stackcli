@@ -16,13 +16,17 @@ app = typer.Typer()
 try:
     api = api_core.API()
     initialized = api.start_check()
+    api.set_schema()
     api.commit('',False)
 except:
     print(f'Stack has not been installed yet!')
     print(f'setting-up Stack...')
     api = api_core.API()
     initialized = api.start_check()
-
+    try:
+        api.set_schema()
+    except:
+        pass
     if initialized:
         api.commit('First commit')
 
