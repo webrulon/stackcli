@@ -34,9 +34,10 @@ https://typer.tiangolo.com/tutorial/package/
 1. Install package: `poetry install'
 2. Try CLI: find it first `which stack`
 3. Create a wheel package: `poetry build'
-4. Test wheel: `pip install --user dist'
+4. Test wheel: `pip install .' # WARNING: Make sure you are in a virtualenv.
 5. Try the wheel: `stack`
 6. Publish it to TestPy: `poetry publish --build'
+(If you see a `HTTP Error 400: File already exists.` update version number in the `pyproject.toml` file)
 7. Install from TestPyPI:
   1. `pip uninstall stack-cli`
   1. `pip install -i https://test.pypi.org/simple/ stack-cli`
