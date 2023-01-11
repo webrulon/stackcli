@@ -40,6 +40,7 @@ class yolo_schema(object):
 
 		ls, _ = self.init.storage.load_dataset_list()
 		self.ls = ls
+		self.ls_set = set(self.ls)
 
 	def get_schema_from_key(self, key):
 		dp = {}
@@ -143,6 +144,7 @@ class yolo_schema(object):
 		self.selected_version = version
 		self.version_schema = schema_file
 		self.ls = keys.values()
+		self.ls_set = set(self.ls)
 
 	def reset_to_current_version(self):
 		self.in_version = False
@@ -153,7 +155,10 @@ class yolo_schema(object):
 		self.sliced = None
 
 		ls, _ = self.init.storage.load_dataset_list()
+		# DO NOT modify self.ls without also modifying ls_set
 		self.ls = ls
+		self.ls_set = set(self.ls)
+		
 		self.schema = json.load(self.init.storage.load_file_global(self.schema_path))
 
 		return True
@@ -535,20 +540,19 @@ class yolo_schema(object):
 
 	def get_resolution(self, key):
 		# reads image
-		# if self.init.storage.type == 'local':
-		# 	img_str = self.init.storage.load_file_global(key)
-		# 	Im =Image.open(img_str.read())
-		# 	im = im.size
-		# 	return str(im.shape[1]) + 'x' + str(im.shape[0])
-		# else:
-		img_str = self.init.storage.load_file_global(key)
-		
-		# formats to cv2
-		nparr = np.fromstring(img_str.read(), np.uint8)
-		im = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+		if self.init.storage.type == 'local':
+			# HACK: in local it is faster to just read with opencv and not load the full image
+			im = cv2.imread(key) 
+			return str(im.shape[1]) + 'x' + str(im.shape[0])
+		else:
+			img_str = self.init.storage.load_file_global(key)
+			
+			# formats to cv2
+			nparr = np.fromstring(img_str.read(), np.uint8)
+			im = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-		# returns shape
-		return str(im.shape[1]) + 'x' + str(im.shape[0])
+			# returns shape
+			return str(im.shape[1]) + 'x' + str(im.shape[0])
 
 	def label_name(self, class_number):
 		return str(class_number)
@@ -560,9 +564,7 @@ class yolo_schema(object):
 				filename = os.path.dirname(filename.replace(self.init.prefix_diffs,''))
 			basename = os.path.splitext(os.path.basename(filename))[0]
 
-			ls = set(self.ls)
-
-			matches = [match for match in ls if basename+'.txt' in match]
+			matches = [match for match in self.ls_set if basename+'.txt' in match]
 			try: 
 				labels_str = self.init.storage.load_file_global(matches[0])
 			except:
