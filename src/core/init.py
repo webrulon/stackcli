@@ -133,6 +133,7 @@ class Initializer(object):
 		# stores the diffs of the first commit
 		for file in self.dataset:
 			# TODO: let's name the diffs with just numbering for now
+			# and I pre-append 10 zeros bcs I do not remember
 			diff = self.prefix_diffs + file['key'] + '/' + str(1).zfill(10)
 			self.storage.copy_file_global(file['key'],diff)		
 		return True

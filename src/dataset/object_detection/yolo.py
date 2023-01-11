@@ -74,22 +74,35 @@ class yolo_schema(object):
 		k = 0
 		idx = 0
 
+		lm = current['lm']
+
+		# TODO: Parallelize
 		# finds the images
+		
 		for key in current['keys']:
 			if self.is_image(key):
-				dp = {}
+				t0 = time.time()
 				labels = self.get_labels(key)
-				dp['key'] = key
-				dp['lm'] = current['lm'][idx]
-				dp['classes'] = [labels[label]['0'] for label in labels]
-				dp['labels'] = labels
-				dp['n_classes'] = len(dp['classes'])
+				print(f'time to get labels {time.time()-t0}s')
+				t0 = time.time()
+				dp = {}
 				dp['tags'] = []
 				dp['slices'] = []
+				dp['key'] = key
+				dp['lm'] = lm[idx]
+				dp['classes'] = [labels[label]['0'] for label in labels]
+				print(f'time to get label array {time.time()-t0}s')
+				t0 = time.time()
+				dp['labels'] = labels
+				dp['n_classes'] = len(labels)
 				dp['resolution'] = self.get_resolution(key)
+				print(f'time to get resolution {time.time()-t0}s')
+				t0 = time.time()
 				dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
+				print(f'time to get size {time.time()-t0}s')
 				schema[str(k)] = dp
 				k += 1
+				print(idx)
 			idx += 1
 
 		schema['len'] = k
@@ -173,7 +186,8 @@ class yolo_schema(object):
 		n_size = {}
 		n_tags = {}
 		n_slices = {}
-
+		# TODO: Parallelize
+		
 		for val in schema:
 			if type(self.schema[val]) is dict:
 				if not len(schema[val]['classes']) in classes_per_image:
@@ -521,6 +535,12 @@ class yolo_schema(object):
 
 	def get_resolution(self, key):
 		# reads image
+		# if self.init.storage.type == 'local':
+		# 	img_str = self.init.storage.load_file_global(key)
+		# 	Im =Image.open(img_str.read())
+		# 	im = im.size
+		# 	return str(im.shape[1]) + 'x' + str(im.shape[0])
+		# else:
 		img_str = self.init.storage.load_file_global(key)
 		
 		# formats to cv2

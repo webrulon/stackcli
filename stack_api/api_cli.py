@@ -95,7 +95,7 @@ def delete_command(file: str):
         Deletes a file from the dataset
     '''
     api.remove(file)
-    api.commit('', cmd=False)
+    api.commit('', verbose=False)
 
 @app.command("disconnect")
 def disconnect_cli(uri: str):
@@ -350,7 +350,7 @@ def revert_api(version):
     '''
     assert(version != '')
     revert_commit(api.Initializer, int(version))
-    api.commit('reverted to version '+ version, cmd=False)
+    api.commit('reverted to version '+ version, verbose=False)
     return True
 
 if __name__ == "__main__":

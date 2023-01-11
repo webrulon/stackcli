@@ -1148,10 +1148,10 @@ class API(object):
         remove_full(self.Initializer,key)
         return True
 
-    def commit(self, comment='',cmd=True):
+    def commit(self, comment='',verbose=True):
         self.reset_version()
         res, added, modified, deleted = commit(self.Initializer, comment)
-        if cmd:
+        if verbose:
             if res: 
                 print('sync done!')
             else:
