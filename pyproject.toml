@@ -26,6 +26,7 @@ google-cloud-datastore = "^2.8.1"
 csv-diff = "*"
 pandas = "*"
 tzlocal = "*"
+opencv-python = "^4.6.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
