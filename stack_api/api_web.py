@@ -58,7 +58,7 @@ except:
 
 # frontend entry-points
 @app.post("/init_web/")
-def init_web(data: dict):
+async def init_web(data: dict):
     try:
         assert(not '.stack' in data['uri'])
         
@@ -115,10 +115,15 @@ def set_branch_api(data: dict):
 
 @app.get("/get_current_hierarchy")
 def get_current_hierarchy_api():
-    try:
-        return api.get_hierarchy()
-    except:
-        return {'parents': '', 'children': []}
+    # try:
+    hierarchy = api.get_hierarchy()
+    children = []
+    for uri in hierarchy['children']:
+        children.append({'uri': uri, 'name': api.get_dataset_name(uri)})
+    parent = {'uri': hierarchy['parent'], 'name': api.get_dataset_name(hierarchy['parent'])}
+    return {'parent': parent, 'children': children}
+    # except:
+    #     return {'parent': {'uri': '', 'name': ''}, 'children': []}
 
 @app.get("/get_hierarchy")
 def get_hierarchy_api(uri):
@@ -131,7 +136,7 @@ def get_hierarchy_api(uri):
         api.set_schema()
         return api.get_hierarchy()
     except:
-        return {'parents': '', 'children': []}
+        return {'parent': '', 'children': []}
 
 @app.get("/get_versions")
 def get_versions_api():
@@ -141,9 +146,9 @@ def get_versions_api():
         return {}
 
 @app.get("/add_version")
-def add_version_api():
+def add_version_api(label = ''):
     # try:
-    return {'success': api.add_version()}
+    return {'success': api.add_version(label)}
     # except:
     #     return {'success': False}
 
@@ -307,35 +312,38 @@ def merge_current_to_master_api():
 @app.get("/disconnect")
 def disconnect_api(uri=''):
     try:
-        api.init(uri)
-        api.connect_post_api()
-        api.set_schema()
-        hierarchy = api.get_hierarchy()
-        if len(hierarchy['children']) > 0:
-            for child in hierarchy['children']:
-                api.remove_child(child=child)
-                try:
-                    api.init(child)
-                    api.connect_post_api()
-                    api.set_schema()
-                    api.remove_parent()
-                except:
-                    pass
+        try:         
             api.init(uri)
             api.connect_post_api()
             api.set_schema()
-        if type(hierarchy['parent']) is str:
-            if hierarchy['parent'] != '':
-                assert(not '.stack' in hierarchy['parent'])
-                if path_home in hierarchy['parent']:
-                    hierarchy['parent'] = hierarchy['parent'].replace(path_home,'')
-                try:
-                    api.init(hierarchy['parent'])
-                    api.connect_post_api()
-                    api.set_schema()
-                    api.remove_child(child=uri)
-                except: 
-                    pass    
+            hierarchy = api.get_hierarchy()
+            if len(hierarchy['children']) > 0:
+                for child in hierarchy['children']:
+                    api.remove_child(child=child)
+                    try:
+                        api.init(child)
+                        api.connect_post_api()
+                        api.set_schema()
+                        api.remove_parent()
+                    except:
+                        pass
+                api.init(uri)
+                api.connect_post_api()
+                api.set_schema()
+            if type(hierarchy['parent']) is str:
+                if hierarchy['parent'] != '':
+                    assert(not '.stack' in hierarchy['parent'])
+                    if path_home in hierarchy['parent']:
+                        hierarchy['parent'] = hierarchy['parent'].replace(path_home,'')
+                    try:
+                        api.init(hierarchy['parent'])
+                        api.connect_post_api()
+                        api.set_schema()
+                        api.remove_child(child=uri)
+                    except: 
+                        pass
+        except:
+            pass    
         return {'success': api.disconnect_dataset(uri)}
     except:
         return {'success': False}
@@ -463,10 +471,10 @@ def last_commits_from_hist_api(n=1):
 
 @app.get("/status")
 def status_api():
-    try:
-        return api.status()
-    except:
-        return {}
+    # try:
+    return api.status()
+    # except:
+    #     return {}
 
 @app.get("/schema_metadata")
 def schema_metadata_api():
@@ -608,7 +616,7 @@ def revert_key_version_api(key, version=-1, label='raw'):
     #     return {'sucess': False}
 
 @app.get("/revert")
-def revert_api(version=0):
+async def revert_api(version=0):
     # try:
     api.revert(version)
     api.commit('reverted dataset to version ' + version)
@@ -626,10 +634,10 @@ def get_next_key_api(key):
 
 @app.get("/get_labels")
 def get_labels_api(filename, version='current'):
-    try:
-        return api.get_labels(filename, version)
-    except:
-        return {}
+    # try:
+    return api.get_labels(filename, version)
+    # except:
+    #     return {}
 
 @app.post("/set_labels")
 def set_labels_api(data: dict):

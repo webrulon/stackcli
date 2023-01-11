@@ -12,6 +12,8 @@ from src.storage.classes.local import Local
 from src.dataset.object_detection.yolo import yolo_schema
 from src.dataset.object_detection.labelbox import labelbox_schema
 
+from src.dataset.named_entity_recognition.spacy import spacy_ner_schema
+
 from pathlib import Path
 import pickle
 import os
@@ -158,9 +160,7 @@ class API(object):
 
     def get_labels(self, filename, version='current'):
         
-        if(self.config['schema'] == 'yolo'):
-            return self.schema_class.get_labels(filename, version)
-        elif (self.config['schema'] == 'labelbox'):
+        if(self.config['schema'] != 'files'):
             return self.schema_class.get_labels(filename, version)
 
         return []
@@ -196,6 +196,15 @@ class API(object):
 
             if in_version:
                 self.select_version(version)
+        elif self.config['schema'] == 'spacy_ner':
+            if self.in_version:
+                self.reset_version()
+            else:
+                filename = data['keyId']
+            self.schema_class.set_labels(filename, data)
+
+            if in_version:
+                self.select_version(version)
         return {'success': True}
 
     def set_datasets(self, datasets):
@@ -217,7 +226,13 @@ class API(object):
         return True
     
     def get_dataset_name(self,uri):
+        if uri == '':
+            return ''
         datasets = self.get_datasets()
+        if uri[-1] == '/':
+            uri = uri[:-1]
+        if uri[0] == '/':
+            uri = uri[1:]
         for s in datasets.keys():
             if uri == datasets[s]['storage']:
                 return datasets[s]['name']
@@ -249,10 +264,18 @@ class API(object):
             except:
                 self.schema_class.create_schema_file()
                 self.schema_class.compute_meta_data()
+        elif self.config['schema'] == 'spacy_ner':
+            self.schema_class = spacy_ner_schema(self.Initializer)
+            try:
+                metapath = self.schema_class.meta_path
+                json.load(self.Initializer.storage.load_file_global(metapath))
+            except:
+                self.schema_class.create_schema_file()
+                self.schema_class.compute_meta_data()
 
     def reset_schema(self):
         self.reset_version()
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.create_schema_file()
             self.schema_class.compute_meta_data()
 
@@ -284,7 +307,7 @@ class API(object):
         self.connect_post_api()
         self.set_schema()
 
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.merge(goal=father)
         else:
             dataset = self.Initializer.storage.dataset
@@ -303,7 +326,7 @@ class API(object):
         if not self.in_version:
             if branch_name[-1] != '/':
                 branch_name += '/'
-            if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            if self.config['schema'] != 'files':
                 trial = self.schema_class.branch(branch_name=branch_name,type_=branch_type)
                 if trial:
                     if self.config['type'] == 's3':
@@ -412,13 +435,13 @@ class API(object):
             return True
 
     def schema_metadata(self):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             return self.schema_class.get_metadata()
         else:
             return {}
 
     def apply_filter(self):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             metapath = self.schema_class.meta_path
             return json.load(self.Initializer.storage.load_file_global(metapath))
         else:
@@ -529,7 +552,7 @@ class API(object):
             self.Initializer = Initializer(cloud)
         else:
             self.Initializer = None
-            
+
         self.set_config()
         return True
 
@@ -691,6 +714,10 @@ class API(object):
         return {'commits': response, 'len': len(history[str(int(version))]['commits'])}
 
     def key_versions(self, key = '', l = 5, page = 0):
+        if self.config['schema'] == 'spacy_ner':
+            schema = self.schema_class.get_schema()
+            key = schema[key]['filename']
+        
         if self.Initializer.prefix_diffs in key:
             key = os.path.dirname(key.replace(self.Initializer.prefix_diffs,''))
 
@@ -714,71 +741,70 @@ class API(object):
         return {'commits': response, 'len': len(key_hist)}
 
     def get_tags(self, key):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             return self.schema_class.get_tags(key)
         else:
             return []
 
     def add_tag(self, key, tag):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.add_tag(key, tag)
         return True
     
     def add_slice(self, slice_name):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.add_slice(slice_name)
         return True
 
     def remove_slice(self, slice_name):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.remove_slice(slice_name)
             self.schema_class.apply_filters()
         return True
 
     def reset_slices(self):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.sliced = False
             self.schema_class.selected_slices = []
             self.schema_class.apply_filters()
         return True
     
     def get_slices(self):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             return self.schema_class.get_slices()
         return {}
     
     def select_slices(self, slices = []):
         self.reset_version()
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.select_slice(slices=slices)
         return True
 
     def selection_add_tag(self, keys, tag):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.add_many_tag(keys, tag)
         return True
 
     def get_readme(self):
         ls, _ = self.Initializer.storage.load_dataset_list()
         matches = [match for match in ls if 'readme' in match.lower()]
-        print(matches)
         if len(matches) == 0:
             return ''
         else:
             return self.Initializer.storage.load_file_global(matches[0]).read()
     
     def selection_remove_all_tags(self, keys):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.many_remove_all_tags(keys)
         return True
 
     def remove_tag(self, key, tag):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.remove_tag(key, tag)
         return True
 
     def remove_all_tags(self, key):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.remove_all_tags(key)
         return True
 
@@ -818,6 +844,21 @@ class API(object):
                 response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'label'
                 idx = idx+1
+        elif self.config['schema'] == 'spacy_ner':
+            schema = self.schema_class.get_schema()
+            labels_key = schema[key]['filename']
+            labels_hist = get_key_history(self.Initializer, labels_key)
+            response = {}
+            idx = 0
+            i_p = len(labels_hist) - int(page)*int(int(l))
+            i_f = max(len(labels_hist) - int(int(l))*(int(page)+1),0)
+
+            # goes over the commits
+            for i in range(i_p, i_f, -1):
+                # reads each file version
+                response[idx] = labels_hist[str(i)]
+                response[idx]['file'] = 'label'
+                idx = idx+1
         else:
             labels_key = key
             if self.in_version:
@@ -838,14 +879,13 @@ class API(object):
         return {'commits': response, 'len': len(labels_hist), 'keyId': labels_key}
 
     def status(self):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             if self.schema_class.filtered:
                 return self.schema_class.status
             else:
                 return self.schema_class.read_all_files()
         else:
             if self.filtered:
-                print('HERE2')
                 if self.in_version:
                     if self.current != None:
                         schema = self.current
@@ -923,18 +963,15 @@ class API(object):
 
     
     def set_filters(self, filters):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.apply_filters(filters)
         else:
-            print('filtering')
             self.filters = filters
             self.filtered = True
-            print(filters)
-            print(self.filtered)
         return True
 
     def reset_filters(self):
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.filtered = False
             self.schema_class.apply_filters()
         else:
@@ -951,7 +988,7 @@ class API(object):
 
     def add_version(self, label = ''):
         add_version(self.Initializer, label)
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.copy_schema_to_latest_version_checkpoint()
         return True
 
@@ -961,13 +998,12 @@ class API(object):
             self.in_version = True
             self.selected_version = version
             self.version_keys = json.load(self.Initializer.storage.load_file_global(versions[version]['path']))
-            if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            if self.config['schema'] != 'files':
                 self.schema_class.schema = None
                 self.schema_class.select_version(version, versions[version]['schema_path'], self.version_keys)
                 self.schema_class.get_schema()
                 self.schema_class.read_all_files()
             self.current = self.Initializer.load_current_version(version)
-            print(self.current)
             return True
         else:
             self.reset_version()
@@ -979,7 +1015,7 @@ class API(object):
             self.version_keys = None
             self.current = self.Initializer.load_current()
             self.filtered = False
-            if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+            if self.config['schema'] != 'files':
                 self.schema_class.schema = None
                 self.schema_class.in_version = False
                 self.schema_class.version_keys = None
@@ -1120,7 +1156,7 @@ class API(object):
                 print('sync done!')
             else:
                 print('already up-to-date')
-        if self.config['schema'] == 'yolo' or self.config['schema'] == 'labelbox':
+        if self.config['schema'] != 'files':
             self.schema_class.update_schema_file(added, modified, deleted)
 
         return True

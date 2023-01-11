@@ -30,13 +30,11 @@ class Local(object):
 		else:
 			location = path_home + '/' + location
 
-		#print('Initializing dataset at '+location)
 		if location[-1] != '/':
 			location = location + '/'
 			self.dataset = location
 
 		if not os.path.exists(location):
-			print(location)
 			print('dataset directory does not exist')
 			print('failed to connect')
 			raise Exception('dataset directory does not exist')
@@ -160,14 +158,12 @@ class Local(object):
 		for root, dirs, files in os.walk(self.dataset, topdown=False):
 			for name in files:
 				path = os.path.join(root, name)
-				print(path)
 		return True
 
 	def list_files_in_path(self,dir_path):
 		for root, dirs, files in os.walk(self.dataset + dir_path, topdown=False):
 			for name in files:
 				path = os.path.join(root, name)
-				print(path)
 		return True
 
 	def copy_file(self,filepath,full_target_name):

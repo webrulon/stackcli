@@ -600,11 +600,18 @@ class yolo_schema(object):
 		labels_string = ''
 
 		for i in range(len(labels_array)-1):
-			cl = labels_array[str(i)]['0']
-			w = labels_array[str(i)]['1']
-			h = labels_array[str(i)]['2']
-			x = labels_array[str(i)]['3']
-			y = labels_array[str(i)]['4']
+			if type(labels_array[str(i)]) is dict:
+				cl = labels_array[str(i)]['0']
+				w = labels_array[str(i)]['1']
+				h = labels_array[str(i)]['2']
+				x = labels_array[str(i)]['3']
+				y = labels_array[str(i)]['4']
+			else:
+				cl = labels_array[str(i)][0]
+				w = labels_array[str(i)][1]
+				h = labels_array[str(i)][2]
+				x = labels_array[str(i)][3]
+				y = labels_array[str(i)][4]
 
 			labels_string = labels_string + f'{cl} {w} {h} {x} {y}\n'
 

@@ -533,7 +533,6 @@ class labelbox_schema(object):
 
 					labelbox_file[idx]['Label']['objects'][i]['value'] = cl
 					labelbox_file[idx]['Label']['objects'][i]['bbox'] = bbox
-					print(labelbox_file[idx]['Label']['objects'])
 				if(len(labelbox_file[idx]['Label']['objects']) > len(labels_array)-1):
 					for i in range(len(labels_array)-1,len(labelbox_file[idx]['Label']['objects'])):
 						labelbox_file[idx]['Label']['objects'].pop()

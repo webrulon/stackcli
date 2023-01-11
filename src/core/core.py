@@ -181,7 +181,7 @@ def add_version(init, label=''):
 		time = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 		
 		if label == '':
-			label = f'Version {len(history.keys())}'
+			label = f'Checkpoint {len(history.keys())}'
 
 		history[str(len(history.keys()))] = {'path': ver_path, 'schema_path': '', 'date': time, 'label': label}
 		init.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(history).encode('ascii')))
@@ -396,6 +396,7 @@ def revert_file(init, key, version):
 	# finds the commit version
 	diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 	init.storage.copy_file_global(diff,key)
+
 	print('reverted file ' + key + ' to version ' + str(version))
 	return True
 
@@ -411,17 +412,14 @@ def revert_commit(init, target_version):
 
 	for i in range(len(history),int(target_version),-1):
 		for commit_ in history[str(i)]['commits']:
-			if init.storage.type == 'local':
-				cmit = json.load(init.storage.load_file_global(commit_))
-			else:
-				cmit = json.load(init.storage.load_file_global(commit_))
+			cmit = json.load(init.storage.load_file_global(commit_))
 			init.storage.reset_buffer()
 			if cmit['type'] == 'add':
 				remove_global(init, [cmit['key']])
 			elif cmit['type'] == 'remove':
 				revert_file(init,cmit['key'],cmit['version']-1)
 			else:
-				revert_file(init,cmit['key'],cmit['version'])
+				revert_file(init,cmit['key'],cmit['version']-1)
 			init.storage.reset_buffer()
 	return True
 
@@ -545,21 +543,3 @@ def print_diff(init, v2, v1, file=''):
 					return True
 					break
 		init.storage.reset_buffer()
-
-def print_status(init):
-	# loads file global
-	current = init.load_current()
-	init.storage.reset_buffer()
-	if len(current['keys']) > 0:
-		print('\n-------------------------')
-		print('- Status of the dataset -')
-		print('-------------------------\n')
-		print('List of files in dataset:')
-		for i in range(len(current['keys'])):
-			print('\t-- '+current['keys'][i] + '\tlast modified: '+str(current['lm'][i]))
-
-		init.storage.reset_buffer()
-		print()
-	else:
-		print('everything is ok!')
-		print('please add or commit a file')
