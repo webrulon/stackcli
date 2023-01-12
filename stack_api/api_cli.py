@@ -42,31 +42,31 @@ def connect_cli(uri: str):
     print('- Connecting remote dataset... -')
     print('--------------------------------')
     
-    try:
-        if docker_ver():
-            assert(False)
+    # try:
+    if docker_ver():
+        assert(False)
 
-        assert(not '.stack' in uri)
+    assert(not '.stack' in uri)
 
-        if uri == '.':
-            uri = str(os.path.abspath('.'))
-        if uri[0:2] == '~/':
-            uri = str(os.path.abspath('~/'))
-        if uri[0:3] == 'C:/' or uri[0:3] == 'C:\\':
-            uri[0:3] = '/c/'
+    if uri == '.':
+        uri = str(os.path.abspath('.'))
+    if uri[0:2] == '~/':
+        uri = str(os.path.abspath('~/'))
+    if uri[0:3] == 'C:/' or uri[0:3] == 'C:\\':
+        uri[0:3] = '/c/'
 
-        uri = uri.replace(path_home,'')
+    uri = uri.replace(path_home,'')
 
-        api.init(uri)
-        api.connect_post_cli()
-        api.set_schema()
-        api.reset_version()
-        print('connection succesful')
-        return {'success': True}
-    except:
-        print('connection unsuccesful!')
+    api.init(uri)
+    api.connect_post_cli()
+    api.set_schema()
+    api.reset_version()
+    print('connection succesful')
+    return {'success': True}
+    # except:
+        # print('connection unsuccesful!')
 
-        return {'success': False}
+        # return {'success': False}
 
 @app.command("put")
 def put_command(file: str, target_subpath: str=''):
@@ -77,7 +77,7 @@ def put_command(file: str, target_subpath: str=''):
         if len(target_subpath)>1:
             if target_subpath[-1] != '/':
                 target_subpath = target_subpath + '/'
-        api.upload_file_binary(target_subpath, file)
+        api.upload_file_local_path(file, target_subpath)
         api.commit('')
         return True
     except:
@@ -190,7 +190,7 @@ def branch_cli(uri: str, name: str = '', filter_json: str = '', type: str = 'cop
         return {'success': False}
 
 @app.command("merge")
-def merge_cli(child: str, parent: str = ''):
+def merge_cli(child: str = '', parent: str = ''):
     '''
         Merge a child branch of the dataset from the CLI and adds its changes to
         the a parent branch (us)
@@ -228,14 +228,17 @@ def merge_cli(child: str, parent: str = ''):
 @app.command("checkpoints")
 def get_versions_command():
     try:
-        print(api.get_versions())
+        versions = api.get_versions()
+        for v in reversed(list(versions.keys())):
+            if v != 'current_v':
+                print(f"-- Version: {v} - Label: '{versions[v]['label']}' - Date: {versions[v]['date']} ")
     except:
         return {}
 
 @app.command("add_checkpoint")
 def add_version_command(name: str= ''):
     try:
-        return {'success': api.add_version()}
+        return {'success': api.add_version(name)}
     except:
         return {} 
 
@@ -276,7 +279,7 @@ def uri_api():
     '''
         Gets the URI of the current dataset connected
     '''
-    uri = api.getURI()
+    uri = api.config
     print('Current dataset: ' + uri['dataset'])
     print('Current storage: ' + uri['storage'])
 

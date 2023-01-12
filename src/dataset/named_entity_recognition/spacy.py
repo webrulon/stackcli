@@ -203,6 +203,8 @@ class spacy_ner_schema(object):
 		schema = self.get_schema()
 		# finds the images
 
+		print('updating schema file')
+		
 		idx = int(schema['len'])
 
 		for key in removed:
@@ -240,13 +242,18 @@ class spacy_ner_schema(object):
 				idx_key = 0
 				local_array = json.load(self.init.storage.load_file_global(key))
 				for el in local_array:
-					if el['text'] in keys:
+					if el['text'] in list(keys):
 						dp = {}
 						labels = el['entities']
 						dp['filename'] = key
 						dp['key'] = el['text']
 						dp['text'] = el['text']
-						dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
+						print(labels)
+						print(el['entities'])
+						if labels == schema[el['text']]['entities']:
+							dp['lm'] = schema[el['text']]['lm']	
+						else:
+							dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
 						dp['entities'] = labels
 						dp['entity_types'] = [label['type'] for label in labels]
 						dp['n_entities'] = len(dp['entities'])
@@ -274,11 +281,13 @@ class spacy_ner_schema(object):
 					idx_key +=1
 
 				local_keys = set([el['text'] for el in local_array])
-				for dp in schema:
+				keys_new = set(schema.keys())
+				for dp in list(keys_new):
 					if not dp in local_keys:
-						if schema[dp]['filename'] == key:
-							del schema[dp]
-							idx -= 1
+						if type(schema[dp]) is dict:
+							if schema[dp]['filename'] == key:
+								del schema[dp]
+								idx -= 1
 
 		schema['len'] = idx
 
@@ -484,58 +493,58 @@ class spacy_ner_schema(object):
 		if self.filtered or self.in_version:
 			schema = self.get_schema()
 		
-		entities = []
-		lengths = []
-		lm = []
-		tags = []
-		entities_per_sentence = []
-		slices = []
+			entities = []
+			lengths = []
+			lm = []
+			tags = []
+			entities_per_sentence = []
+			slices = []
 
-		n_entity = {}
-		n_len = {}
-		n_lm = {}
-		n_tags = {}
-		n_slices = {}
+			n_entity = {}
+			n_len = {}
+			n_lm = {}
+			n_tags = {}
+			n_slices = {}
 
-		for val in schema:
-			if type(self.schema[val]) is dict:
-				if not len(schema[val]['entities']) in entities_per_sentence:
-					entities_per_sentence.append(len(schema[val]['entities']))
-				
-				if 'slice' in schema[val].keys():
-					for sl in schema[val]['slices']:
-						if not sl in slices:
-							slices.append(sl)
-							n_slices[sl] = 1
+			for val in schema:
+				if type(self.schema[val]) is dict:
+					if not len(schema[val]['entities']) in entities_per_sentence:
+						entities_per_sentence.append(len(schema[val]['entities']))
+					
+					if 'slice' in schema[val].keys():
+						for sl in schema[val]['slices']:
+							if not sl in slices:
+								slices.append(sl)
+								n_slices[sl] = 1
+							else:
+								n_slices[sl] += 1
+
+					for cl in schema[val]['entities']:
+						if not cl['type'] in entities:
+							entities.append(cl['type'])
+							n_entity[cl['type']] = 1
 						else:
-							n_slices[sl] += 1
-
-				for cl in schema[val]['entities']:
-					if not cl['type'] in entities:
-						entities.append(cl['type'])
-						n_entity[cl['type']] = 1
+							n_entity[cl['type']] += 1
+					
+					if not schema[val]['length'] in lengths:
+						lengths.append(schema[val]['length'])
+						n_len[schema[val]['length']] = 1
 					else:
-						n_entity[cl['type']] += 1
-				
-				if not schema[val]['length'] in lengths:
-					lengths.append(schema[val]['length'])
-					n_len[schema[val]['length']] = 1
-				else:
-					n_len[schema[val]['length']] += 1
-				
-				if not schema[val]['lm'] in lm:
-					lm.append(schema[val]['lm'])
-					n_lm[schema[val]['lm']] = 1
-				else:
-					n_lm[schema[val]['lm']] += 1
+						n_len[schema[val]['length']] += 1
+					
+					if not schema[val]['lm'] in lm:
+						lm.append(schema[val]['lm'])
+						n_lm[schema[val]['lm']] = 1
+					else:
+						n_lm[schema[val]['lm']] += 1
 
-				if 'tags' in schema[val].keys():
-					for tag in schema[val]['tags']:
-						if not tag in tags:
-							tags.append(tag)
-							n_tags[tag] = 1
-						else:
-							n_tags[tag] += 1
+					if 'tags' in schema[val].keys():
+						for tag in schema[val]['tags']:
+							if not tag in tags:
+								tags.append(tag)
+								n_tags[tag] = 1
+							else:
+								n_tags[tag] += 1
 
 			return {'entities': entities, 'lengths': lengths, 'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_entity': n_entity, 'n_len': n_len, 'n_lm': n_lm, 'n_tags': n_tags, 'entities_per_sentence': entities_per_sentence}
 		else:
@@ -591,7 +600,7 @@ class spacy_ner_schema(object):
 									add_entity.append(False)
 									
 							if filt == 'length':
-								if filters[f]['length'] == schema[dp]['length']:
+								if int(filters[f]['length']) == schema[dp]['length']:
 									add_len.append(True)
 								else:
 									add_len.append(False)
@@ -622,16 +631,18 @@ class spacy_ner_schema(object):
 									add_date.append(False)
 
 							if filt == 'entity_len':
-
+								
 								a_min = min(filters[f]['entity_len'][0], filters[f]['entity_len'][1])
 								a_max = max(filters[f]['entity_len'][0], filters[f]['entity_len'][1])
 
-								if 'labels' in schema[dp]:
-									if len(schema[dp]['labels']) == 0:
+								
+								if 'entities' in schema[dp]:
+									if len(schema[dp]['entities']) == 0:
 										add_box.append(False)
 
-									for label in schema[dp]['labels']:
+									for label in schema[dp]['entities']:
 										area = label['end'] - label['start'] + 1
+										
 										if (area >= a_min) and (area <= a_max):
 											add_box.append(True)
 										else:

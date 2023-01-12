@@ -246,6 +246,7 @@ class API(object):
         return ''
     
     def set_schema(self):
+
         if self.config['schema'] == 'yolo':
             self.schema_class = yolo_schema(self.Initializer)
             try:
@@ -531,10 +532,16 @@ class API(object):
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
 
+        datasets = self.get_datasets()
         try: 
             datasets = self.get_datasets()
         except:
             datasets = {}
+        
+        try:
+            self.config['schema'] = datasets[self.storage_name]['schema']
+        except:
+            self.config['schema'] = 'files'
 
         if config['type'] == 'local':
             cloud = Local()
@@ -563,7 +570,10 @@ class API(object):
         self.dataset_name = config['dataset']
 
         datasets = self.get_datasets()
-        self.config['schema'] = datasets[self.storage_name]['schema']
+        try:
+            self.config['schema'] = datasets[self.storage_name]['schema']
+        except:
+            self.config['schema'] = 'files'
 
         if config['type'] == 'local':
             cloud = Local()
@@ -609,6 +619,11 @@ class API(object):
         assert(filename != '')
         assert(binary != '')
         add_from_binary(self.Initializer, filename, binary)
+        return True
+
+    def upload_file_local_path(self, filename='', target_path=''):
+        assert(filename != '')
+        add(self.Initializer,[filename],target_path)
         return True
 
     def start_check(self):

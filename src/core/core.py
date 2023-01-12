@@ -16,11 +16,11 @@ path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 def commit(init, comment = ''):
 	# get new files
-	print('reading the data list')
+	# print('reading the data list')
 	# TODO: Oprimize
 	t0 = time.time()
 	new_files, new_lm, old_files, old_lm = init.get_list_to_compare()
-	print(f'time get data list {time.time() - t0}s for {len(old_files)} datapoints')
+	# print(f'time get data list {time.time() - t0}s for {len(old_files)} datapoints')
 
 	if comment != '':
 		comment = ', ' + comment
@@ -43,7 +43,7 @@ def commit(init, comment = ''):
 	added = []
 	modified = []
 	removed = []
-	print('starting a commit')
+	# print('starting a commit')
 	t0 = time.time()
 
 	# new_files_s = set(new_files)
@@ -117,7 +117,7 @@ def commit(init, comment = ''):
 			init.storage.add_file_from_binary_global(commitpath,io.BytesIO(json.dumps(commit).encode('ascii')))
 			update_file_history(init,f_relative,commit)
 
-	print(f'time to do first comparisons {time.time() - t0}s for {len(old_files)} datapoints')
+	# print(f'time to do first comparisons {time.time() - t0}s for {len(old_files)} datapoints')
 	init.storage.reset_buffer()
 
 	old_rel_files_s = set(old_files)
@@ -157,7 +157,7 @@ def commit(init, comment = ''):
 				update_file_history(init,f,commit)
 	init.storage.reset_buffer()	
 
-	print(f'time to do all comparisons {time.time() - t0}s for {len(old_files)} datapoints')
+	# print(f'time to do all comparisons {time.time() - t0}s for {len(old_files)} datapoints')
 
 	# updates the current version in .stack
 	if len(commits):

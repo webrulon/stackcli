@@ -59,12 +59,12 @@ class yolo_schema(object):
 		schema = {}
 		current = self.init.load_current()
 
-		t0 = time.time()
+		# t0 = time.time()
 		with Pool(processes=6) as pool:
 			arr_res =  pool.map(self.get_schema_from_key, current['keys'])
 		
 		schema['len'] = len(arr_res)
-		print(f'time to compute parallelized {time.time()-t0}s')
+		# print(f'time to compute parallelized {time.time()-t0}s')
 
 		return True
 
@@ -82,28 +82,19 @@ class yolo_schema(object):
 		
 		for key in current['keys']:
 			if self.is_image(key):
-				t0 = time.time()
 				labels = self.get_labels(key)
-				print(f'time to get labels {time.time()-t0}s')
-				t0 = time.time()
 				dp = {}
 				dp['tags'] = []
 				dp['slices'] = []
 				dp['key'] = key
 				dp['lm'] = lm[idx]
 				dp['classes'] = [labels[label]['0'] for label in labels]
-				print(f'time to get label array {time.time()-t0}s')
-				t0 = time.time()
 				dp['labels'] = labels
 				dp['n_classes'] = len(labels)
 				dp['resolution'] = self.get_resolution(key)
-				print(f'time to get resolution {time.time()-t0}s')
-				t0 = time.time()
 				dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
-				print(f'time to get size {time.time()-t0}s')
 				schema[str(k)] = dp
 				k += 1
-				print(idx)
 			idx += 1
 
 		schema['len'] = k
@@ -253,7 +244,7 @@ class yolo_schema(object):
 			# loads image string
 			t0 = time.time()
 			img_str = self.init.storage.load_file_global(filename)
-			print(f'time to load from s3 {time.time()-t0}s')
+			print(f'time to load image from {self.init.storage.type} {time.time()-t0}s')
 			
 			# formats to cv2
 			nparr = np.fromstring(img_str.read(), np.uint8)
