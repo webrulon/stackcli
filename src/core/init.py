@@ -11,12 +11,13 @@ path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 class Initializer(object):
 	"""docstring for Initializer"""
-	def __init__(self, storage ,user=None):
+	def __init__(self, storage ,user=None, enable_dvc = True):
 		super(Initializer, self).__init__()
 		self.storage = storage
 		self.dataset = storage.load_dataset()
 		self.user = user
 		self.schema = 'Files'
+		self.enable_dvc = enable_dvc
 		
 		# prefixes
 		if self.storage.type == 'local':
@@ -68,7 +69,7 @@ class Initializer(object):
 		if not self.verify_setup():
 			self.setup_dataset()
 
-		if self.storage.check_if_empty(self.prefix_versions):
+		if self.storage.check_if_empty(self.prefix_versions) and self.enable_dvc:
 			self.setup_versions()
 
 		return True
@@ -78,10 +79,10 @@ class Initializer(object):
 		if self.storage.check_if_empty(self.prefix_meta):
 			return False
 
-		if self.storage.check_if_empty(self.prefix_diffs) and (len(self.dataset) > 0):
+		if self.storage.check_if_empty(self.prefix_diffs) and (len(self.dataset) > 0) and self.enable_dvc:
 			return False
 
-		if self.storage.check_if_empty(self.prefix_commit) and (len(self.dataset) > 0):
+		if self.storage.check_if_empty(self.prefix_commit) and (len(self.dataset) > 0) and self.enable_dvc:
 			return False
 
 		return True
@@ -90,9 +91,11 @@ class Initializer(object):
 		# performs all key operations
 		self.copy_current()
 		self.setup_hierarchy()
-		self.setup_diffs()
-		self.setup_commits()
-		self.setup_history()
+
+		if self.enable_dvc:
+			self.setup_diffs()
+			self.setup_commits()
+			self.setup_history()
 		
 		return True
 
@@ -252,7 +255,7 @@ def main():
 	cloud.create_dataset('dataset1/')
 	print('dataset created')
 
-	init = Initializer(cloud)
+	init = Initializer(cloud, enable_dvc=True)
 	print('init created')
 
 	init.setup_diffs()

@@ -5,6 +5,7 @@ from tzlocal import get_localzone
 import cv2
 import numpy as np
 import time
+import re
 import os
 import copy
 import io
@@ -25,8 +26,10 @@ class yolo_schema(object):
 		self.init = init
 		self.schema = None
 		self.metadata = None
+		self.class_map = None
 		self.schema_path = self.init.prefix_meta + 'schema.json'
 		self.meta_path = self.init.prefix_meta + 'yolo_data.json'
+		self.class_map_path = self.init.prefix_meta + 'yolo_class_map.json'
 		self.status = {}
 		self.filtered = False
 		self.sliced = False
@@ -47,7 +50,10 @@ class yolo_schema(object):
 		labels = self.get_labels(key)
 		dp['key'] = key
 		dp['lm'] = ''
-		dp['classes'] = [labels[label]['0'] for label in labels]
+		try:
+			dp['classes'] = [labels[label]['0'] for label in labels]
+		except:
+			dp['classes'] = []
 		dp['labels'] = labels
 		dp['n_classes'] = len(dp['classes'])
 		dp['tags'] = []
@@ -88,7 +94,10 @@ class yolo_schema(object):
 				dp['slices'] = []
 				dp['key'] = key
 				dp['lm'] = lm[idx]
-				dp['classes'] = [labels[label]['0'] for label in labels]
+				try: 
+					dp['classes'] = [labels[label]['0'] for label in labels]
+				except:
+					dp['classes'] = []
 				dp['labels'] = labels
 				dp['n_classes'] = len(labels)
 				dp['resolution'] = self.get_resolution(key)
@@ -104,9 +113,94 @@ class yolo_schema(object):
 		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 		self.copy_schema_to_latest_version_checkpoint()
+		self.create_class_map()
 
 		return True
 
+	def create_class_map(self):
+		schema = self.get_schema()
+		class_map = {}
+
+		for dp in schema:
+			if type(schema[dp]) is dict:
+				for cl in schema[dp]['classes']:
+					map_ = {}
+					map_['class'] = cl
+
+					#### TODO: get label name from some map
+					map_['label'] = 'name'
+
+					color_str = str(cl)[::-1] + "c" + str(cl)
+					
+					hsh = 0
+
+					for char in color_str:
+						hsh = ord(char) + (hsh << 5) - hsh
+
+					colour = "#"
+					colour += ('00' + hex((hsh >> 0) & 0xFF))[-2:].replace('x','0')
+					colour += ('00' + hex((hsh >> 8) & 0xFF))[-2:].replace('x','0')
+					colour += ('00' + hex((hsh >> 16) & 0xFF))[-2:].replace('x','0')
+					map_['color'] = colour
+					class_map[cl] = map_
+
+		self.init.storage.add_file_from_binary_global(self.class_map_path,io.BytesIO(json.dumps(class_map).encode('ascii')))
+		self.class_map = class_map
+		return True		
+	
+	def get_class_map(self):
+		if self.class_map == None:
+			try:
+				self.class_map = json.load(self.init.storage.load_file_global(self.class_map_path))
+				return self.class_map
+			except:
+				self.create_class_map()
+				return self.class_map
+		else:
+			return self.class_map
+
+	def update_class_map_name(self, name_mapping):
+		class_map = self.get_class_map()
+		for cl in name_mapping:
+			if not cl in class_map:
+				class_map[cl] = {}
+			class_map[cl]['label'] = name_mapping[cl]
+		self.init.storage.add_file_from_binary_global(self.class_map_path,io.BytesIO(json.dumps(class_map).encode('ascii')))
+		self.class_map = class_map
+		return True	
+	
+	def update_class_map_colors(self, colors_mapping):
+		class_map = self.get_class_map()
+		for cl in colors_mapping:
+			if not cl in class_map:
+				class_map[cl] = {}
+			class_map[cl]['color'] = colors_mapping[cl]
+		self.init.storage.add_file_from_binary_global(self.class_map_path,io.BytesIO(json.dumps(class_map).encode('ascii')))
+		self.class_map = class_map
+		return True	
+
+	def update_class_map_name(self, name_mapping):
+		class_map = self.get_class_map()
+		for cl in name_mapping:
+			if not cl in class_map:
+				class_map[cl] = {}
+			class_map[cl]['label'] = name_mapping[cl]
+		self.init.storage.add_file_from_binary_global(self.class_map_path,io.BytesIO(json.dumps(class_map).encode('ascii')))
+		self.class_map = class_map
+		return True	
+
+	def get_class_map_colors(self):
+		class_map = self.get_class_map()
+		color_map = {}
+		for cl in class_map:
+			color_map[cl] = class_map[cl]['color']
+		return color_map	
+
+	def set_class_map(self, class_map):
+		self.init.storage.add_file_from_binary_global(self.class_map_path,io.BytesIO(json.dumps(class_map).encode('ascii')))
+		self.class_map = class_map
+		return True			
+		
 	def copy_schema_to_latest_version_checkpoint(self):
 		try:
 			versions = self.init.load_versions()
@@ -241,6 +335,7 @@ class yolo_schema(object):
 
 	def get_thumbnail(self, filename):
 		if self.bounding_box_thumbs:
+			class_map = self.get_class_map()
 			# loads image string
 			t0 = time.time()
 			img_str = self.init.storage.load_file_global(filename)
@@ -283,18 +378,7 @@ class yolo_schema(object):
 					w = 0
 					h = 0
 
-				color_str = str(cl)[::-1] + "c" + str(cl)
-				
-				hsh = 0
-
-				for char in color_str:
-					hsh = ord(char) + (hsh << 5) - hsh
-
-				colour = "#"
-				colour += ('00' + hex((hsh >> 0) & 0xFF))[-2:].replace('x','0')
-				colour += ('00' + hex((hsh >> 8) & 0xFF))[-2:].replace('x','0')
-				colour += ('00' + hex((hsh >> 16) & 0xFF))[-2:].replace('x','0')
-				
+				colour = class_map[str(cl)]['color']
 				colour = colour[1:]
 				
 				color = tuple(int(colour[i:i+2],16) for i in (4,2,0))
@@ -330,28 +414,44 @@ class yolo_schema(object):
 
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
+		ls, _ = self.init.storage.load_dataset_list()
+		self.ls = ls
+		self.ls_set = set(self.ls)
 		schema = self.get_schema()
 		# finds the images
 
 		idx = int(schema['len'])
 		for key in added:
-			if self.is_image(key):
+			if self.is_image(key) or self.has_image(key):
+				if self.has_image(key):
+					key_img = self.has_image(key, path=True)
+				else:
+					key_img = key
+
 				dp = {}
-				labels = self.get_labels(key)
+				labels = self.get_labels(key_img)
 				
-				dp['key'] = key
-				dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-				dp['classes'] = [labels[label]['0'] for label in labels]
+				dp['key'] = key_img
+				dp['lm'] = self.init.storage.load_file_metadata_global(key_img)['last_modified']
+				try:
+					dp['classes'] = [labels[label]['0'] for label in labels]
+				except:
+					dp['classes'] = []
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
-				dp['resolution'] = self.get_resolution(key)
+				dp['resolution'] = self.get_resolution(key_img)
 				dp['tags'] = []
 				dp['slices'] = []
-				dp['size'] = self.init.storage.get_size_of_file_global(key)
-
-				schema[str(idx)] = dp
-				
-				idx += 1
+				dp['size'] = self.init.storage.get_size_of_file_global(key_img)
+				if self.has_image(key):
+					for val in schema:
+						if type(schema[val]) is dict:
+							if schema[val]['key'] == key_img:
+								schema[val] = dp
+								break
+				else:
+					schema[str(idx)] = dp
+					idx += 1
 
 		for key in modified:
 			if self.is_image(key) or self.has_image(key):
@@ -364,7 +464,10 @@ class yolo_schema(object):
 				
 				dp['key'] = key_img
 				dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-				dp['classes'] = [labels[label]['0'] for label in labels]
+				try:
+					dp['classes'] = [labels[label]['0'] for label in labels]
+				except:
+					dp['classes'] = []
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
 				dp['tags'] = self.get_tags(key_img)
@@ -404,7 +507,7 @@ class yolo_schema(object):
 		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
 		self.init.storage.reset_buffer()
 		self.schema = schema
-
+		# self.update_class_map()
 		return self.compute_meta_data()
 	
 	def get_tags(self, key):
@@ -548,13 +651,23 @@ class yolo_schema(object):
 	def label_name(self, class_number):
 		return str(class_number)
 
+	def get_colors(self):
+		# reads the labels
+		class_map = self.get_class_map()
+		
+		colors = {}
+
+		for cl in class_map:
+			colors[cl] = class_map[cl]['color']
+		
+		return colors
+	
 	def get_labels(self, filename, version='current'):
 		# reads the labels
 		if version == 'current':
 			if self.in_version:
 				filename = os.path.dirname(filename.replace(self.init.prefix_diffs,''))
 			basename = os.path.splitext(os.path.basename(filename))[0]
-
 			matches = [match for match in self.ls_set if basename+'.txt' in match]
 			try: 
 				labels_str = self.init.storage.load_file_global(matches[0])
@@ -633,6 +746,9 @@ class yolo_schema(object):
 		else:
 			string = basename+'.txt'
 			self.init.storage.add_file_from_binary(string,io.BytesIO(labels_string.encode("utf-8")))
+			ls, _ = self.init.storage.load_dataset_list()
+			self.ls = ls
+			self.ls_set = set(self.ls)
 
 		return True
 	
@@ -878,6 +994,36 @@ class yolo_schema(object):
 		self.filtered = True
 		self.status = status
 		return status
+
+	def diagnose(self):
+		schema = self.get_schema()
+
+		for dp in schema:
+			if type(self.schema[dp]) is dict:
+
+				# checks if no classes
+
+				if (len(schema[dp]['classes']) <= 0):
+					self.add_tag(schema[dp]['key'], 'anomaly: no annotations')
+
+				numbers = re.findall(r'\d+', schema[dp]['resolution'])
+				res = [int(num) for num in numbers]
+				if res[0] < 30 or res[1] < 30:
+					self.add_tag(schema[dp]['key'], 'anomaly: image with low resolution')
+				
+				if ' ' in schema[dp]['key']:
+					self.add_tag(schema[dp]['key'], 'anomaly: file name contains spaces')
+
+
+				if 'labels' in schema[dp]:
+					for i in range(len(schema[dp]['labels'])):
+						area = float(schema[dp]['labels'][str(i)]['3']) * float(schema[dp]['labels'][str(i)]['4'])
+						print(area)
+						if (area <= 0.01/100):
+							self.add_tag(schema[dp]['key'], f"anomaly: bounding box has less than 1% area")	
+						if (area >= 0.9):
+							self.add_tag(schema[dp]['key'], f"anomaly: bounding box has over 90% area")	
+		return True
 
 	def add_slice(self, slice_name=''):
 		status = set(self.status['keys'])

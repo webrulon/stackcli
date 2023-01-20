@@ -31,6 +31,7 @@ class API(object):
         self.config = None
         self.schema_class = None
         self.current = None
+        self.enable_dvc = True
         
         self.in_version = False
         self.selected_version = None
@@ -158,10 +159,57 @@ class API(object):
         file1.close()
         return datasets
 
+    def get_color_map(self):
+        
+        if(self.config['schema'] != 'files'):
+            return self.schema_class.get_colors()
+
+        return {}
+
+    def set_color_map(self, new_map):
+        
+        if(self.config['schema'] != 'files'):
+            return self.schema_class.update_class_map_colors(new_map)
+
+        return {}
+
+    def get_class_map(self):
+        
+        if(self.config['schema'] != 'files'):
+            return self.schema_class.get_class_map()
+        return {}
+
+    def set_class_map(self, new_map):
+        
+        if(self.config['schema'] != 'files'):
+            return self.schema_class.set_class_map(new_map)
+        return {}
+
     def get_labels(self, filename, version='current'):
         
         if(self.config['schema'] != 'files'):
             return self.schema_class.get_labels(filename, version)
+
+        return []
+
+    def get_text(self, filename, version='current'):
+        
+        if('ner' in self.config['schema']):
+            return self.schema_class.get_text(filename, version)
+
+        return ''
+
+    def set_text(self, filename, text=''):
+        
+        if('ner' in self.config['schema']):
+            return self.schema_class.set_text(filename, text=text)
+
+        return ''
+
+    def detect_anomalies(self):
+        
+        if(self.config['schema'] == 'yolo'):
+            return self.schema_class.diagnose()
 
         return []
 
@@ -198,10 +246,12 @@ class API(object):
                 self.select_version(version)
         elif self.config['schema'] == 'spacy_ner':
             if self.in_version:
+                in_version = True
                 self.reset_version()
             else:
+                in_version = False
                 filename = data['keyId']
-            self.schema_class.set_labels(filename, data)
+            self.schema_class.set_labels(data['keyId'], data['label'])
 
             if in_version:
                 self.select_version(version)
@@ -341,6 +391,7 @@ class API(object):
                         branch_name = branch_name.replace(uri,'')
 
                     schme = self.config['schema']
+                    dvc = self.enable_dvc
 
                     if branch_name[-1] != '/':
                         branch_name += '/'
@@ -350,7 +401,7 @@ class API(object):
                     if branch_title == '':
                         branch_title = branch_name
 
-                    self.reconnect_post_web(branch_title, schme)
+                    self.reconnect_post_web(branch_title, schme, enable_dvc=dvc)
                     self.set_schema()
                     self.start_check()
                     self.commit('created branch ' + branch_name)
@@ -392,13 +443,14 @@ class API(object):
                     uri = ''
 
                 schme = self.config['schema']
+                dvc = self.enable_dvc
 
                 if branch_name[-1] != '/':
                     branch_name += '/'
 
                 self.init(uri+branch_name)
 
-                self.reconnect_post_web(branch_name, schme)
+                self.reconnect_post_web(branch_name, schme,enable_dvc=dvc)
                 self.set_schema()
                 self.start_check()
                 self.commit('created branch ' + branch_name)
@@ -422,13 +474,14 @@ class API(object):
                 uri = ''
 
             schme = self.config['schema']
+            dvc = self.enable_dvc
 
             if branch_name[-1] != '/':
                 branch_name += '/'
 
             self.init(uri+branch_name)
 
-            self.reconnect_post_web(branch_name, schme)
+            self.reconnect_post_web(branch_name, schme, enable_dvc=dvc)
             self.set_schema()
             self.start_check()
             self.commit('created branch ' + branch_name)
@@ -448,7 +501,7 @@ class API(object):
         else:
             return {}
 
-    def connect_post_web(self, name='My Dataset', keys={}, schema='files'):
+    def connect_post_web(self, name='My Dataset', keys={}, schema='files', enable_dvc = True):
         
         print('connecting to '+name)
         self.config['schema'] = schema
@@ -456,6 +509,7 @@ class API(object):
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
+        self.enable_dvc = enable_dvc
         
         try: 
             datasets = self.get_datasets()
@@ -465,27 +519,27 @@ class API(object):
         if config['type'] == 'local':
             cloud = Local()
             cloud.create_dataset(config['dataset'],verbose=True)
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc=enable_dvc)
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.connect_bucket_api(keys)
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc=enable_dvc)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
             cloud.connect_bucket_api(self.key_bin)
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc=enable_dvc)
         else:
             self.Initializer = None
 
-        datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
+        datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema'], 'dvc': enable_dvc}
         self.set_datasets(datasets)
         
         self.set_config()
         return True
 
-    def reconnect_post_web(self, name='My Dataset', schema='files'):
+    def reconnect_post_web(self, name='My Dataset', schema='files', enable_dvc=True):
         
         print('connecting to '+name)
         self.config['schema'] = schema
@@ -493,6 +547,7 @@ class API(object):
 
         self.storage_name = config['storage']
         self.dataset_name = config['dataset']
+        self.enable_dvc = enable_dvc
         
         try: 
             datasets = self.get_datasets()
@@ -502,26 +557,21 @@ class API(object):
         if config['type'] == 'local':
             cloud = Local()
             cloud.create_dataset(config['dataset'],verbose=True)
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc=enable_dvc)
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.reconnect_bucket_api()
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc=enable_dvc)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
             cloud.reconnect_bucket_api()
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc=enable_dvc)
         else:
             self.Initializer = None
 
-        is_not_there = True
-        for s in datasets.keys():
-            if datasets[s]['storage'] == self.storage_name:
-                is_not_there = False
-
-        datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema']}
+        datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema'], 'dvc': enable_dvc}
         self.set_datasets(datasets)
         self.set_config()
         return True
@@ -543,20 +593,25 @@ class API(object):
         except:
             self.config['schema'] = 'files'
 
+        try:
+            self.enable_dvc = datasets[self.storage_name]['dvc']
+        except:
+            self.enable_dvc = True
+
         if config['type'] == 'local':
             cloud = Local()
             cloud.create_dataset(config['dataset'], verbose=True)
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc = self.enable_dvc)
         elif config['type'] == 's3':
             cloud = S3Bucket(config['bucket'])
             cloud.connect_bucket(verbose=True)
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc = self.enable_dvc)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
             cloud.connect_bucket(verbose=True)
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc = self.enable_dvc)
         else:
             self.Initializer = None
 
@@ -575,10 +630,15 @@ class API(object):
         except:
             self.config['schema'] = 'files'
 
+        try:
+            self.enable_dvc = datasets[self.storage_name]['dvc']
+        except:
+            self.enable_dvc = True
+
         if config['type'] == 'local':
             cloud = Local()
             cloud.create_dataset(config['dataset'], verbose=True)
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc= self.enable_dvc)
             self.dataset_name = config['dataset']
             self.storage_name = config['storage']
         elif config['type'] == 's3':
@@ -588,7 +648,7 @@ class API(object):
             else:
                 cloud.reconnect_bucket_api()
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc= self.enable_dvc)
         elif config['type'] == 'gcs':
             cloud = GCSBucket(config['bucket'])
             if cli:
@@ -596,7 +656,7 @@ class API(object):
             else:
                 cloud.reconnect_bucket_api()
             cloud.create_dataset(config['dataset'])
-            self.Initializer = Initializer(cloud)
+            self.Initializer = Initializer(cloud, enable_dvc= self.enable_dvc)
         else:
             self.Initializer = None
         self.set_config()
@@ -634,6 +694,7 @@ class API(object):
 
     def get_uri(self):
         datasets = self.get_datasets()
+        print(datasets)
         dataset_meta = datasets[self.storage_name]
         return {'storage': self.storage_name, 'schema': dataset_meta['schema'], 'dataset': dataset_meta['name'], 'storage_dataset': self.Initializer.storage.dataset}
 
@@ -657,6 +718,8 @@ class API(object):
             print('downloading all contents')
             return self.pull_all(version)
         else:
+            if not self.Initializer.enable_dvc:
+                assert(False)
             pull(self.Initializer, [file], version)
         return True
 
@@ -667,6 +730,8 @@ class API(object):
             for key in file:
                 binary = self.Initializer.storage.load_file_global(key)
         else:
+            if not self.Initializer.enable_dvc:
+                assert(False)
             gtfo = False
             # finds the commit of interest
             metapath = self.Initializer.prefix_meta+'history.json'
@@ -703,6 +768,7 @@ class API(object):
         assert(int(l) > 0)
         assert(int(version) >= 0)
         assert(int(page) >= 0)
+        assert(self.Initializer.enable_dvc)
 
         metapath = self.Initializer.prefix_meta+'history.json'
         history = json.load(self.Initializer.storage.load_file_global(metapath))
@@ -731,7 +797,17 @@ class API(object):
     def key_versions(self, key = '', l = 5, page = 0):
         if self.config['schema'] == 'spacy_ner':
             schema = self.schema_class.get_schema()
-            key = schema[key]['filename']
+            version = schema[key]['versions']
+            i_p = len(version) - int(page)*int(l)-1
+            i_f = max(len(version) - int(l)*(int(page)+1),0)-1
+
+            response = {}
+            idx = 0
+            for i in range(i_p, i_f, -1):
+                response[idx] = version[i]
+                idx += 1
+
+            return {'commits': response, 'len': len(version)}
         
         if self.Initializer.prefix_diffs in key:
             key = os.path.dirname(key.replace(self.Initializer.prefix_diffs,''))
@@ -842,7 +918,6 @@ class API(object):
                 response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'label'
                 idx = idx+1
-
         elif self.config['schema'] == 'labelbox':
             labels_key = self.schema_class.get_labels_filename()
             if self.in_version:
@@ -954,6 +1029,8 @@ class API(object):
 
     def remove_commit(self, version = '-1'):
         self.reset_version()
+        if not self.Initializer.enable_dvc:
+            return False
         assert(int(version) >= 0)
         
         metapath = self.Initializer.prefix_meta+'history.json'
@@ -972,6 +1049,8 @@ class API(object):
         return True
 
     def remove_key_diff(self, key, version):
+        if not self.Initializer.enable_dvc:
+            return False
         if not self.in_version:
             remove_diff(self.Initializer,key,int(version))
         return True
@@ -994,6 +1073,8 @@ class API(object):
         return True
 
     def get_versions(self):
+        if not self.Initializer.enable_dvc:
+            return []
         versions = self.Initializer.load_versions()
         if self.in_version:
             versions['current_v'] = self.selected_version
@@ -1002,12 +1083,16 @@ class API(object):
         return versions
 
     def add_version(self, label = ''):
+        if not self.Initializer.enable_dvc:
+            return False
         add_version(self.Initializer, label)
         if self.config['schema'] != 'files':
             self.schema_class.copy_schema_to_latest_version_checkpoint()
         return True
 
     def select_version(self, version):
+        if not self.Initializer.enable_dvc:
+            return False
         versions = self.Initializer.load_versions()
         if version in versions.keys():
             self.in_version = True
@@ -1025,6 +1110,8 @@ class API(object):
             return False
 
     def reset_version(self):
+        if not self.Initializer.enable_dvc:
+            return False
         if self.in_version:
             self.in_version = False
             self.version_keys = None
@@ -1160,10 +1247,14 @@ class API(object):
         return True
 
     def remove_key_full(self, key):
+        if not self.Initializer.enable_dvc:
+            return False
         remove_full(self.Initializer,key)
         return True
 
     def commit(self, comment='',verbose=True):
+        if not self.Initializer.enable_dvc:
+            return False
         self.reset_version()
         res, added, modified, deleted = commit(self.Initializer, comment)
         if verbose:
@@ -1177,6 +1268,8 @@ class API(object):
         return True
 
     def load_commit_metadata(self, commit_file):
+        if not self.Initializer.enable_dvc:
+            return False
         try:
             return json.load(self.Initializer.storage.load_file_global(commit_file))
         except:
@@ -1192,6 +1285,8 @@ class API(object):
             print('loading ' + file + '...')
             return self.Initializer.storage.load_file_global(file)
         elif int(version) >= 1:
+            if not self.Initializer.enable_dvc:
+                assert(False)
             print('loading ' + file + ' version '+ version +'...')
             path = self.Initializer.prefix_diffs + file + '/' + str(int(version)).zfill(10)
             return self.Initializer.storage.load_file_global(path)
@@ -1209,6 +1304,10 @@ class API(object):
             print('loading ' + file + '...')
             data  = self.Initializer.storage.load_file_global(file)
         elif int(version) >= 1:
+            if not self.Initializer.enable_dvc:
+                assert(False)
+            if not self.Initializer.enable_dvc:
+                assert(False)
             print('loading ' + file + ' version '+ version +'...')
             data  =  self.Initializer.storage.load_file_global(self.Initializer.prefix_diffs+ file + '/' + str(int(version)).zfill(10))
         else:
@@ -1228,6 +1327,8 @@ class API(object):
         return StringIO(df1.to_csv(index=False, header=False)), total_rows/N_rows, total_cols/N_cols
 
     def load_csv_diff_metadata(self, file, v1, v2):
+        if not self.Initializer.enable_dvc:
+            return []
         if v1 == 'current':
             d1 = self.Initializer.storage.load_file_global(file)
         else:
@@ -1255,6 +1356,8 @@ class API(object):
         return diff_meta
 
     def load_csv_diff(self, file, v1, v2):
+        if not self.Initializer.enable_dvc:
+            return []
         if v1 == 'current':
             d1 = self.Initializer.storage.load_file_global(file)
         else:
@@ -1285,12 +1388,16 @@ class API(object):
         return True
 
     def revert(self, version=0):
+        if not self.Initializer.enable_dvc:
+            return False
         self.reset_version()
         assert(version != '')
         revert_commit(self.Initializer, int(version))
         self.commit('reverted to version ' + str(version))
 
     def revert_file(self, key, version):
+        if not self.Initializer.enable_dvc:
+            return False
         try: 
             revert_file(self.Initializer, key, int(version))
             self.Initializer.storage.reset_buffer()
@@ -1299,10 +1406,14 @@ class API(object):
             return False
 
     def history(self):
+        if not self.Initializer.enable_dvc:
+            return {}
         metapath = self.Initializer.prefix_meta+'history.json'
         return json.load(self.Initializer.storage.load_file_global(metapath))
 
     def last_n_commits(self, n = 0):
+        if not self.Initializer.enable_dvc:
+            return {}
         metapath = self.Initializer.prefix_meta+'history.json'
         history = json.load(self.Initializer.storage.load_file_global(metapath))
         self.Initializer.storage.reset_buffer()
@@ -1330,6 +1441,8 @@ class API(object):
         return response
 
     def diff(self, v1, v0, file=''):
+        if not self.Initializer.enable_dvc:
+            return False
         print_diff(self.Initializer, v1, v0, file)
         return True
 

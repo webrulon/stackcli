@@ -15,6 +15,10 @@ from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 
 def commit(init, comment = ''):
+
+	if not init.enable_dvc:
+		return False, [], [], []
+
 	# get new files
 	# print('reading the data list')
 	# TODO: Oprimize
@@ -168,6 +172,9 @@ def commit(init, comment = ''):
 	return (len(commits) > 0), added, modified, removed
 
 def add_version(init, label=''):
+		if not init.enable_dvc:
+			return False
+
 		keys = {}
 		dataset = init.storage.load_dataset()
 		metapath = init.prefix_versions + 'versions.json'
@@ -243,6 +250,9 @@ def store_diff(storage, diff_path, key_old, key_new):
 	return True
 
 def update_history(init,commits):
+	if not init.enable_dvc:
+		return False
+
 	# loads file global
 	metapath = init.prefix_meta+'history.json'
 	history = json.load(init.storage.load_file_global(metapath))
@@ -257,6 +267,8 @@ def update_history(init,commits):
 	return True
 
 def update_file_history(init,key,commit):
+	if not init.enable_dvc:
+		return False
 	# loads file global
 	metapath = init.prefix_history+key+'/history.json'
 	if init.storage.check_if_empty(init.prefix_history+key+'/'): 
@@ -298,16 +310,17 @@ def rename_file(init, key, new_key):
 	init.storage.remove_file(key)
 
 	# renames the diffs
-	n_vers = init.get_latest_diff_number(key)
-	for v in range(1,n_vers+1):
-		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
-		nxt_diff = init.prefix_diffs + new_key + '/' + str(v).zfill(10)
-		init.storage.copy_file_global(prv_diff,nxt_diff)
-		init.storage.remove_file_global(prv_diff)
+	if init.enable_dvc:
+		n_vers = init.get_latest_diff_number(key)
+		for v in range(1,n_vers+1):
+			prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
+			nxt_diff = init.prefix_diffs + new_key + '/' + str(v).zfill(10)
+			init.storage.copy_file_global(prv_diff,nxt_diff)
+			init.storage.remove_file_global(prv_diff)
 
-	prv_diff = init.prefix_history + key + '/history.json'
-	nxt_diff = init.prefix_history + new_key + '/history.json'
-	init.storage.copy_file_global(prv_diff,nxt_diff)
+		prv_diff = init.prefix_history + key + '/history.json'
+		nxt_diff = init.prefix_history + new_key + '/history.json'
+		init.storage.copy_file_global(prv_diff,nxt_diff)
 
 	print('rename file ' + key + ' to ' + new_key)
 	return True
@@ -317,15 +330,16 @@ def copy_file_to_new_dataset(init, key, new_dataset):
 	init.storage.copy_file_global(init.storage.dataset+key,new_dataset+key)
 
 	# renames the diffs
-	n_vers = init.get_latest_diff_number(key)
-	for v in range(1,n_vers+1):
-		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
-		nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
+	if init.enable_dvc:
+		n_vers = init.get_latest_diff_number(key)
+		for v in range(1,n_vers+1):
+			prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
+			nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
+			init.storage.copy_file_global(prv_diff,nxt_diff)
+			
+		prv_diff = init.prefix_history + key + '/history.json'
+		nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
 		init.storage.copy_file_global(prv_diff,nxt_diff)
-		
-	prv_diff = init.prefix_history + key + '/history.json'
-	nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
-	init.storage.copy_file_global(prv_diff,nxt_diff)
 
 	print('rename file ' + key + ' to ' + new_dataset)
 	return True
@@ -336,17 +350,18 @@ def move_file_to_dataset(init, key, new_dataset):
 	init.storage.remove_file_global(init.storage.dataset+key)
 
 	# renames the diffs
-	n_vers = init.get_latest_diff_number(key)
-	for v in range(1,n_vers+1):
-		prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
-		nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
+	if init.enable_dvc:
+		n_vers = init.get_latest_diff_number(key)
+		for v in range(1,n_vers+1):
+			prv_diff = init.prefix_diffs + key + '/' + str(v).zfill(10)
+			nxt_diff = init.prefix_diffs.replace(init.storage.dataset,new_dataset) + key + '/' + str(v).zfill(10)
+			init.storage.copy_file_global(prv_diff,nxt_diff)
+			init.storage.remove_file_global(prv_diff)
+
+		prv_diff = init.prefix_history + key + '/history.json'
+		nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
 		init.storage.copy_file_global(prv_diff,nxt_diff)
 		init.storage.remove_file_global(prv_diff)
-
-	prv_diff = init.prefix_history + key + '/history.json'
-	nxt_diff = init.prefix_history.replace(init.storage.dataset,new_dataset) + key + '/history.json'
-	init.storage.copy_file_global(prv_diff,nxt_diff)
-	init.storage.remove_file_global(prv_diff)
 
 	print('moving file ' + key + ' to ' + new_dataset)
 	return True
@@ -373,6 +388,8 @@ def remove_global(init, files=[], location='?'):
 
 def remove_full(init, key):
 	# diff location
+	if not self.Initializer.enable_dvc:
+		return False
 	n_versions = init.get_latest_diff_number(key)
 	init.storage.remove_file(key)
 	for version in range(1,n_versions+1):
@@ -385,6 +402,8 @@ def remove_full(init, key):
 	return True
 
 def remove_diff(init, key, version):
+	if not init.enable_dvc:
+		return False
 	# diff location
 	diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 
@@ -394,6 +413,8 @@ def remove_diff(init, key, version):
 	return True
 
 def revert_file(init, key, version):
+	if not init.enable_dvc:
+		return False
 	# finds the commit version
 	diff = init.prefix_diffs + key + '/' + str(version).zfill(10)
 	init.storage.copy_file_global(diff,key)
@@ -402,6 +423,8 @@ def revert_file(init, key, version):
 	return True
 
 def revert_commit(init, target_version):
+	if not init.enable_dvc:
+		return False
 	if int(target_version) == 0:
 		return False
 
@@ -425,6 +448,8 @@ def revert_commit(init, target_version):
 	return True
 
 def get_key_history(init, key):
+	if not init.enable_dvc:
+		return {}
 	# finds the commit version
 	metapath = init.prefix_history+key+'/history.json'
 	history = json.load(init.storage.load_file_global(metapath))
@@ -432,13 +457,15 @@ def get_key_history(init, key):
 
 def pull(init, files=[],version='current'):
 
-	if version == 'current':
+	if version == 'current' or not init.enable_dvc:
 		# saves each file
 		for key in files:
 			newFile = open(os.path.basename(key), "wb")
 			binary = init.storage.load_file_global(key)
 			newFile.write(binary.read())
 	else:
+		if not init.enable_dvc:
+			return False
 		gtfo = False
 		# finds the commit of interest
 		metapath = init.prefix_meta+'history.json'
@@ -472,6 +499,9 @@ def pull(init, files=[],version='current'):
 	return True
 
 def print_history(init):
+	if not init.enable_dvc:
+		print('version control disabled')
+		return False
 	# loads file global
 	metapath = init.prefix_meta+'history.json'
 	history = json.load(init.storage.load_file_global(metapath))
@@ -502,6 +532,9 @@ def print_history(init):
 	init.storage.reset_buffer()
 
 def print_diff(init, v2, v1, file=''):
+	if not init.enable_dvc:
+		print('version control disbled')
+		return False
 	# loads file global
 	metapath = init.prefix_meta+'history.json'
 	history = json.load(init.storage.load_file_global(metapath))

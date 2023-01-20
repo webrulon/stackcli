@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
+import hashlib
 
 class spacy_ner_schema(object):
 	def __init__(self, init):
@@ -60,7 +61,9 @@ class spacy_ner_schema(object):
 					dp['slices'] = []
 					dp['length'] = len(dp['text'])
 					dp['idx'] = idx_key
-					schema[el['text']] = dp
+					dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'text': el['text'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': current['lm'][idx]}]
+					hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
+					schema[hash] = dp
 					idx_key +=1
 					k += 1
 			idx += 1
@@ -76,9 +79,62 @@ class spacy_ner_schema(object):
 		return True
 
 	def get_labels(self, filename, version='current'):
+		if version == 'current':
+			schema = self.get_schema()
+			return schema[filename]['entities']
+		else:
+			schema = self.get_schema()
+			diff = schema[filename]['versions'][int(version)-1]['diff']
+			local_array = json.load(self.init.storage.load_file_global(diff))
+			for el in local_array:
+				if el['text'] == schema[filename]['text']: 
+					return el['entities']
+			return []
+
+	def get_text(self, filename, version='current'):
+		if version == 'current':
+			schema = self.get_schema()
+			return schema[filename]['text']
+		else:
+			schema = self.get_schema()
+			return schema[filename]['versions'][int(version)-1]['text']
+
+	def set_text(self, filename, text=''):
 		schema = self.get_schema()
-		return schema[filename]['entities']
-	
+		local_array = json.load(self.init.storage.load_file_global(schema[filename]['filename']))
+		for idx in range(len(local_array)):
+			if local_array[idx]['text'] == schema[filename]['text']:
+				local_array[idx]['text'] = text
+		self.init.storage.add_file_from_binary_global(schema[filename]['filename'],io.BytesIO(json.dumps(local_array).encode('ascii')))
+		
+		el = schema[filename]
+		dp = {}
+		labels = el['entities']
+		dp['filename'] = schema[filename]['filename']
+		dp['text'] = text
+		dp['key'] = el['key']
+		dp['lm'] = self.init.storage.load_file_metadata_global(el['filename'])['last_modified']
+		list_ver = el['versions']
+		list_ver.append({'key': el['filename'], 'text': text, 'version': self.init.get_latest_diff_number(el['filename']),'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + el['filename'] + '/' + str(self.init.get_latest_diff_number(el['filename'])).zfill(10), 'date': self.init.storage.load_file_metadata_global(el['filename'])['last_modified']})
+		dp['versions'] = list_ver
+		dp['entities'] = labels
+		dp['entity_types'] = [label['type'] for label in labels]
+		dp['n_entities'] = len(dp['entities'])
+		dp['tags'] = []
+		dp['slices'] = []
+		dp['length'] = len(dp['text'])
+		dp['idx'] = el['idx']
+
+		hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
+		schema[hash] = dp
+		del schema[filename]
+
+		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+
+		return True
+		
+
 	def copy_schema_to_latest_version_checkpoint(self):
 		try:
 			versions = self.init.load_versions()
@@ -91,8 +147,8 @@ class spacy_ner_schema(object):
 
 		for dp in schema_copy:
 			if type(schema_copy[dp]) is dict:
-				ver = self.init.get_latest_diff_number(schema_copy[dp]['key'])
-				schema_copy[dp]['key'] = self.init.prefix_diffs + schema_copy[dp]['key'] + '/' + str(ver).zfill(10)
+				ver = self.init.get_latest_diff_number(schema_copy[dp]['filename'])
+				schema_copy[dp]['filename'] = self.init.prefix_diffs + schema_copy[dp]['filename'] + '/' + str(ver).zfill(10)
 
 		self.init.storage.add_file_from_binary_global(schema_copy_path,io.BytesIO(json.dumps(schema_copy).encode('ascii')))
 		keys = list(versions.keys())
@@ -231,7 +287,9 @@ class spacy_ner_schema(object):
 					dp['slices'] = []
 					dp['length'] = len(dp['text'])
 					dp['idx'] = idx_key
-					schema[el['text']] = dp
+					dp['versions'] = [{'key': key, 'text': el['text'], 'version': self.init.get_latest_diff_number(key), 'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
+					hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
+					schema[hash] = dp
 					idx_key +=1	
 			idx += 1
 
@@ -242,18 +300,22 @@ class spacy_ner_schema(object):
 				idx_key = 0
 				local_array = json.load(self.init.storage.load_file_global(key))
 				for el in local_array:
-					if el['text'] in list(keys):
+					hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
+					if hash in list(keys):
 						dp = {}
 						labels = el['entities']
 						dp['filename'] = key
-						dp['key'] = el['text']
+						dp['key'] = schema[hash]['key']
 						dp['text'] = el['text']
-						print(labels)
-						print(el['entities'])
-						if labels == schema[el['text']]['entities']:
-							dp['lm'] = schema[el['text']]['lm']	
+						if labels == schema[hash]['entities']:
+							dp['lm'] = schema[hash]['lm']	
+							dp['versions'] = schema[hash]['versions']
 						else:
 							dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
+							list_ver = schema[hash]['versions']
+							# print(f"list ver {schema[el['text']]['versions']} and append {list_ver.append({'key': key, 'version': list_ver[-1]['version'],'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})}")
+							list_ver.append({'key': key, 'text': el['text'], 'version': self.init.get_latest_diff_number(key),'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})
+							dp['versions'] = list_ver
 						dp['entities'] = labels
 						dp['entity_types'] = [label['type'] for label in labels]
 						dp['n_entities'] = len(dp['entities'])
@@ -261,7 +323,7 @@ class spacy_ner_schema(object):
 						dp['slices'] = []
 						dp['length'] = len(dp['text'])
 						dp['idx'] = idx_key
-						schema[el['text']] = dp
+						schema[hash] = dp
 					else:
 						dp = {}
 						labels = el['entities']
@@ -276,15 +338,16 @@ class spacy_ner_schema(object):
 						dp['slices'] = []
 						dp['length'] = len(dp['text'])
 						dp['idx'] = idx_key
-						schema[el['text']] = dp
+						dp['versions'] = [{'key': key, 'text': el['text'], 'version': self.init.get_latest_diff_number(key),'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
+						schema[hash] = dp
 						idx += 1
 					idx_key +=1
 
 				local_keys = set([el['text'] for el in local_array])
 				keys_new = set(schema.keys())
 				for dp in list(keys_new):
-					if not dp in local_keys:
-						if type(schema[dp]) is dict:
+					if type(schema[dp]) is dict:
+						if not schema[dp]['text'] in local_keys:
 							if schema[dp]['filename'] == key:
 								del schema[dp]
 								idx -= 1
@@ -299,18 +362,19 @@ class spacy_ner_schema(object):
 		return self.compute_meta_data()
 	
 	def get_tags(self, key):
-		keys = self.schema.keys()
+		keys = self.get_schema().keys()
 		for val in keys:
 			if type(self.schema[val]) is dict:
-				if key in self.schema[val]['key']:
+				if key == val:
 					if 'tags' in self.schema[val].keys():
 						return self.schema[val]['tags']
 		return []
 
 	def add_tag(self, key, tag):
-		for val in self.schema.keys():
+		keys = self.get_schema().keys()
+		for val in keys:
 			if type(self.schema[val]) is dict:
-				if key == self.schema[val]['key']:
+				if key == val:
 					if 'tags' in self.schema[val].keys():
 						if not tag in self.schema[val]['tags']:
 							self.schema[val]['tags'].append(tag)
@@ -328,16 +392,17 @@ class spacy_ner_schema(object):
 		return self.compute_meta_data()
 
 	def add_many_tag(self, keys, tag):
-		for val in self.schema.keys():
+		keys = self.get_schema().keys()
+		for val in keys:
 			if type(self.schema[val]) is dict:
-				if self.schema[val]['key'] in keys:
+				if val in keys:
 					if 'tags' in self.schema[val].keys():
 						if not tag in self.schema[val]['tags']:
 							self.schema[val]['tags'].append(tag)
 					else:
 						self.schema[val]['tags'] = []
 						self.schema[val]['tags'].append(tag)
-					keys.remove(self.schema[val]['key'])
+					keys.remove(val)
 
 		# stores schema file
 		if self.in_version:
@@ -349,10 +414,10 @@ class spacy_ner_schema(object):
 		return self.compute_meta_data()
 
 	def remove_tag(self, key, tag):
-		keys = self.schema.keys()
+		keys = self.get_schema().keys()
 		for val in keys:
 			if type(self.schema[val]) is dict:
-				if key in self.schema[val]['key']:
+				if key == val:
 					if 'tags' in self.schema[val].keys():
 						if tag in self.schema[val]['tags']:
 							self.schema[val]['tags'].remove(tag)
@@ -367,10 +432,10 @@ class spacy_ner_schema(object):
 		return self.compute_meta_data()
 
 	def remove_all_tags(self, key):
-		keys = self.schema.keys()
+		keys = self.get_schema().keys()
 		for val in keys:
 			if type(self.schema[val]) is dict:
-				if key in self.schema[val]['key']:
+				if key == val:
 					if 'tags' in self.schema[val].keys():
 						self.schema[val]['tags'] = []
 
@@ -384,12 +449,13 @@ class spacy_ner_schema(object):
 		return self.compute_meta_data()
 
 	def many_remove_all_tags(self, keys):
-		for val in self.schema.keys():
+		keys = self.get_schema().keys()
+		for val in keys:
 			if type(self.schema[val]) is dict:
-				if self.schema[val]['key'] in keys:
+				if val in keys:
 					if 'tags' in self.schema[val].keys():
 						self.schema[val]['tags'] = []
-					keys.remove(self.schema[val]['key'])
+					keys.remove(val)
 
 		# stores schema file
 		if self.in_version:
@@ -403,12 +469,12 @@ class spacy_ner_schema(object):
 	def label_name(self, class_number):
 		return str(class_number)
 
-	def set_labels(self, sentence, labels_array):
+	def set_labels(self, key, labels_array):
 		schema = self.get_schema()
-		dp = schema[sentence]
+		dp = schema[key]
 		local_array = json.load(self.init.storage.load_file_global(dp['filename']))
 		for idx in range(len(local_array)):
-			if local_array[idx]['text'] == sentence:
+			if local_array[idx]['text'] == dp['text']:
 				local_array[idx]['entities'] = labels_array
 		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(local_array).encode('ascii')))
 		return True
@@ -482,7 +548,7 @@ class spacy_ner_schema(object):
 		status = {'keys': [], 'lm': [], 'filename': [], 'dp': []}
 		for dp in schema:
 			if type(self.schema[dp]) is dict:
-				status['keys'].append(schema[dp]['key'])
+				status['keys'].append(dp)
 				status['filename'].append(schema[dp]['filename'])
 				status['lm'].append(schema[dp]['lm'])
 				status['dp'].append(schema[dp]['entities'])
@@ -667,7 +733,7 @@ class spacy_ner_schema(object):
 						
 					add = all([any(add_entity),any(add_len),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_date)])
 					if add:
-						status['keys'].append(schema[dp]['key'])
+						status['keys'].append(dp)
 						status['filename'].append(schema[dp]['filename'])
 						status['lm'].append(schema[dp]['lm'])
 						status['dp'].append(schema[dp]['entities'])
@@ -680,7 +746,7 @@ class spacy_ner_schema(object):
 		status = set(self.status['keys'])
 		for val in self.schema.keys():
 			if type(self.schema[val]) is dict:
-				if self.schema[val]['key'] in status:
+				if val in status:
 					if 'slices' in self.schema[val].keys():
 						if not slice_name in self.schema[val]['slices']:
 							self.schema[val]['slices'].append(slice_name)
@@ -731,7 +797,7 @@ class spacy_ner_schema(object):
 		keys = self.schema.keys()
 		for val in keys:
 			if type(self.schema[val]) is dict:
-				if key in self.schema[val]['key']:
+				if key == val:
 					if 'slices' in self.schema[val].keys():
 						return self.schema[val]['slices']
 		return []
@@ -748,6 +814,6 @@ class spacy_ner_schema(object):
 	def get_status(self):
 		return self.status
 
-	def get_dp(self, sentence):
+	def get_dp(self, key):
 		schema = self.get_schema()
-		return schema[sentence]	
+		return schema[key]	

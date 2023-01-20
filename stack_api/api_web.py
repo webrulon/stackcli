@@ -59,19 +59,19 @@ except:
 # frontend entry-points
 @app.post("/init_web/")
 async def init_web(data: dict):
-    try:
-        assert(not '.stack' in data['uri'])
-        
-        if path_home in data['uri']:
-            data['uri'] = data['uri'].replace(path_home,'')
+    # try:
+    assert(not '.stack' in data['uri'])
+    
+    if path_home in data['uri']:
+        data['uri'] = data['uri'].replace(path_home,'')
 
-        api.init(data['uri'])
-        api.connect_post_web(data['name'], data, data['schema'])
-        api.set_schema()
-        api.start_check()
-        return {'success': True}
-    except:
-        return {'success': False}
+    api.init(data['uri'])
+    api.connect_post_web(data['name'], data, data['schema'], enable_dvc=data['dvc'])
+    api.set_schema()
+    api.start_check()
+    return {'success': True}
+    # except:
+    #     return {'success': False}
 
 @app.get("/connect/")
 async def connect(uri):
@@ -118,15 +118,15 @@ def set_branch_api(data: dict):
 
 @app.get("/get_current_hierarchy")
 def get_current_hierarchy_api():
-    # try:
-    hierarchy = api.get_hierarchy()
-    children = []
-    for uri in hierarchy['children']:
-        children.append({'uri': uri, 'name': api.get_dataset_name(uri)})
-    parent = {'uri': hierarchy['parent'], 'name': api.get_dataset_name(hierarchy['parent'])}
-    return {'parent': parent, 'children': children}
-    # except:
-    #     return {'parent': {'uri': '', 'name': ''}, 'children': []}
+    try:
+        hierarchy = api.get_hierarchy()
+        children = []
+        for uri in hierarchy['children']:
+            children.append({'uri': uri, 'name': api.get_dataset_name(uri)})
+        parent = {'uri': hierarchy['parent'], 'name': api.get_dataset_name(hierarchy['parent'])}
+        return {'parent': parent, 'children': children}
+    except:
+        return {'parent': {'uri': '', 'name': ''}, 'children': []}
 
 @app.get("/get_hierarchy")
 def get_hierarchy_api(uri):
@@ -360,10 +360,10 @@ def get_datasets_api():
 
 @app.get("/uri")
 def uri_api():
-    try:
-        return api.get_uri()
-    except:
-        return {}
+    # try:
+    return api.get_uri()
+    # except:
+    #     return {}
 
 @app.get("/schema")
 def schema_api():
@@ -446,10 +446,10 @@ def commits_version_api(version=1,l=5, page=0):
 
 @app.get("/key_versions")
 def key_versions_api(key='',l=5, page=0):
-    # try:
-    return api.key_versions(key, l, page)
-    # except:
-    #     return {}
+    try:
+        return api.key_versions(key, l, page)
+    except:
+        return {}
 
 @app.get("/label_versions")
 def label_versions_api(key='',l=5, page=0):
@@ -485,19 +485,19 @@ def schema_metadata_api():
 
 @app.get("/current")
 def current_api(page=0,max_pp=12):
-    # try:
-    full_json = api.status()
-    idx_i = int(page)*int(max_pp)
-    idx_f = (int(page)+1)*int(max_pp)
+    try:
+        full_json = api.status()
+        idx_i = int(page)*int(max_pp)
+        idx_f = (int(page)+1)*int(max_pp)
 
-    current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
+        current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
 
-    current['keys'] = full_json['keys'][idx_i:idx_f]
-    current['lm'] = full_json['lm'][idx_i:idx_f]
+        current['keys'] = full_json['keys'][idx_i:idx_f]
+        current['lm'] = full_json['lm'][idx_i:idx_f]
 
-    return current
-    # except:
-    #     return {'keys': {}, 'lm': {}}
+        return current
+    except:
+        return {'keys': {}, 'lm': {}}
 
 @app.post("/set_filter/")
 def set_filter_api(data: dict):
@@ -642,12 +642,100 @@ def get_labels_api(filename, version='current'):
     # except:
     #     return {}
 
+@app.get("/diagnose")
+def diagnose_api():
+    # try:
+    return api.detect_anomalies()
+
+@app.get("/get_class_map")
+def get_class_map_api():
+    # try:
+    print(api.get_class_map())
+    return api.get_class_map()
+    # except:
+    #     return {}
+
+@app.post("/set_class_map")
+def set_class_map_api(data: dict):
+    # try:
+    return api.set_class_map(data)
+    # except:
+    #     return {}
+
+@app.get("/get_colors")
+def get_colors_api():
+    # try:
+    return api.get_color_map()
+    # except:
+    #     return {}
+
+@app.post("/set_colors")
+def set_colors_api(data: dict):
+    # try:
+    return api.set_color_map(data)
+    # except:
+    #     return {}
+
 @app.post("/set_labels")
 def set_labels_api(data: dict):
     # try:
     return api.set_labels(data)
     # except:
     #     return {}
+
+
+@app.post("/submit_label_per_user")
+def submit_label_per_user_api(data: dict):
+    # try:
+    import io
+    import urllib
+
+    val = {'user': api.user, 'label': data}
+    api.Initializer.storage.add_file_from_binary_global(api.Initializer.prefix_meta + '/submited_labels/' + urllib.parse.quote_plus(data['keyId']) + '/' + urllib.parse.quote_plus(f"{api.user}"),io.BytesIO(json.dumps(val).encode('ascii')))
+    
+    api.add_tag(data['keyId'], 'Please review')
+    
+    return {'success': True}
+    # except:
+    #     return {}
+
+@app.get("/set_user")
+def set_user_api(user, admin):
+    api.user = user
+    api.admin = admin
+    print(api.user)
+    return {'success': True}
+
+@app.get("/get_user")
+def get_user_api():
+    try:
+        return {'user': api.user, 'admin': api.admin}
+    except:
+        return {'user': 'admin', 'admin': 'True'}
+
+@app.get("/reset_label_per_user")
+def reset_label_per_user_api(key):
+    # try:
+    import urllib
+    keys, _ = api.Initializer.storage.load_list_in_path(api.Initializer.prefix_meta + '/submited_labels/' + urllib.parse.quote_plus(key) + '/' )
+    arr = []
+    for key in keys:
+        api.Initializer.storage.remove_file_global(key)
+    return {'success': True}
+
+@app.get("/get_label_per_user")
+def get_label_per_user_api(key):
+    # try:
+    import urllib
+    keys, _ = api.Initializer.storage.load_list_in_path(api.Initializer.prefix_meta + '/submited_labels/' + urllib.parse.quote_plus(key) + '/' )
+    arr = []
+    for key in keys:
+        val = json.load(api.Initializer.storage.load_file_global(key))
+        arr.append(val)
+    return arr
+    # except:
+    #     return {}
+
 
 @app.get("/add_slice")
 def add_slice(slice_name):
@@ -667,7 +755,20 @@ def select_slice(slices: list):
 
 @app.get("/get_slices")
 def get_slices():
-    return api.get_slices()
+    try:
+        return api.get_slices()
+    except:
+        return []
+
+@app.get("/get_text")
+def get_text(key, version='current'):
+    return {'text': api.get_text(key, version)}
+
+@app.post("/set_text")
+def set_text(data: dict):
+    api.set_text(data['key'], data['text'])
+    import hashlib
+    return {'newKey': hashlib.md5(data['text'].encode('utf-8')).hexdigest()}
 
 @app.get("/get_readme")
 def get_readme():
