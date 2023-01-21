@@ -1,9 +1,8 @@
 import socket
-import string
 import json
 import io
 from datetime import datetime
-import time
+import zipfile
 from pathlib import Path
 import os
 from src.comm.docker_ver import *
@@ -41,6 +40,16 @@ class Initializer(object):
 		else:
 			self.storage.remove_file_global('.stack/')
 		return True
+
+
+	def generate_zip(self, files):
+		mem_zip = io.BytesIO()
+
+		with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
+			for f in files:
+				zf.writestr(f[0], f[1].read())
+
+		return mem_zip.getvalue()
 
 	def load_current(self):
 		return json.load(self.storage.load_file_global(self.prefix_meta+'current.json'))

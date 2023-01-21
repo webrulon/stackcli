@@ -5,6 +5,7 @@ from tzlocal import get_localzone
 import cv2
 import numpy as np
 import time
+import zipfile
 import os
 import copy
 import io
@@ -392,7 +393,7 @@ class spacy_ner_schema(object):
 		return self.compute_meta_data()
 
 	def add_many_tag(self, keys, tag):
-		keys = self.get_schema().keys()
+		keys = list(self.get_schema().keys())
 		for val in keys:
 			if type(self.schema[val]) is dict:
 				if val in keys:
@@ -449,7 +450,7 @@ class spacy_ner_schema(object):
 		return self.compute_meta_data()
 
 	def many_remove_all_tags(self, keys):
-		keys = self.get_schema().keys()
+		keys = list(self.get_schema().keys())
 		for val in keys:
 			if type(self.schema[val]) is dict:
 				if val in keys:
@@ -554,6 +555,21 @@ class spacy_ner_schema(object):
 				status['dp'].append(schema[dp]['entities'])
 		self.status = status
 		return status
+
+	def download_files(self):
+		if self.status == None:
+			self.status = self.read_all_files()
+
+		schema = self.get_schema()
+		local_array = []
+		mem_zip = io.BytesIO()
+
+		for key in self.status['keys']:
+			local_array.append({'text': schema[key]['text'], 'entities': schema[key]['entities']})
+
+		with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
+			zf.writestr('dataset.json', json.dumps(local_array).encode('ascii'))
+		return mem_zip.getvalue()
 
 	def get_metadata(self):
 		if self.filtered or self.in_version:

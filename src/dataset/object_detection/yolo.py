@@ -1025,6 +1025,19 @@ class yolo_schema(object):
 							self.add_tag(schema[dp]['key'], f"anomaly: bounding box has over 90% area")	
 		return True
 
+	def download_files(self):
+		import zipfile
+
+		mem_zip = io.BytesIO()
+
+		with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
+			for key in self.status['keys']:
+				zf.writestr(key, self.init.storage.load_file_global(key).read())
+				label_key = self.get_labels_filename(key)
+				zf.writestr(label_key, self.init.storage.load_file_global(label_key).read())
+
+		return mem_zip.getvalue()
+
 	def add_slice(self, slice_name=''):
 		status = set(self.status['keys'])
 		for val in self.schema.keys():

@@ -1,3 +1,4 @@
+
 import sys
 sys.path.append( '..' )
 import stack_api.api_core as api_core
@@ -525,6 +526,11 @@ def pull_file_api(file, version='current'):
     except:
         return Response(content='')
 
+@app.get("/download_api")
+def download_api():
+    import io
+    return StreamingResponse(io.BytesIO(api.download_files()),  media_type="application/x-zip-compressed", headers = { "Content-Disposition":f"attachment;filename=datapoints.zip"})
+
 @app.get("/set_bounding_boxes")
 def set_bounding_boxes_api(val):
     try:
@@ -684,6 +690,8 @@ def set_labels_api(data: dict):
     #     return {}
 
 
+
+
 @app.post("/submit_label_per_user")
 def submit_label_per_user_api(data: dict):
     # try:
@@ -703,15 +711,14 @@ def submit_label_per_user_api(data: dict):
 def set_user_api(user, admin):
     api.user = user
     api.admin = admin
-    print(api.user)
     return {'success': True}
 
 @app.get("/get_user")
 def get_user_api():
     try:
-        return {'user': api.user, 'admin': api.admin}
+        return {'user': api.user, 'admin': 'True'}
     except:
-        return {'user': 'admin', 'admin': 'True'}
+        return {'user': '', 'admin': 'True'}
 
 @app.get("/reset_label_per_user")
 def reset_label_per_user_api(key):

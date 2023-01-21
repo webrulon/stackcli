@@ -206,6 +206,12 @@ class API(object):
 
         return ''
 
+    def download_files(self):
+        if(self.config['schema'] != 'files'):
+            return self.schema_class.download_files()
+        else:
+            return ''
+
     def detect_anomalies(self):
         
         if(self.config['schema'] == 'yolo'):
