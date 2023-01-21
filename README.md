@@ -25,7 +25,10 @@
 
 # Stack Dev (Ignore if you are just a user)
 
-### Features to implement
+### Run as a server 
+
+- Install uvicorn:  `pip install uvicorn`
+- Run backend: `uvicorn main:api_web --host 0.0.0.0 --port 8000`
 
 ### Publish to TestPy
 
