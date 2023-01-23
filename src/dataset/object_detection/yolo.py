@@ -414,6 +414,9 @@ class yolo_schema(object):
 
 	def update_schema_file(self,added=[],modified=[],removed=[]):
 		# loads the existing schema file
+		print(added)
+		print(modified)
+		print(removed)
 		ls, _ = self.init.storage.load_dataset_list()
 		self.ls = ls
 		self.ls_set = set(self.ls)
@@ -443,14 +446,16 @@ class yolo_schema(object):
 				dp['tags'] = []
 				dp['slices'] = []
 				dp['size'] = self.init.storage.get_size_of_file_global(key_img)
-				if self.has_image(key):
+				if '.txt' in key:
 					for val in schema:
 						if type(schema[val]) is dict:
 							if schema[val]['key'] == key_img:
 								schema[val] = dp
 								break
 				else:
+					print(schema)
 					schema[str(idx)] = dp
+					print(schema)
 					idx += 1
 
 		for key in modified:
@@ -501,7 +506,11 @@ class yolo_schema(object):
 						idx_copy += 1
 
 				schema = copy_schema
+		
 		schema['len'] = idx
+
+		print('\n\n\n FINAL SCHEMA \n')
+		print(schema)
 
 		# stores dp
 		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))

@@ -24,7 +24,7 @@ import pandas as pd
 
 class API(object):
     """docstring for CLI"""
-    def __init__(self, reset=False, cli=False):
+    def __init__(self, reset=False, cli=False, ui=False):
         super(API, self).__init__()
         self.key_bin = None
         self.Initializer = None
@@ -45,7 +45,7 @@ class API(object):
         if reset:
             self.Initializer = None
         
-        if not Path(path_home+'/.config_stack').exists():
+        if not Path(path_home+'/.config_stack').exists() or ui:
             self.config = {}
             self.set_config()
         else:
@@ -158,6 +158,34 @@ class API(object):
         datasets = pickle.load(file1)
         file1.close()
         return datasets
+
+    def set_hierarchies(self):
+        file1 = open(path_home+'/datasets.stack', 'rb')
+        datasets = pickle.load(file1)
+        file1.close()
+
+        hierarchies = {}
+
+        for dataset in datasets:
+            self.init(dataset)
+            self.connect_post_api()
+            metapath = self.Initializer.prefix_meta + 'hierarchy.json'
+            hierarchies[dataset] = json.load(self.Initializer.storage.load_file_global(metapath)) 
+        
+        file1 = open(path_home+'/.hierarchies.stack', 'wb')
+        pickle.dump(hierarchies,file1)
+        file1.close()
+
+        return hierarchies
+    
+    def get_hierarchies(self):
+        try: 
+            file1 = open(path_home+'/.hierarchies.stack', 'rb')
+            hierarchies = pickle.load(file1)
+            file1.close()
+            return hierarchies
+        except:
+            return self.set_hierarchies()
 
     def get_color_map(self):
         
@@ -380,6 +408,8 @@ class API(object):
         return True
     
     def branch(self, branch_name='new_branch123/', branch_type='copy', branch_title=''):
+
+
         if not self.in_version:
             if branch_name[-1] != '/':
                 branch_name += '/'
@@ -402,6 +432,9 @@ class API(object):
                     if branch_name[-1] != '/':
                         branch_name += '/'
 
+                    if self.config['schema'] == 'yolo':
+                        label_map = self.schema_class.class_map
+
                     self.init(uri+branch_name)
 
                     if branch_title == '':
@@ -411,6 +444,10 @@ class API(object):
                     self.set_schema()
                     self.start_check()
                     self.commit('created branch ' + branch_name)
+
+                    if self.config['schema'] == 'yolo':
+                        self.schema_class.set_class_map(label_map)
+
                     return True
                 else:
                     return False
@@ -492,6 +529,7 @@ class API(object):
             self.start_check()
             self.commit('created branch ' + branch_name)
 
+            self.set_hierarchies()
             return True
 
     def schema_metadata(self):
@@ -1173,6 +1211,9 @@ class API(object):
             hierarchy['children'].append(child)
         self.Initializer.storage.add_file_from_binary_global(metapath,io.BytesIO(json.dumps(hierarchy).encode('ascii')))
         self.Initializer.storage.reset_buffer()
+
+        hierarchies = self.get_hierarchies()
+        hierarchies[self.Initializer.storage.dataset] = hierarchy
         return True
 
     def remove_child(self, child=''):

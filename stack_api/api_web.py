@@ -38,7 +38,7 @@ path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
  
 # checks if local files are installed
 try:
-    api = api_core.API()
+    api = api_core.API(ui=True)
     initialized = api.start_check()
     api.set_schema()
     # print('doing an initial commit')
@@ -108,14 +108,20 @@ def init_gskey(file: UploadFile = File(description="A file read as UploadFile"))
 
 @app.post("/set_branch")
 def set_branch_api(data: dict):
-    try:
-        parent = api.Initializer.storage.dataset
-        api.set_hierarchy(child = data['branch_name'])
-        api.branch(data['branch_name'], data['branch_type'], data['branch_title'])
-        api.set_hierarchy(parent = parent)
-        return {'success': True}
-    except:
-        return {'success': False}
+    # try:
+    parent = api.Initializer.storage.dataset
+    api.set_hierarchy(child = data['branch_name'])
+    api.branch(data['branch_name'], data['branch_type'], data['branch_title'])
+    api.set_hierarchy(parent = parent)
+    return {'success': True}
+    # except:
+    #     return {'success': False}
+
+@app.get("/get_hierarchies")
+def get_hierarchies_api():
+    # try:
+    return api.get_hierarchies()
+
 
 @app.get("/get_current_hierarchy")
 def get_current_hierarchy_api():
@@ -137,7 +143,6 @@ def get_hierarchy_api(uri):
             uri = uri.replace(path_home,'')
         api.init(uri)
         api.connect_post_api()
-        api.set_schema()
         return api.get_hierarchy()
     except:
         return {'parent': '', 'children': []}
@@ -280,13 +285,13 @@ def current_remove_child(uri=''):
         return {'success': False}
 
 @app.post("/merge")
-def merge_api(data: dict):
-    try: 
-        api.merge(father=data['father'], child=data['child'])
-        api.commit(f"merged branch {data['child']} to {data['father']}")
-        return {'success': True}
-    except:
-        return {'success': False}
+async def merge_api(data: dict):
+    # try: 
+    api.merge(father=data['father'], child=data['child'])
+    api.commit(f"merged branch {data['child']} to {data['father']}")
+    return {'success': True}
+    # except:
+    #     return {'success': False}
 
 @app.get("/merge_child_to_master")
 def merge_child_to_master_api(uri):
@@ -300,18 +305,18 @@ def merge_child_to_master_api(uri):
 
 @app.get("/merge_current_to_master")
 def merge_current_to_master_api():
-    try: 
-        child = api.Initializer.storage.dataset
-        hierarchy = api.get_hierarchy()
-        if type(hierarchy['parent']) is str:
-            if hierarchy['parent'] == '':
-                return {'success': False}
-            else:
-                api.merge(father=hierarchy['parent'], child=child)
-                api.commit(f"merged branch {child} to {hierarchy['parent']}")
-                return {'success': True}
-    except:
-        return {'success': False}
+    # try: 
+    child = api.Initializer.storage.dataset
+    hierarchy = api.get_hierarchy()
+    if type(hierarchy['parent']) is str:
+        if hierarchy['parent'] == '':
+            return {'success': False}
+        else:
+            api.merge(father=hierarchy['parent'], child=child)
+            api.commit(f"merged branch {child} to {hierarchy['parent']}")
+            return {'success': True}
+    # except:
+    #     return {'success': False}
 
 @app.get("/disconnect")
 def disconnect_api(uri=''):

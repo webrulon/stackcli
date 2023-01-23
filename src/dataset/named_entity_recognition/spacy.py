@@ -475,8 +475,9 @@ class spacy_ner_schema(object):
 		dp = schema[key]
 		local_array = json.load(self.init.storage.load_file_global(dp['filename']))
 		for idx in range(len(local_array)):
-			if local_array[idx]['text'] == dp['text']:
-				local_array[idx]['entities'] = labels_array
+			if type(local_array[idx]) is dict:
+				if local_array[idx]['text'] == dp['text']:
+					local_array[idx]['entities'] = labels_array
 		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(local_array).encode('ascii')))
 		return True
 	
@@ -494,11 +495,12 @@ class spacy_ner_schema(object):
 
 		for dp in status['keys']:
 			if schema[dp]['filename'] in files.keys():
-				files[schema[dp]['filename']].extend(dp)
+				files[schema[dp]['filename']].append(dp)
 			else:
 				files[schema[dp]['filename']] = [dp]
 
 		for key in files.keys():
+			print(files[key])
 			local_array = [{'text': schema[dp]['text'], 'entities': schema[dp]['entities']} for dp in files[key]]
 			self.init.storage.add_file_from_binary_global(branch_name + key.replace(dataset,''),io.BytesIO(json.dumps(local_array).encode('ascii')))
 		
@@ -519,28 +521,31 @@ class spacy_ner_schema(object):
 		files = {}
 		for dp in status['keys']:
 			if schema[dp]['filename'] in files.keys():
-				files[schema[dp]['filename']].extend(dp)
+				files[schema[dp]['filename']].append(dp)
 			else:
 				files[schema[dp]['filename']] = [dp]
 
 		files_goal, _ = self.init.storage.load_list_in_path(goal)
 		files_goal = [f.replace(goal,'') for f in files_goal]
-		for file in files:
+		for file in files.keys():
 			if file.replace(dataset,'') in files_goal:
 				local_array = json.load(self.init.storage.load_file_global(file))
 				missing = [dp for dp in files[file]]
+				missing_copy = list(missing)
 				for idx in range(len(local_array)):
-					for dp in missing:
-						if local_array[idx]['text'] == dp:
-							local_array[idx]['entities'] = schema[dp]['entities']
-							missing.pop(dp)
-					if len(missing) == 0:
-						break
-				for dp in missing:
-					local_array.extend({'text': schema[dp]['text'], 'entities': schema[dp]['entities']})
+					for j in range(len(missing_copy)):
+						if local_array[idx]['text'] == schema[missing[j]]['text']:
+							local_array[idx]['entities'] = schema[missing[j]]['entities']
+							missing_copy.pop(j)
+						if len(missing_copy) == 0:
+							break
+				for dp in missing_copy:
+					local_array.append({'text': schema[dp]['text'], 'entities': schema[dp]['entities']})
 				self.init.storage.add_file_from_binary_global(goal+file.replace(dataset,''),io.BytesIO(json.dumps(local_array).encode('ascii')))
+				# print(goal+file.replace(dataset,''))
 			else:
 				self.init.storage.copy_file_global(file,goal+file.replace(dataset,''))
+				print(goal+file)
 		return True
 
 	def read_all_files(self):
