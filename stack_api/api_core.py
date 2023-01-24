@@ -497,6 +497,7 @@ class API(object):
                 self.set_schema()
                 self.start_check()
                 self.commit('created branch ' + branch_name)
+                return True
         else:
             dataset = self.Initializer.storage.dataset
             if self.Initializer.storage.type == 'local':
@@ -529,7 +530,6 @@ class API(object):
             self.start_check()
             self.commit('created branch ' + branch_name)
 
-            self.set_hierarchies()
             return True
 
     def schema_metadata(self):
@@ -617,6 +617,7 @@ class API(object):
 
         datasets[self.storage_name] = {'storage': self.storage_name, 'name': name, 'type': config['type'], 'schema': config['schema'], 'dvc': enable_dvc}
         self.set_datasets(datasets)
+        self.set_hierarchies()
         self.set_config()
         return True
 
@@ -1507,6 +1508,18 @@ class API(object):
     def server_add_log(self, data):
         assert(not self.projects is None)
         self.projects.add_log(data)
+
+    def remove_log(self, experiment, log):
+        if self.projects is None:
+            self.projects = projects(init=self.Initializer, project=experiment)
+            self.projects.init_project()
+        self.projects.remove_log(log)
+
+    def remove_project(self, project):
+        if self.projects is None:
+            self.projects = projects(init=self.Initializer, project=project)
+            self.projects.init_project()
+        self.projects.remove_project(project)
 
     def server_add_prediction(self, data):
         assert(not self.projects is None)

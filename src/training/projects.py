@@ -51,6 +51,17 @@ class projects:
         self.logs = None
         return True
 
+    def remove_project(self):
+        try: 
+            self.projects = json.load(self.init.storage.load_file_global(self.prefix_projects + 'projects.json'))
+        except:
+            self.projects = {}
+        if self.project in self.projects.keys():
+            del self.projects[self.project]
+            self.init.storage.add_file_from_binary_global(self.prefix_projects + 'projects.json',io.BytesIO(json.dumps(self.projects).encode('ascii')))
+        self.logs = None
+        return True
+
     def setup_experiments(self):
         # creates json for experiments in project
         # List<dict>:
@@ -118,6 +129,22 @@ class projects:
         self.init.storage.add_file_from_binary_global(self.experiments[-1]['logs'],io.BytesIO(json.dumps(self.logs).encode('ascii')))
         self.init.storage.reset_buffer()
         
+        json_path = self.prefix_experiments + 'experiments.json'
+        self.init.storage.add_file_from_binary_global(json_path,io.BytesIO(json.dumps(self.experiments).encode('ascii')))
+        self.init.storage.reset_buffer()
+
+    def remove_log(self, log):
+
+        for idx in range(len(self.experiments)):
+            if self.experiments[idx]['logs'] == log:
+                self.experiments.pop(idx)
+        
+        for idx in range(len(self.projects[self.project]['runs'])):
+            if self.projects[self.project]['runs'][idx]['logs'] == log:
+                self.projects[self.project]['runs'].pop(idx)
+
+        self.init.storage.add_file_from_binary_global(self.prefix_projects + 'projects.json',io.BytesIO(json.dumps(self.projects).encode('ascii')))
+
         json_path = self.prefix_experiments + 'experiments.json'
         self.init.storage.add_file_from_binary_global(json_path,io.BytesIO(json.dumps(self.experiments).encode('ascii')))
         self.init.storage.reset_buffer()

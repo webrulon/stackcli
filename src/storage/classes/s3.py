@@ -297,22 +297,15 @@ class S3Bucket(object):
 
 	def load_dataset(self):
 		# loads all the metadata associated with the dataset
-		files = []
-		params = {"Bucket" : self.BUCKET_NAME, "Prefix" : self.dataset}
-		objects = self.resource.meta.client.list_objects_v2(**params)
+		keys = []
+		for obj in self.bucket.objects.all():
+			if obj.key != '/':
+				keys.append({
+					'key': obj.key,
+					'last_modified': obj.last_modified.strftime("%m/%d/%Y, %H:%M:%S")
+				})
 
-		# labels each file
-		if 'Contents' in objects.keys():
-			for obj in objects['Contents']:
-				if obj["Key"][-1] != '/':
-					metadata = {
-						'key' : obj['Key'],
-						'last_modified' : obj["LastModified"].strftime("%m/%d/%Y, %H:%M:%S"),
-					}
-					files.append(metadata)
-			return files
-		else:
-			return []
+		return keys
 
 	def load_dataset_list(self):
 		# loads all the metadata associated with the dataset
@@ -323,19 +316,13 @@ class S3Bucket(object):
 		keys = []
 		last_m = []
 
-		params = {"Bucket" : self.BUCKET_NAME, "Prefix" : path}
-		objects = self.resource.meta.client.list_objects_v2(**params)
-
 		# loads each file
-		if 'Contents' in objects.keys():
-			for obj in objects['Contents']:
-				if obj['Key'][-1] != '/':
-					keys.append(obj['Key'])
-					last_m.append(obj["LastModified"].strftime("%m/%d/%Y, %H:%M:%S"))
+		for obj in self.bucket.objects.filter(Prefix=path):
+			if obj.key != '/':
+				keys.append(obj.key)
+				last_m.append(obj.last_modified.strftime("%m/%d/%Y, %H:%M:%S"))
 
-			return keys, last_m
-		else:
-			return [],[]
+		return keys, last_m
 
 	def check_if_empty(self,path):
 		# checks the number of files in a directory

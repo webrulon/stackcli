@@ -113,6 +113,7 @@ def set_branch_api(data: dict):
     api.set_hierarchy(child = data['branch_name'])
     api.branch(data['branch_name'], data['branch_type'], data['branch_title'])
     api.set_hierarchy(parent = parent)
+    api.set_hierarchies()
     return {'success': True}
     # except:
     #     return {'success': False}
@@ -238,6 +239,7 @@ def add_child_to_current_api(child):
         api.init(parent)
         api.connect_post_api()
         api.set_schema()
+        api.set_hierarchies()
         return {'success': True}
     except:
         return {'success': False}
@@ -259,6 +261,7 @@ def add_parent_to_current_api(parent):
         api.init(child)
         api.connect_post_api()
         api.set_schema()
+        api.set_hierarchies()
         return {'success': True}
     except:
         return {'success': False}
@@ -280,6 +283,7 @@ def current_remove_child(uri=''):
         api.init(parent)
         api.connect_post_api()
         api.set_schema()
+        api.set_hierarchies()
         return {'success': True}
     except:
         return {'success': False}
@@ -353,8 +357,10 @@ def disconnect_api(uri=''):
                         pass
         except:
             pass    
+        api.set_hierarchies()
         return {'success': api.disconnect_dataset(uri)}
     except:
+        api.set_hierarchies()
         return {'success': False}
 
 @app.get("/get_datasets")
@@ -830,6 +836,10 @@ def get_projects():
     except:
         return []
 
+@app.get("/remove_project")
+def remove_project(project):
+    return api.remove_project(project)
+
 @app.get("/get_logs_list")
 def get_logs_list(project):
     return api.get_logs(project)
@@ -837,6 +847,10 @@ def get_logs_list(project):
 @app.get("/get_logs_experiment")
 def get_logs_experiment(log):
     return api.get_logs_experiment(log)
+
+@app.post("/remove_log_experiment")
+def remove_log_experiment(data: dict):
+    return api.remove_log(data['experiment'],data['log'])
 
 @app.get("/get_predictions_list")
 def get_predictions_list(prediction):
