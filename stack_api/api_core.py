@@ -14,6 +14,8 @@ from src.dataset.object_detection.labelbox import labelbox_schema
 
 from src.dataset.named_entity_recognition.spacy import spacy_ner_schema
 
+from src.dataset.question_answering.squad import squad_qa_schema
+
 from pathlib import Path
 import pickle
 import os
@@ -234,11 +236,36 @@ class API(object):
 
         return ''
 
+    def add_datapoint(self, key):
+        
+        if('ner' in self.config['schema'] or 'qa' in self.config['schema']):
+            return self.schema_class.add_datapoint(key)
+
+        return ''
+
     def download_files(self):
         if(self.config['schema'] != 'files'):
             return self.schema_class.download_files()
         else:
             return ''
+
+    def export_openai(self):
+        if('ner' in self.config['schema'] or 'qa' in self.config['schema']):
+            return self.schema_class.export_openai()
+        else:
+            return ''
+
+    def get_embeddings(self):
+        if(self.config['schema'] != 'files'):
+            return self.schema_class.get_embeddings()
+        else:
+            return []
+
+    def semantic_search(self, prompt):
+        if(self.config['schema'] != 'files'):
+            return self.schema_class.semantic_search(prompt=prompt)
+        else:
+            return []
 
     def detect_anomalies(self):
         
@@ -278,7 +305,7 @@ class API(object):
 
             if in_version:
                 self.select_version(version)
-        elif self.config['schema'] == 'spacy_ner':
+        elif self.config['schema'] != 'files':
             if self.in_version:
                 in_version = True
                 self.reset_version()
@@ -351,6 +378,14 @@ class API(object):
                 self.schema_class.compute_meta_data()
         elif self.config['schema'] == 'spacy_ner':
             self.schema_class = spacy_ner_schema(self.Initializer)
+            try:
+                metapath = self.schema_class.meta_path
+                json.load(self.Initializer.storage.load_file_global(metapath))
+            except:
+                self.schema_class.create_schema_file()
+                self.schema_class.compute_meta_data()
+        elif self.config['schema'] == 'squad_qa':
+            self.schema_class = squad_qa_schema(self.Initializer)
             try:
                 metapath = self.schema_class.meta_path
                 json.load(self.Initializer.storage.load_file_global(metapath))
@@ -840,7 +875,7 @@ class API(object):
         return {'commits': response, 'len': len(history[str(int(version))]['commits'])}
 
     def key_versions(self, key = '', l = 5, page = 0):
-        if self.config['schema'] == 'spacy_ner':
+        if 'ner' in self.config['schema'] or 'qa' in self.config['schema']:
             schema = self.schema_class.get_schema()
             version = schema[key]['versions']
             i_p = len(version) - int(page)*int(l)-1
@@ -979,7 +1014,7 @@ class API(object):
                 response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'label'
                 idx = idx+1
-        elif self.config['schema'] == 'spacy_ner':
+        elif self.config['schema'] == 'spacy_ner' or self.config['schema'] == 'squad_qa':
             schema = self.schema_class.get_schema()
             labels_key = schema[key]['filename']
             labels_hist = get_key_history(self.Initializer, labels_key)
@@ -1050,7 +1085,12 @@ class API(object):
 
     def get_next_key(self,key):
         status = self.status()
-        idx = status['keys'].index(key)
+        try:
+            idx = status['keys'].index(key)
+        except:
+            for i in range(len(status['keys'])):
+                if key in status['keys'][i]:
+                    idx = i
         if idx == len(status['keys']) - 1:
             return status['keys'][0]
         else:
@@ -1058,7 +1098,12 @@ class API(object):
 
     def get_prev_key(self,key):
         status = self.status()
-        idx = status['keys'].index(key)
+        try:
+            idx = status['keys'].index(key)
+        except:
+            for i in range(len(status['keys'])):
+                if key in status['keys'][i]:
+                    idx = i
         if idx == 0:
             return status['keys'][-1]
         else:
@@ -1507,7 +1552,7 @@ class API(object):
 
     def server_add_log(self, data):
         assert(not self.projects is None)
-        self.projects.add_log(data)
+        self.projects.add_log(data=data, schema=self.schema_class)
 
     def remove_log(self, experiment, log):
         if self.projects is None:

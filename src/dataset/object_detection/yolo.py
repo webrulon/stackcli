@@ -8,6 +8,7 @@ import time
 import re
 import os
 import copy
+import requests
 import io
 import json
 from pathlib import Path
@@ -27,9 +28,11 @@ class yolo_schema(object):
 		self.schema = None
 		self.metadata = None
 		self.class_map = None
+		self.embeddings = None
 		self.schema_path = self.init.prefix_meta + 'schema.json'
 		self.meta_path = self.init.prefix_meta + 'yolo_data.json'
 		self.class_map_path = self.init.prefix_meta + 'yolo_class_map.json'
+		self.embeddings_path = self.init.prefix_meta + 'embeddings.json'
 		self.status = {}
 		self.filtered = False
 		self.sliced = False
@@ -159,6 +162,33 @@ class yolo_schema(object):
 		else:
 			return self.class_map
 
+	def compute_embeddings(self):
+		schema = self.get_schema()
+		files = []
+		for dp in schema:
+			if type(schema[dp]) is dict:
+				files.append(('files', self.init.storage.load_file_global(schema[dp]['key'])))
+		response = requests.post(url='http://129.159.37.199/compute_image_embedding/', files=files)
+		self.init.storage.add_file_from_binary_global(self.embeddings_path,io.BytesIO(json.dumps(response.json()).encode('ascii')))
+		self.embeddings = response.json()
+		return response.json()
+
+	def get_embeddings(self):
+		if self.embeddings is None:
+			try:
+				self.embeddings = json.load(self.init.storage.load_file_global(self.embeddings_path))
+				return self.embeddings
+			except:
+				self.compute_embeddings()
+				return self.embeddings
+		else:
+			return self.embeddings
+
+	def semantic_search(self, prompt):
+		data = {'query': prompt, 'embeddings': self.get_embeddings()}
+		response = requests.post('http://129.159.37.199/semantic_search', json=data)
+		return response.json()
+	
 	def update_class_map_name(self, name_mapping):
 		class_map = self.get_class_map()
 		for cl in name_mapping:
@@ -893,6 +923,25 @@ class yolo_schema(object):
 			self.filtered = False
 			return self.status
 
+		search_res = []
+		thereis = False
+		for f in filters:
+			if thereis:
+				break 
+			for filt in filters[f]:
+				if filt == 'semantic_search':
+					data_query = {'data': filters[f]['semantic_search']['text']}
+					res = requests.post('http://129.159.37.199/compute_text_embedding',json= data_query)
+					data = {'query': res.json(), 'embeddings': self.get_embeddings()}
+					response = requests.post('http://129.159.37.199/semantic_search', json=data)
+					query = response.json()
+					print(query)
+					for q in query:
+						if q['cos'][0] > filters[f]['semantic_search']['threshold']:
+							search_res.append(q['key'])
+					thereis = True
+					break
+
 		for dp in schema:
 			if type(self.schema[dp]) is dict:
 				if self.sliced:
@@ -908,6 +957,7 @@ class yolo_schema(object):
 					add_class =  []
 					add_res =  []
 					add_name =  []
+					add_ss =  []
 					add_tag =  []
 					add_date =  []
 					add_box =  []
@@ -938,9 +988,15 @@ class yolo_schema(object):
 
 							if filt == 'name':
 								if filters[f]['name'] in schema[dp]['key']:
-									add_name.append(True)
+									add_ss.append(True)
 								else:
-									add_name.append(False)
+									add_ss.append(False)
+
+							if filt == 'semantic_search':
+								if os.path.basename(schema[dp]['key']) in search_res:
+									add_ss.append(True)
+								else:
+									add_ss.append(False)
 
 							if filt == 'tag':
 								if 'tags' in schema[dp]:
@@ -993,8 +1049,10 @@ class yolo_schema(object):
 						add_num = [True]
 					if len(add_date) == 0:
 						add_date = [True]
+					if len(add_ss) == 0:
+						add_ss = [True]
 						
-					add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_date)])
+					add = all([any(add_class),any(add_res),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_ss),any(add_date)])
 					if add:
 						status['keys'].append(schema[dp]['key'])
 						status['lm'].append(schema[dp]['lm'])

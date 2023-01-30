@@ -15,13 +15,13 @@ from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 import hashlib
 
-class spacy_ner_schema(object):
+class squad_qa_schema(object):
 	def __init__(self, init):
 		self.init = init
 		self.schema = None
 		self.metadata = None
 		self.schema_path = self.init.prefix_meta + 'schema.json'
-		self.meta_path = self.init.prefix_meta + 'spacy_ner_data.json'
+		self.meta_path = self.init.prefix_meta + 'squad_qa_data.json'
 		self.status = {}
 		self.filtered = False
 		self.sliced = False
@@ -47,24 +47,32 @@ class spacy_ner_schema(object):
 		for key in current['keys']:
 			if '.json' in key:
 				idx_key = 0
-				local_array = json.load(self.init.storage.load_file_global(key))
+				dataset = json.load(self.init.storage.load_file_global(key))
+				local_array = dataset['data']
+                
 				for el in local_array:
 					dp = {}
-					labels = el['entities']
 					dp['filename'] = key
-					dp['key'] = el['text']
-					dp['text'] = el['text']
+					dp['key'] = el['title']
+
+					dp['paragraphs'] = el['paragraphs']
+					dp['questions'] = [] 
+					for p in dp['paragraphs']:
+						dp['questions'] += p['qas']
+					dp['answers'] = [] 
+					for q in dp['questions']:
+						dp['answers'] += q['answers'] 
+					
 					dp['lm'] = current['lm'][idx]
-					dp['entities'] = labels
-					dp['entity_types'] = [label['type'] for label in labels]
-					dp['n_entities'] = len(dp['entities'])
+
 					dp['tags'] = []
 					dp['slices'] = []
-					dp['length'] = len(dp['text'])
+					dp['length'] = 0
+					for p in dp['paragraphs']:
+						dp['length'] += len(p['context'])
 					dp['idx'] = idx_key
-					dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'text': el['text'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': current['lm'][idx]}]
-					hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
-					schema[hash] = dp
+					dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'title': el['title'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': current['lm'][idx]}]
+					schema[el['title']] = dp
 					idx_key +=1
 					k += 1
 			idx += 1
@@ -79,62 +87,24 @@ class spacy_ner_schema(object):
 
 		return True
 
-	def get_labels(self, filename, version='current'):
+	def get_labels(self, title, version='current'):
 		if version == 'current':
 			schema = self.get_schema()
-			return schema[filename]['entities']
+			try:
+				return schema[title]['paragraphs']
+			except:
+				for val in schema:
+					if title in val:
+						return schema[val]['paragraphs']
 		else:
 			schema = self.get_schema()
-			diff = schema[filename]['versions'][int(version)-1]['diff']
-			local_array = json.load(self.init.storage.load_file_global(diff))
+			diff = schema[title]['versions'][int(version)-1]['diff']
+			dataset = json.load(self.init.storage.load_file_global(diff))
+			local_array = dataset['data']
 			for el in local_array:
-				if el['text'] == schema[filename]['text']: 
-					return el['entities']
+				if el['title'] == schema[title]['key']: 
+					return el['paragraphs']
 			return []
-
-	def get_text(self, filename, version='current'):
-		if version == 'current':
-			schema = self.get_schema()
-			return schema[filename]['text']
-		else:
-			schema = self.get_schema()
-			return schema[filename]['versions'][int(version)-1]['text']
-
-	def set_text(self, filename, text=''):
-		schema = self.get_schema()
-		local_array = json.load(self.init.storage.load_file_global(schema[filename]['filename']))
-		for idx in range(len(local_array)):
-			if local_array[idx]['text'] == schema[filename]['text']:
-				local_array[idx]['text'] = text
-		self.init.storage.add_file_from_binary_global(schema[filename]['filename'],io.BytesIO(json.dumps(local_array).encode('ascii')))
-		
-		el = schema[filename]
-		dp = {}
-		labels = el['entities']
-		dp['filename'] = schema[filename]['filename']
-		dp['text'] = text
-		dp['key'] = el['key']
-		dp['lm'] = self.init.storage.load_file_metadata_global(el['filename'])['last_modified']
-		list_ver = el['versions']
-		list_ver.append({'key': el['filename'], 'text': text, 'version': self.init.get_latest_diff_number(el['filename']),'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + el['filename'] + '/' + str(self.init.get_latest_diff_number(el['filename'])).zfill(10), 'date': self.init.storage.load_file_metadata_global(el['filename'])['last_modified']})
-		dp['versions'] = list_ver
-		dp['entities'] = labels
-		dp['entity_types'] = [label['type'] for label in labels]
-		dp['n_entities'] = len(dp['entities'])
-		dp['tags'] = []
-		dp['slices'] = []
-		dp['length'] = len(dp['text'])
-		dp['idx'] = el['idx']
-
-		hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
-		schema[hash] = dp
-		del schema[filename]
-
-		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
-		self.init.storage.reset_buffer()
-
-		return True
-		
 
 	def copy_schema_to_latest_version_checkpoint(self):
 		try:
@@ -193,24 +163,31 @@ class spacy_ner_schema(object):
 	def compute_meta_data(self):
 		schema = self.get_schema()
 		
-		entities = []
-		lengths = []
+		paragraph_lengths = []
+		answer_lengths = []
+		question_lengths = []
 		lm = []
 		tags = []
-		entities_per_sentence = []
 		slices = []
 
-		n_entity = {}
-		n_len = {}
+		n_paragraphs = []
+		n_answers = []
+		n_questions = []
+		n_p_len = {}
+		n_ans_len = {}
+		n_q_len = {}
 		n_lm = {}
 		n_tags = {}
 		n_slices = {}
 
 		for val in schema:
 			if type(self.schema[val]) is dict:
-				if not len(schema[val]['entities']) in entities_per_sentence:
-					entities_per_sentence.append(len(schema[val]['entities']))
+				if not len(schema[val]['answers']) in n_answers:
+					n_answers.append(len(schema[val]['answers']))
 				
+				if not len(schema[val]['answers']) in n_paragraphs:
+					n_paragraphs.append(len(schema[val]['paragraphs']))
+
 				if 'slice' in schema[val].keys():
 					for sl in schema[val]['slices']:
 						if not sl in slices:
@@ -219,18 +196,29 @@ class spacy_ner_schema(object):
 						else:
 							n_slices[sl] += 1
 
-				for cl in schema[val]['entities']:
-					if not cl['type'] in entities:
-						entities.append(cl['type'])
-						n_entity[cl['type']] = 1
+				for q in schema[val]['questions']:
+					if not len(q['question']) in question_lengths:
+						question_lengths.append(len(q['question']))
+						n_q_len[len(q['question'])] = 1
 					else:
-						n_entity[cl['type']] += 1
+						n_q_len[len(q['question'])] += 1
+
+				for p in schema[val]['paragraphs']:
+					if not len(p['context']) in paragraph_lengths:
+						paragraph_lengths.append(len(p['context']))
+						n_p_len[len(p['context'])] = 1
+					else:
+						n_p_len[len(p['context'])] += 1
+
+				for a in schema[val]['answers']:
+					if not len(a['text']) in answer_lengths:
+						answer_lengths.append(len(a['text']))
+						n_ans_len[len(a['text'])] = 1
+					else:
+						n_ans_len[len(a['text'])] += 1
 				
-				if not schema[val]['length'] in lengths:
-					lengths.append(schema[val]['length'])
-					n_len[schema[val]['length']] = 1
-				else:
-					n_len[schema[val]['length']] += 1
+				if not len(schema[val]['questions']) in n_questions:
+					n_questions.append(len(schema[val]['questions']))
 				
 				if not schema[val]['lm'] in lm:
 					lm.append(schema[val]['lm'])
@@ -246,7 +234,11 @@ class spacy_ner_schema(object):
 						else:
 							n_tags[tag] += 1
 
-		metadata = {'entities': entities, 'lengths': lengths, 'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_entity': n_entity, 'n_len': n_len, 'n_lm': n_lm, 'n_tags': n_tags, 'entities_per_sentence': entities_per_sentence}
+		metadata = {'answer_lengths': answer_lengths, 'question_lengths' : question_lengths, 'paragraph_lengths' : paragraph_lengths, 
+		'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_lm': n_lm, 
+		'n_tags': n_tags, 'n_paragraphs': n_paragraphs, 'n_answers': n_answers, 'n_questions': n_questions, 
+		'n_ans_len': n_ans_len, 'n_q_len': n_q_len, 'n_p_len': n_p_len}
+			
 		self.metadata = metadata
 
 		if not self.in_version:
@@ -273,25 +265,34 @@ class spacy_ner_schema(object):
 		for key in added:
 			if '.json' in key:
 				idx_key = 0
-				local_array = json.load(self.init.storage.load_file_global(key))
+				dataset = json.load(self.init.storage.load_file_global(key))
+				local_array = dataset['data']
+                
 				for el in local_array:
 					dp = {}
-					labels = el['entities']
 					dp['filename'] = key
-					dp['key'] = el['text']
-					dp['text'] = el['text']
+					dp['key'] = el['title']
+
+					dp['paragraphs'] = el['paragraphs']
+					dp['questions'] = []
+					for p in dp['paragraphs']:
+						dp['questions'] += p['qas']
+					dp['answers'] = [] 
+					for q in dp['questions']:
+						dp['answers'] += q['answers'] 
+
 					dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-					dp['entities'] = labels
-					dp['entity_types'] = [label['type'] for label in labels]
-					dp['n_entities'] = len(dp['entities'])
+
 					dp['tags'] = []
 					dp['slices'] = []
-					dp['length'] = len(dp['text'])
+					dp['length'] = 0
+					for p in dp['paragraphs']:
+						dp['length'] += len(p['context'])
 					dp['idx'] = idx_key
-					dp['versions'] = [{'key': key, 'text': el['text'], 'version': self.init.get_latest_diff_number(key), 'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
-					hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
-					schema[hash] = dp
-					idx_key +=1	
+					dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'title': el['title'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
+					schema[el['title']] = dp
+					idx_key +=1
+					idx += 1
 			idx += 1
 
 		keys = set(schema.keys())
@@ -299,56 +300,62 @@ class spacy_ner_schema(object):
 		for key in modified:
 			if '.json' in key:
 				idx_key = 0
-				local_array = json.load(self.init.storage.load_file_global(key))
+				dataset = json.load(self.init.storage.load_file_global(key))
+				local_array = dataset['data']
 				for el in local_array:
-					hash = hashlib.md5(el['text'].encode('utf-8')).hexdigest()
-					if hash in list(keys):
-						dp = {}
-						labels = el['entities']
-						dp['filename'] = key
-						dp['key'] = schema[hash]['key']
-						dp['text'] = el['text']
-						if labels == schema[hash]['entities']:
-							dp['lm'] = schema[hash]['lm']	
-							dp['versions'] = schema[hash]['versions']
-						else:
+					if el['title'] in list(keys):
+						if not el['paragraphs'] == schema[el['title']]['paragraphs']:
+							dp = {}
+							dp['filename'] = key
+							dp['key'] = el['title']
+
+							dp['paragraphs'] = el['paragraphs']
+							dp['questions'] = []
+							for p in dp['paragraphs']:
+								dp['questions'] += p['qas']
+							dp['answers'] = [] 
+							for q in dp['questions']:
+								dp['answers'] += q['answers'] 
+
 							dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-							list_ver = schema[hash]['versions']
-							# print(f"list ver {schema[el['text']]['versions']} and append {list_ver.append({'key': key, 'version': list_ver[-1]['version'],'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})}")
-							list_ver.append({'key': key, 'text': el['text'], 'version': self.init.get_latest_diff_number(key),'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})
+							
+							dp['tags'] = []
+							dp['slices'] = []
+							dp['length'] = 0
+							for p in dp['paragraphs']:
+								dp['length'] += len(p['context'])
+							dp['idx'] = idx_key
+							list_ver = schema[el['title']]['versions']
+							list_ver.append({'key': key, 'title': el['title'], 'version': self.init.get_latest_diff_number(key),'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})
 							dp['versions'] = list_ver
-						dp['entities'] = labels
-						dp['entity_types'] = [label['type'] for label in labels]
-						dp['n_entities'] = len(dp['entities'])
-						dp['tags'] = []
-						dp['slices'] = []
-						dp['length'] = len(dp['text'])
-						dp['idx'] = idx_key
-						schema[hash] = dp
+							dp['idx'] = idx_key
+							schema[el['title']] = dp
 					else:
 						dp = {}
-						labels = el['entities']
 						dp['filename'] = key
-						dp['key'] = el['text']
-						dp['text'] = el['text']
+						dp['key'] = el['title']
+
+						dp['paragraphs'] = el['paragraphs']
+						dp['questions'] = [p['qas'] for p in el['paragraphs']][0]
+						dp['answers'] = [q['answers'] for q in dp['questions']][0]
+
 						dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-						dp['entities'] = labels
-						dp['entity_types'] = [label['type'] for label in labels]
-						dp['n_entities'] = len(dp['entities'])
 						dp['tags'] = []
 						dp['slices'] = []
-						dp['length'] = len(dp['text'])
+						dp['length'] = 0
+						for p in dp['paragraphs']:
+							dp['length'] += len(p['context'])
 						dp['idx'] = idx_key
-						dp['versions'] = [{'key': key, 'text': el['text'], 'version': self.init.get_latest_diff_number(key),'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
-						schema[hash] = dp
+						dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'title': el['title'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
+						schema[el['title']] = dp
 						idx += 1
 					idx_key +=1
 
-				local_keys = set([el['text'] for el in local_array])
+				local_keys = set([el['title'] for el in local_array])
 				keys_new = set(schema.keys())
 				for dp in list(keys_new):
 					if type(schema[dp]) is dict:
-						if not schema[dp]['text'] in local_keys:
+						if not schema[dp]['key'] in local_keys:
 							if schema[dp]['filename'] == key:
 								del schema[dp]
 								idx -= 1
@@ -467,21 +474,20 @@ class spacy_ner_schema(object):
 
 		return self.compute_meta_data()
 
-	def label_name(self, class_number):
-		return str(class_number)
-
 	def set_labels(self, key, labels_array):
 		schema = self.get_schema()
 		dp = schema[key]
-		local_array = json.load(self.init.storage.load_file_global(dp['filename']))
+		dataset = json.load(self.init.storage.load_file_global(dp['filename']))
+		local_array = dataset['data']
 		for idx in range(len(local_array)):
-			if type(local_array[idx]) is dict:
-				if local_array[idx]['text'] == dp['text']:
-					local_array[idx]['entities'] = labels_array
-		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(local_array).encode('ascii')))
+			if local_array[idx]['title'] == key:
+				local_array[idx]['paragraphs'] = labels_array
+		dataset['data'] = local_array
+		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(dataset).encode('ascii')))
 		return True
 	
 	def branch(self, branch_name, type_ ='copy'):
+		# TODO
 		schema = self.get_schema()
 		dataset = self.init.storage.dataset
 		if self.init.storage.type == 'local':
@@ -507,6 +513,7 @@ class spacy_ner_schema(object):
 		return True
 
 	def merge(self, goal):
+		# TODO
 		dataset = self.init.storage.dataset
 		if self.init.storage.type == 'local':
 			goal = goal.replace(path_home,'')
@@ -551,13 +558,14 @@ class spacy_ner_schema(object):
 	def read_all_files(self):
 		# queries the json
 		schema = self.get_schema()
+		
 		status = {'keys': [], 'lm': [], 'filename': [], 'dp': []}
 		for dp in schema:
 			if type(self.schema[dp]) is dict:
 				status['keys'].append(dp)
 				status['filename'].append(schema[dp]['filename'])
 				status['lm'].append(schema[dp]['lm'])
-				status['dp'].append(schema[dp]['entities'])
+				status['dp'].append(schema[dp]['paragraphs'])
 		self.status = status
 		return status
 
@@ -570,10 +578,12 @@ class spacy_ner_schema(object):
 		mem_zip = io.BytesIO()
 
 		for key in self.status['keys']:
-			local_array.append({'text': schema[key]['text'], 'entities': schema[key]['entities']})
+			local_array.append({'title': schema[key]['key'], 'paragraphs': schema[key]['paragraphs']})
+		
+		dataset = {'version': "stack", 'data': local_array}
 
 		with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
-			zf.writestr('dataset.json', json.dumps(local_array).encode('ascii'))
+			zf.writestr('dataset.json', json.dumps(dataset).encode('ascii'))
 		return mem_zip.getvalue()
 
 	def export_openai(self):
@@ -585,42 +595,48 @@ class spacy_ner_schema(object):
 		mem_zip = io.BytesIO()
 
 		for key in self.status['keys']:
-			entities_str = f""
-			for e in schema[key]['entities']:
-				e_str = schema[key]['text'][e['start']-1:e['end']]
-				entities_str += e_str
-				entities_str += "\n"
-
-			entities_str = entities_str[:-2]
-			entities_str += ' variant END'
-			local_array.append({'prompt': f"{schema[key]['text']}...\n\n###\n\n", 'completion': entities_str})
+			for p in schema[key]['paragraphs']:
+				for q in p['qas']:
+					if len(q['answers']) > 0:
+						for a in q['answers']:
+							local_array.append({'prompt': f"{p['context']}\nQuestion: {q['question']}\nAnswer: ", 'completion': a['text']})
+					else:
+						local_array.append({'prompt': f"{p['context']}\nQuestion: {q['question']}\nAnswer: ", 'completion': 'No appropriate context found'})
 		
 		with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
 			zf.writestr('dataset.json', json.dumps(local_array).encode('ascii'))
 		return mem_zip.getvalue()
 
 	def get_metadata(self):
-		if self.filtered or self.in_version:
+		if (self.filtered or self.in_version) and (self.metadata is None):
+
 			schema = self.get_schema()
 		
-			entities = []
-			lengths = []
+			paragraph_lengths = []
+			answer_lengths = []
+			question_lengths = []
 			lm = []
 			tags = []
-			entities_per_sentence = []
 			slices = []
 
-			n_entity = {}
-			n_len = {}
+			n_paragraphs = []
+			n_answers = []
+			n_questions = []
+			n_p_len = {}
+			n_ans_len = {}
+			n_q_len = {}
 			n_lm = {}
 			n_tags = {}
 			n_slices = {}
 
 			for val in schema:
 				if type(self.schema[val]) is dict:
-					if not len(schema[val]['entities']) in entities_per_sentence:
-						entities_per_sentence.append(len(schema[val]['entities']))
+					if not len(schema[val]['answers']) in n_answers:
+						n_answers.append(len(schema[val]['answers']))
 					
+					if not len(schema[val]['answers']) in n_paragraphs:
+						n_paragraphs.append(len(schema[val]['paragraphs']))
+
 					if 'slice' in schema[val].keys():
 						for sl in schema[val]['slices']:
 							if not sl in slices:
@@ -629,18 +645,29 @@ class spacy_ner_schema(object):
 							else:
 								n_slices[sl] += 1
 
-					for cl in schema[val]['entities']:
-						if not cl['type'] in entities:
-							entities.append(cl['type'])
-							n_entity[cl['type']] = 1
+					for q in schema[val]['questions']:
+						if not len(q['question']) in question_lengths:
+							question_lengths.append(len(q['question']))
+							n_q_len[len(q['question'])] = 1
 						else:
-							n_entity[cl['type']] += 1
+							n_q_len[len(q['question'])] += 1
+
+					for p in schema[val]['paragraphs']:
+						if not len(p['context']) in paragraph_lengths:
+							paragraph_lengths.append(len(p['context']))
+							n_p_len[len(p['context'])] = 1
+						else:
+							n_p_len[len(p['context'])] += 1
+
+					for a in schema[val]['answers']:
+						if not len(a['text']) in answer_lengths:
+							answer_lengths.append(len(a['text']))
+							n_ans_len[len(a['text'])] = 1
+						else:
+							n_ans_len[len(a['text'])] += 1
 					
-					if not schema[val]['length'] in lengths:
-						lengths.append(schema[val]['length'])
-						n_len[schema[val]['length']] = 1
-					else:
-						n_len[schema[val]['length']] += 1
+					if not len(schema[val]['questions']) in n_questions:
+						n_questions.append(len(schema[val]['questions']))
 					
 					if not schema[val]['lm'] in lm:
 						lm.append(schema[val]['lm'])
@@ -656,12 +683,18 @@ class spacy_ner_schema(object):
 							else:
 								n_tags[tag] += 1
 
-			return {'entities': entities, 'lengths': lengths, 'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_entity': n_entity, 'n_len': n_len, 'n_lm': n_lm, 'n_tags': n_tags, 'entities_per_sentence': entities_per_sentence}
+			self.metadata = {'answer_lengths': answer_lengths, 'question_lengths' : question_lengths, 'paragraph_lengths' : paragraph_lengths, 
+			'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_lm': n_lm, 
+			'n_tags': n_tags, 'n_paragraphs': n_paragraphs, 'n_answers': n_answers, 'n_questions': n_questions, 
+			'n_ans_len': n_ans_len, 'n_q_len': n_q_len, 'n_p_len': n_p_len}
 		else:
-			return json.load(self.init.storage.load_file_global(self.meta_path))
+			if self.metadata is None:
+				self.metadata = json.load(self.init.storage.load_file_global(self.meta_path))
+		return self.metadata
 
 	def reset_filters(self):
 		self.filtered = False
+		self.metadata = None
 		return True
 	
 	def apply_filters(self, filters={}):
@@ -671,6 +704,7 @@ class spacy_ner_schema(object):
 		if len(filters) == 0:
 			self.filtered = False
 			return self.status
+		self.metadata = None
 
 		for dp in schema:
 			if type(self.schema[dp]) is dict:
@@ -683,52 +717,98 @@ class spacy_ner_schema(object):
 					pre_add = True
 
 				if pre_add:
-					add_num =  []
-					add_entity =  []
-					add_len =  []
+					
 					add_name =  []
+					add_par =  []
+					add_q =  []
+					add_ans =  []
+
+					add_l_par =  []
+					add_l_q =  []
+					add_l_ans =  []
+
 					add_tag =  []
 					add_date =  []
-					add_box =  []
 
 					for f in filters:
 						for filt in filters[f]:
-							if filt == 'num_entities':
-								
-								min_cl = int(filters[f]['num_entities'][0])
-								max_cl = int(filters[f]['num_entities'][1])
-								
-								if (len(schema[dp]['entities']) <= max_cl) and (len(schema[dp]['entities']) >= min_cl):
-									add_num.append(True)
-								else:
-									add_num.append(False)
 							
-							if filt == 'entity':
-								if filters[f]['entity'] in schema[dp]['entity_types']:
-									add_entity.append(True)
-								else:
-									add_entity.append(False)
-									
-							if filt == 'length':
-								if int(filters[f]['length']) == schema[dp]['length']:
-									add_len.append(True)
-								else:
-									add_len.append(False)
-
 							if filt == 'name':
-								if filters[f]['name'] in schema[dp]['text']:
+								if filters[f]['name'] in schema[dp]['tittle']:
 									add_name.append(True)
 								else:
 									add_name.append(False)
+							
+							if filt == 'p_search':
+								size = False
+								for p in schema[dp]['paragraphs']:
+									if  filters[f][filt] in p['context']:
+										size = True
 
-							if filt == 'tag':
-								if 'tags' in schema[dp]:
-									if filters[f]['tag'] in schema[dp]['tags']:
-										add_tag.append(True)
-									else:
-										add_tag.append(False)
+								if size:
+									add_par.append(True)
 								else:
-									add_tag.append(False)
+									add_par.append(False)
+
+							if filt == 'q_search':
+								size = False
+								for q in schema[dp]['questions']:
+									if  filters[f][filt] in q['question']:
+										size = True
+
+								if size:
+									add_q.append(True)
+								else:
+									add_q.append(False)
+
+							if filt == 'a_search':
+								size = False
+								for a in schema[dp]['answers']:
+									if  filters[f][filt] in a['text']:
+										size = True
+								if size:
+									add_ans.append(True)
+								else:
+									add_ans.append(False)
+							
+							if filt == 'ans_len':
+								min_cl = int(filters[f]['ans_len'][0])
+								max_cl = int(filters[f]['ans_len'][1])
+								size = False
+								for answer in schema[dp]['answers']:
+									if (len(answer['text']) <= max_cl) and (len(answer['text']) >= min_cl):
+										size = True
+
+								if size:
+									add_l_ans.append(True)
+								else:
+									add_l_ans.append(False)
+
+							if filt == 'q_len':
+								min_cl = int(filters[f]['q_len'][0])
+								max_cl = int(filters[f]['q_len'][1])
+								size = False
+								for q in schema[dp]['questions']:
+									if (len(q['question']) <= max_cl) and (len(q['question']) >= min_cl):
+										size = True
+
+								if size:
+									add_l_q.append(True)
+								else:
+									add_l_q.append(False)
+							
+							if filt == 'par_len':
+								min_cl = int(filters[f]['par_len'][0])
+								max_cl = int(filters[f]['par_len'][1])
+								size = False
+								for p in schema[dp]['paragraphs']:
+									if (len(p['context']) <= max_cl) and (len(p['context']) >= min_cl):
+										size = True
+
+								if size:
+									add_l_par.append(True)
+								else:
+									add_l_par.append(False)
 
 							if filt == 'date':
 								d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d').date()
@@ -740,52 +820,51 @@ class spacy_ner_schema(object):
 								else:
 									add_date.append(False)
 
-							if filt == 'entity_len':
-								
-								a_min = min(filters[f]['entity_len'][0], filters[f]['entity_len'][1])
-								a_max = max(filters[f]['entity_len'][0], filters[f]['entity_len'][1])
-
-								
-								if 'entities' in schema[dp]:
-									if len(schema[dp]['entities']) == 0:
-										add_box.append(False)
-
-									for label in schema[dp]['entities']:
-										area = label['end'] - label['start'] + 1
-										
-										if (area >= a_min) and (area <= a_max):
-											add_box.append(True)
-										else:
-											add_box.append(False)
-								else:
-									add_box.append(False)
 					
-					if len(add_entity) == 0:
-						add_entity = [True]
-					if len(add_len) == 0:
-						add_len = [True]
 					if len(add_name) == 0:
 						add_name = [True]
+
+					if len(add_par) == 0:
+						add_par = [True]
+					if len(add_q) == 0:
+						add_q = [True]
+					if len(add_ans) == 0:
+						add_ans = [True]
+
+					if len(add_l_par) == 0:
+						add_l_par = [True]
+					if len(add_l_q) == 0:
+						add_l_q = [True]
+					if len(add_l_ans) == 0:
+						add_l_ans = [True]
+
 					if len(add_tag) == 0:
 						add_tag = [True]
-					if len(add_box) == 0:
-						add_box = [True]
-					if len(add_num) == 0:
-						add_num = [True]
 					if len(add_date) == 0:
 						add_date = [True]
 						
-					add = all([any(add_entity),any(add_len),any(add_name),any(add_tag),any(add_box),any(add_num),any(add_date)])
+					add = all([any(add_name), any(add_par),any(add_q),any(add_ans),any(add_l_par),any(add_l_q),any(add_l_ans),any(add_tag),any(add_date)])
 					if add:
 						status['keys'].append(dp)
 						status['filename'].append(schema[dp]['filename'])
 						status['lm'].append(schema[dp]['lm'])
-						status['dp'].append(schema[dp]['entities'])
+						status['dp'].append(schema[dp]['paragraphs'])
 
 		self.filtered = True
 		self.status = status
 		return status
 
+	def add_datapoint(self, key):
+		schema = self.get_schema()
+		dp = schema[list(schema.keys())[0]]
+		dataset = json.load(self.init.storage.load_file_global(dp['filename']))
+		local_array = dataset['data']
+		new_dp = {'title': key, 'paragraphs': [{'context': '', 'qas': [{'question': '', 'answers': []}]}]}
+		local_array.append(new_dp)
+		dataset['data'] = local_array
+		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(dataset).encode('ascii')))
+		return True
+	
 	def add_slice(self, slice_name=''):
 		status = set(self.status['keys'])
 		for val in self.schema.keys():
@@ -846,15 +925,6 @@ class spacy_ner_schema(object):
 						return self.schema[val]['slices']
 		return []
 		
-	def add_datapoint(self, key):
-		schema = self.get_schema()
-		dp = schema[list(schema.keys())[0]]
-		local_array = json.load(self.init.storage.load_file_global(dp['filename']))
-		new_datapoint = {'text': key, 'entities': []}
-		local_array.append(new_datapoint)
-		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(local_array).encode('ascii')))
-		return True
-
 	def select_slice(self, slices=[]):
 		if len(slices) == 0:
 			self.sliced = False

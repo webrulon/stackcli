@@ -449,6 +449,14 @@ def add_multifiles_api(files: list[UploadFile]):
     except:
         return {'success': False}
 
+@app.get("/get_embeddings")
+def get_embeddings_api():
+    return api.get_embeddings()
+
+@app.get("/run_semantic_search")
+def apply_semantic_search_api(prompt):
+    return api.semantic_search(prompt)
+
 @app.get("/commits_version")
 def commits_version_api(version=1,l=5, page=0):
     try:
@@ -497,19 +505,19 @@ def schema_metadata_api():
 
 @app.get("/current")
 def current_api(page=0,max_pp=12):
-    try:
-        full_json = api.status()
-        idx_i = int(page)*int(max_pp)
-        idx_f = (int(page)+1)*int(max_pp)
+    # try:
+    full_json = api.status()
+    idx_i = int(page)*int(max_pp)
+    idx_f = (int(page)+1)*int(max_pp)
 
-        current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
+    current = {'keys': [], 'lm': [], 'len': len(full_json['keys'])}
 
-        current['keys'] = full_json['keys'][idx_i:idx_f]
-        current['lm'] = full_json['lm'][idx_i:idx_f]
+    current['keys'] = full_json['keys'][idx_i:idx_f]
+    current['lm'] = full_json['lm'][idx_i:idx_f]
 
-        return current
-    except:
-        return {'keys': {}, 'lm': {}}
+    return current
+    # except:
+    #     return {'keys': {}, 'lm': {}}
 
 @app.post("/set_filter/")
 def set_filter_api(data: dict):
@@ -541,6 +549,11 @@ def pull_file_api(file, version='current'):
 def download_api():
     import io
     return StreamingResponse(io.BytesIO(api.download_files()),  media_type="application/x-zip-compressed", headers = { "Content-Disposition":f"attachment;filename=datapoints.zip"})
+
+@app.get("/export_openai")
+def export_openai_api():
+    import io
+    return StreamingResponse(io.BytesIO(api.export_openai()),  media_type="application/x-zip-compressed", headers = { "Content-Disposition":f"attachment;filename=datapoints.zip"})
 
 @app.get("/set_bounding_boxes")
 def set_bounding_boxes_api(val):
@@ -778,6 +791,11 @@ def get_slices():
     except:
         return []
 
+@app.get("/add_datapoint")
+def add_datapoint(key):
+    api.add_datapoint(key)
+    return {'success': api.commit('added new datapoint')}
+
 @app.get("/get_text")
 def get_text(key, version='current'):
     return {'text': api.get_text(key, version)}
@@ -785,6 +803,7 @@ def get_text(key, version='current'):
 @app.post("/set_text")
 def set_text(data: dict):
     api.set_text(data['key'], data['text'])
+    api.commit(f"renamed key {data['key']} with {data['text']}")
     import hashlib
     return {'newKey': hashlib.md5(data['text'].encode('utf-8')).hexdigest()}
 
@@ -816,9 +835,9 @@ def add_model(data: Rate = Body(...), file: UploadFile = File(...)):
     api.server_upload_model(model=file.file, label=data.label)
     return {'success': True}
 
-@app.get("/add_prediction")
-def add_prediction(data: dict):
-    return StreamingResponse(api.server_add_prediction(data))
+@app.post("/add_predictions")
+def add_predictions(data: dict):
+    return api.server_add_prediction(data)
 
 @app.get("/get_model")
 def get_model(data: dict):
@@ -853,8 +872,8 @@ def remove_log_experiment(data: dict):
     return api.remove_log(data['experiment'],data['log'])
 
 @app.get("/get_predictions_list")
-def get_predictions_list(prediction):
-    return api.get_predictions_list(prediction)
+def get_predictions_list(project):
+    return api.get_predictions_list(project)
 
 @app.get("/get_prediction")
 def get_prediction(prediction):

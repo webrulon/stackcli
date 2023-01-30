@@ -92,38 +92,43 @@ class projects:
         # checks run number
         if len(self.experiments) == 0:
             self.current_run = 0
-            print('NNNNNN')
             print(self.current_run)
         else:
             self.current_run = self.get_latest_run_number()
-            print('ADDDDD')
             print(self.current_run)
         
         self.logs = []
 
         # setups up empty run
-        run = {'date': datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), 'logs': self.prefix_experiments + 'logs/' + str(self.current_run).zfill(10), 'models': [], 'dataset_version': ''}
+        run = {'date': datetime.now().strftime("%m/%d/%Y, %H:%M:%S"), 'logs': self.prefix_experiments + 'logs/' + str(self.current_run).zfill(10), 'models': [], 'prediction': [], 'dataset_version': ''}
         self.experiments.append(run)
         self.projects[self.project]['runs'].append(run)
         self.init.storage.add_file_from_binary_global(self.prefix_projects + 'projects.json',io.BytesIO(json.dumps(self.projects).encode('ascii')))
         return True
-
-    def add_prediction(self, data, label = '', version = None, model = None):
+    
+    def add_prediction(self, data, label=None, version = None, model = None):
         if label is None:
             label = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+        if model is None:
+            model = 'not specified'
         pred_path = self.prefix_predictions+'/predictions/'+str(self.get_latest_prediction_number() + 1).zfill(10)
-        self.predictions[datetime.now().strftime("%m/%d/%Y, %H:%M:%S")] = {'label': label, 'version': version, 'model': model, 'path': pred_path}
-        
-        self.init.storage.add_file_from_binary_global(self.prefix_predictions + 'predictions.json',io.BytesIO(json.dumps(self.predictions).encode('ascii')))
-        self.init.storage.reset_buffer()
+        self.predictions[datetime.now().strftime("%m/%d/%Y, %H:%M:%S")] = {'version': version, 'model': model, 'path': pred_path}
         
         self.init.storage.add_file_from_binary_global(pred_path,io.BytesIO(json.dumps(data).encode('ascii')))
         self.init.storage.reset_buffer()
 
-    def add_log(self, data):
+        self.experiments[-1]['prediction'].append(pred_path)
+        json_path = self.prefix_experiments + 'experiments.json'
+        self.init.storage.add_file_from_binary_global(json_path,io.BytesIO(json.dumps(self.experiments).encode('ascii')))
+        self.init.storage.reset_buffer()
+
+    def add_log(self, data, schema = None):
         if self.logs is None:
             self.logs = []
             self.init_run()
+        
+        if not schema is None:
+            data['metadata'] = schema.get_metadata()
 
         self.logs.append(data)
         self.init.storage.add_file_from_binary_global(self.experiments[-1]['logs'],io.BytesIO(json.dumps(self.logs).encode('ascii')))
