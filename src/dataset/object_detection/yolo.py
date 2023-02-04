@@ -103,6 +103,7 @@ class yolo_schema(object):
 					dp['classes'] = []
 				dp['labels'] = labels
 				dp['n_classes'] = len(labels)
+				dp['metadata'] = {}
 				dp['resolution'] = self.get_resolution(key)
 				dp['size'] = self.init.storage.get_size_of_file_global(key)/1024
 				schema[str(k)] = dp
@@ -131,7 +132,7 @@ class yolo_schema(object):
 					map_['class'] = cl
 
 					#### TODO: get label name from some map
-					map_['label'] = 'name'
+					map_['label'] = f"label {cl}"
 
 					color_str = str(cl)[::-1] + "c" + str(cl)
 					
@@ -474,6 +475,7 @@ class yolo_schema(object):
 				dp['n_classes'] = len(dp['classes'])
 				dp['resolution'] = self.get_resolution(key_img)
 				dp['tags'] = []
+				dp['metadata'] = {}
 				dp['slices'] = []
 				dp['size'] = self.init.storage.get_size_of_file_global(key_img)
 				if '.txt' in key:
@@ -505,6 +507,7 @@ class yolo_schema(object):
 					dp['classes'] = []
 				dp['labels'] = labels
 				dp['n_classes'] = len(dp['classes'])
+				dp['metadata'] = self.get_metadata_tags(key_img)
 				dp['tags'] = self.get_tags(key_img)
 				dp['slices'] = self.get_slices_key(key_img)
 				dp['resolution'] = self.get_resolution(key_img)
@@ -539,9 +542,6 @@ class yolo_schema(object):
 		
 		schema['len'] = idx
 
-		print('\n\n\n FINAL SCHEMA \n')
-		print(schema)
-
 		# stores dp
 		self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(schema).encode('ascii')))
 		self.init.storage.reset_buffer()
@@ -557,6 +557,46 @@ class yolo_schema(object):
 					if 'tags' in self.schema[val].keys():
 						return self.schema[val]['tags']
 		return []
+
+	def get_metadata_tags(self, key):
+		keys = self.schema.keys()
+		for val in keys:
+			if type(self.schema[val]) is dict:
+				if key in self.schema[val]['key']:
+					return self.schema[val]['metadata']
+		return []
+
+	def add_metadata_tags(self, key, tag):
+		keys = self.schema.keys()
+		for val in keys:
+			if type(self.schema[val]) is dict:
+				if key in self.schema[val]['key']:
+					self.schema[val]['metadata'][tag['key']] = tag['val']
+		# stores schema file
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+
+		return self.compute_meta_data()
+
+	def remove_metadata_tags(self, key, tag):
+		keys = self.schema.keys()
+		for val in keys:
+			if type(self.schema[val]) is dict:
+				if key in self.schema[val]['key']:
+					if tag['key'] in self.schema[val]['metadata']:
+						if tag['val'] in self.schema[val]['metadata'][tag['key']]:
+							self.schema[val]['metadata'][tag['key']].remove(tag['val'])
+		# stores schema file
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+
+		return self.compute_meta_data()
 
 	def add_tag(self, key, tag):
 		for val in self.schema.keys():
@@ -829,7 +869,10 @@ class yolo_schema(object):
 			ls = self.ls
 			matches = [match for match in ls if basename+'.txt' in match]
 			self.init.storage.copy_file_global(f,goal+f.replace(dataset,''))
-			self.init.storage.copy_file_global(matches[0],goal+matches[0].replace(dataset,''))
+			try:
+				self.init.storage.copy_file_global(matches[0],goal+matches[0].replace(dataset,''))
+			except:
+				pass
 		return True
 
 	def read_all_files(self):

@@ -12,9 +12,10 @@ from src.storage.classes.local import Local
 from src.dataset.object_detection.yolo import yolo_schema
 from src.dataset.object_detection.labelbox import labelbox_schema
 
-from src.dataset.named_entity_recognition.spacy import spacy_ner_schema
+from src.dataset.named_entity_recognition.ner_spacy import spacy_ner_schema
+from src.dataset.seq_to_seq.multi_seq2seq_csv import multi_seq2seq_csv_schema
 
-from src.dataset.question_answering.squad import squad_qa_schema
+from src.dataset.question_answering.squad2 import squad2_qa_schema
 
 from pathlib import Path
 import pickle
@@ -382,10 +383,18 @@ class API(object):
                 metapath = self.schema_class.meta_path
                 json.load(self.Initializer.storage.load_file_global(metapath))
             except:
+                self.schema_clasfs.create_schema_file()
+                self.schema_class.compute_meta_data()
+        elif self.config['schema'] == 'multi_seq2seq_csv':
+            self.schema_class = multi_seq2seq_csv_schema(self.Initializer)
+            try:
+                metapath = self.schema_class.meta_path
+                json.load(self.Initializer.storage.load_file_global(metapath))
+            except:
                 self.schema_class.create_schema_file()
                 self.schema_class.compute_meta_data()
-        elif self.config['schema'] == 'squad_qa':
-            self.schema_class = squad_qa_schema(self.Initializer)
+        elif self.config['schema'] == 'squad2_qa':
+            self.schema_class = squad2_qa_schema(self.Initializer)
             try:
                 metapath = self.schema_class.meta_path
                 json.load(self.Initializer.storage.load_file_global(metapath))
@@ -875,7 +884,7 @@ class API(object):
         return {'commits': response, 'len': len(history[str(int(version))]['commits'])}
 
     def key_versions(self, key = '', l = 5, page = 0):
-        if 'ner' in self.config['schema'] or 'qa' in self.config['schema']:
+        if 'seq' in self.config['schema'] or 'ner' in self.config['schema'] or 'qa' in self.config['schema']:
             schema = self.schema_class.get_schema()
             version = schema[key]['versions']
             i_p = len(version) - int(page)*int(l)-1
@@ -979,6 +988,21 @@ class API(object):
             self.schema_class.remove_all_tags(key)
         return True
 
+    def get_metadata_tags(self, key):
+        if self.config['schema'] != 'files':
+            return self.schema_class.get_metadata_tags(key)
+        return {}
+
+    def add_metadata_tags(self, key, tag):
+        if self.config['schema'] != 'files':
+            return self.schema_class.add_metadata_tags(key, tag)
+        return {}
+
+    def remove_metadata_tag(self, key, tag):
+        if self.config['schema'] != 'files':
+            return self.schema_class.remove_metadata_tags(key, tag)
+        return {}
+    
     def label_versions(self, key, l = 5, page = 0):
         if self.config['schema'] == 'yolo':
             if not self.in_version and self.Initializer.prefix_diffs in key:
@@ -1014,7 +1038,7 @@ class API(object):
                 response[idx] = labels_hist[str(i)]
                 response[idx]['file'] = 'label'
                 idx = idx+1
-        elif self.config['schema'] == 'spacy_ner' or self.config['schema'] == 'squad_qa':
+        elif self.config['schema'] == 'spacy_ner' or self.config['schema'] == 'multi_seq2seq_csv':
             schema = self.schema_class.get_schema()
             labels_key = schema[key]['filename']
             labels_hist = get_key_history(self.Initializer, labels_key)
@@ -1156,7 +1180,7 @@ class API(object):
 
     def reset_filters(self):
         if self.config['schema'] != 'files':
-            self.schema_class.filtered = False
+            self.schema_class.reset_filters()
             self.schema_class.apply_filters()
         else:
             self.filtered = False

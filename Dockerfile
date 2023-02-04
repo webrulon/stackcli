@@ -1,13 +1,12 @@
 FROM --platform=linux/amd64 python:3.11
 WORKDIR /code
 
-
 ENV AM_I_IN_A_DOCKER_CONTAINER Yes
 
 COPY ./requirements.txt /code/requirements.txt
 RUN python3.11 -m pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-RUN apt-get update -y
+RUN apt-get update -y --allow-unauthenticated
 RUN apt install libgl1-mesa-glx -y
 RUN apt-get install 'ffmpeg'\
     'libsm6'\

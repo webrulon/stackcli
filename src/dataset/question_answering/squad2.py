@@ -15,19 +15,19 @@ from src.comm.docker_ver import *
 path_home = os.getenv('LCP_DKR')+'/' if docker_ver() else str(Path.home())
 import hashlib
 
-class squad_qa_schema(object):
+class squad2_qa_schema(object):
 	def __init__(self, init):
 		self.init = init
 		self.schema = None
 		self.metadata = None
 		self.schema_path = self.init.prefix_meta + 'schema.json'
-		self.meta_path = self.init.prefix_meta + 'squad_qa_data.json'
+		self.meta_path = self.init.prefix_meta + 'squad2_qa_data.json'
 		self.status = {}
 		self.filtered = False
 		self.sliced = False
 		self.selected_slices = False
 		self.bounding_box_thumbs = True
-		
+
 		self.in_version = False
 		self.version_keys = None
 		self.selected_version = None
@@ -51,30 +51,28 @@ class squad_qa_schema(object):
 				local_array = dataset['data']
                 
 				for el in local_array:
-					dp = {}
-					dp['filename'] = key
-					dp['key'] = el['title']
-
-					dp['paragraphs'] = el['paragraphs']
-					dp['questions'] = [] 
-					for p in dp['paragraphs']:
-						dp['questions'] += p['qas']
-					dp['answers'] = [] 
-					for q in dp['questions']:
-						dp['answers'] += q['answers'] 
-					
-					dp['lm'] = current['lm'][idx]
-
-					dp['tags'] = []
-					dp['slices'] = []
-					dp['length'] = 0
-					for p in dp['paragraphs']:
-						dp['length'] += len(p['context'])
-					dp['idx'] = idx_key
-					dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'title': el['title'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': current['lm'][idx]}]
-					schema[el['title']] = dp
-					idx_key +=1
-					k += 1
+					for p in el['paragraphs']:
+						for q in p['qas']:
+							dp = {}
+							dp['filename'] = key
+							dp['title'] = el['title']
+							dp['paragraph'] = p['context']
+							dp['question'] = q['question']
+							dp['answers'] = q['answers']
+							hash = hashlib.md5((dp['title']+dp['paragraph']+dp['question']).encode('utf-8')).hexdigest()
+							dp['key'] = hash
+							
+							dp['lm'] = current['lm'][idx]
+							dp['tags'] = []
+							dp['slices'] = []
+							dp['metadata'] = {}
+							dp['length'] = 0
+							dp['length'] = len(p['context'])
+							dp['idx'] = idx_key
+							dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': current['lm'][idx]}]
+							schema[hash] = dp
+							idx_key +=1
+							k += 1
 			idx += 1
 
 		schema['len'] = k
@@ -87,23 +85,35 @@ class squad_qa_schema(object):
 
 		return True
 
-	def get_labels(self, title, version='current'):
+	def get_labels(self, key, version='current'):
 		if version == 'current':
 			schema = self.get_schema()
-			try:
-				return schema[title]['paragraphs']
-			except:
-				for val in schema:
-					if title in val:
-						return schema[val]['paragraphs']
+			return schema[key]
 		else:
 			schema = self.get_schema()
-			diff = schema[title]['versions'][int(version)-1]['diff']
+			diff = schema[key]['versions'][int(version)-1]['diff']
+			idx = schema[key]['versions'][int(version)-1]['key']
 			dataset = json.load(self.init.storage.load_file_global(diff))
 			local_array = dataset['data']
 			for el in local_array:
-				if el['title'] == schema[title]['key']: 
-					return el['paragraphs']
+				if el['title'] == schema[idx]['title']:
+					for p in el['paragraphs']:
+						for q in p['qas']:
+							if schema[idx]['paragraph'] in p['context']:
+								if schema[idx]['question'] in q['question']: 
+									dp = {}
+									dp['filename'] = key
+									dp['title'] = el['title']
+									dp['paragraph'] = p['context']
+									dp['question'] = q['question']
+									dp['answers'] = q['answers']
+									dp['tags'] = []
+									dp['slices'] = []
+									dp['length'] = 0
+									dp['key'] = hashlib.md5((dp['title']+dp['paragraph']+dp['question']).encode('utf-8')).hexdigest()
+									dp['length'] = len(p['context'])
+
+									return dp
 			return []
 
 	def copy_schema_to_latest_version_checkpoint(self):
@@ -170,9 +180,7 @@ class squad_qa_schema(object):
 		tags = []
 		slices = []
 
-		n_paragraphs = []
 		n_answers = []
-		n_questions = []
 		n_p_len = {}
 		n_ans_len = {}
 		n_q_len = {}
@@ -184,32 +192,25 @@ class squad_qa_schema(object):
 			if type(self.schema[val]) is dict:
 				if not len(schema[val]['answers']) in n_answers:
 					n_answers.append(len(schema[val]['answers']))
-				
-				if not len(schema[val]['answers']) in n_paragraphs:
-					n_paragraphs.append(len(schema[val]['paragraphs']))
 
-				if 'slice' in schema[val].keys():
-					for sl in schema[val]['slices']:
-						if not sl in slices:
-							slices.append(sl)
-							n_slices[sl] = 1
-						else:
-							n_slices[sl] += 1
-
-				for q in schema[val]['questions']:
-					if not len(q['question']) in question_lengths:
-						question_lengths.append(len(q['question']))
-						n_q_len[len(q['question'])] = 1
+				for sl in schema[val]['slices']:
+					if not sl in slices:
+						slices.append(sl)
+						n_slices[sl] = 1
 					else:
-						n_q_len[len(q['question'])] += 1
+						n_slices[sl] += 1
 
-				for p in schema[val]['paragraphs']:
-					if not len(p['context']) in paragraph_lengths:
-						paragraph_lengths.append(len(p['context']))
-						n_p_len[len(p['context'])] = 1
-					else:
-						n_p_len[len(p['context'])] += 1
+				if not len(schema[val]['question']) in question_lengths:
+					question_lengths.append(len(schema[val]['question']))
+					n_q_len[len(schema[val]['question'])] = 1
+				else:
+					n_q_len[len(schema[val]['question'])] += 1
 
+				if not len(schema[val]['paragraph']) in paragraph_lengths:
+					paragraph_lengths.append(len(schema[val]['paragraph']))
+					n_p_len[len(schema[val]['paragraph'])] = 1
+				else:
+					n_p_len[len(schema[val]['paragraph'])] += 1
 				for a in schema[val]['answers']:
 					if not len(a['text']) in answer_lengths:
 						answer_lengths.append(len(a['text']))
@@ -217,27 +218,21 @@ class squad_qa_schema(object):
 					else:
 						n_ans_len[len(a['text'])] += 1
 				
-				if not len(schema[val]['questions']) in n_questions:
-					n_questions.append(len(schema[val]['questions']))
-				
 				if not schema[val]['lm'] in lm:
 					lm.append(schema[val]['lm'])
 					n_lm[schema[val]['lm']] = 1
 				else:
 					n_lm[schema[val]['lm']] += 1
 
-				if 'tags' in schema[val].keys():
-					for tag in schema[val]['tags']:
-						if not tag in tags:
-							tags.append(tag)
-							n_tags[tag] = 1
-						else:
-							n_tags[tag] += 1
+				for tag in schema[val]['tags']:
+					if not tag in tags:
+						tags.append(tag)
+						n_tags[tag] = 1
+					else:
+						n_tags[tag] += 1
 
 		metadata = {'answer_lengths': answer_lengths, 'question_lengths' : question_lengths, 'paragraph_lengths' : paragraph_lengths, 
-		'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_lm': n_lm, 
-		'n_tags': n_tags, 'n_paragraphs': n_paragraphs, 'n_answers': n_answers, 'n_questions': n_questions, 
-		'n_ans_len': n_ans_len, 'n_q_len': n_q_len, 'n_p_len': n_p_len}
+		'lm': lm, 'slices': slices, 'n_answers': n_answers, 'n_slices': n_slices, 'tags': tags, 'n_lm': n_lm, 'n_tags': n_tags, 'n_ans_len': n_ans_len, 'n_q_len': n_q_len, 'n_p_len': n_p_len}
 			
 		self.metadata = metadata
 
@@ -269,33 +264,28 @@ class squad_qa_schema(object):
 				local_array = dataset['data']
                 
 				for el in local_array:
-					dp = {}
-					dp['filename'] = key
-					dp['key'] = el['title']
-
-					dp['paragraphs'] = el['paragraphs']
-					dp['questions'] = []
-					for p in dp['paragraphs']:
-						dp['questions'] += p['qas']
-					dp['answers'] = [] 
-					for q in dp['questions']:
-						dp['answers'] += q['answers'] 
-
-					dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-
-					dp['tags'] = []
-					dp['slices'] = []
-					dp['length'] = 0
-					for p in dp['paragraphs']:
-						dp['length'] += len(p['context'])
-					dp['idx'] = idx_key
-					dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'title': el['title'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
-					schema[el['title']] = dp
-					idx_key +=1
-					idx += 1
-			idx += 1
-
-		keys = set(schema.keys())
+					for p in el['paragraphs']:
+						for q in p['qas']:
+							dp = {}
+							dp['filename'] = key
+							dp['title'] = el['title']
+							dp['paragraph'] = p['context']
+							dp['question'] = q['question']
+							dp['answers'] = q['answers'] 
+							hash = hashlib.md5((dp['title']+dp['paragraph']+dp['question']).encode('utf-8')).hexdigest()
+							dp['key'] = hash
+							dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
+							dp['tags'] = []
+							dp['slices'] = []
+							dp['metadata'] = {}
+							dp['length'] = 0
+							dp['length'] = len(p['context'])
+							dp['idx'] = idx_key
+							dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
+							if not hash in schema.keys():
+								schema[hash] = dp
+							idx_key +=1
+							idx += 1
 
 		for key in modified:
 			if '.json' in key:
@@ -303,55 +293,48 @@ class squad_qa_schema(object):
 				dataset = json.load(self.init.storage.load_file_global(key))
 				local_array = dataset['data']
 				for el in local_array:
-					if el['title'] in list(keys):
-						if not el['paragraphs'] == schema[el['title']]['paragraphs']:
-							dp = {}
-							dp['filename'] = key
-							dp['key'] = el['title']
+					for p in el['paragraphs']:
+						for q in p['qas']:
+							hash = hashlib.md5((el['title']+p['context']+q['question']).encode('utf-8')).hexdigest()
+							if not hash in schema.keys():
+								dp = {}
+								dp['filename'] = key
+								dp['key'] = hash
+								dp['title'] = el['title']
+								dp['paragraph'] = p['context']
+								dp['question'] = q['question']
+								dp['answers'] = q['answers'] 
+								dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
+								dp['tags'] = []
+								dp['slices'] = []
+								dp['metadata'] = {}
+								dp['length'] = 0
+								dp['length'] = len(p['context'])
+								dp['idx'] = idx_key
+								dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
+								schema[hash] = dp
+								idx_key +=1
+								idx += 1
+							else:
+								dp = {}
+								dp['filename'] = key
+								dp['key'] = hash
+								dp['title'] = el['title']
+								dp['paragraph'] = p['context']
+								dp['question'] = q['question']
+								dp['answers'] = q['answers'] 
+								dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
+								dp['tags'] = schema[hash]['tags']
+								dp['slices'] = schema[hash]['slices']
+								dp['metadata'] = schema[hash]['metadata']
+								dp['length'] = len(p['context'])
+								dp['idx'] = idx_key
+								vers = schema[hash]['versions']
+								vers.append({'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})
+								dp['versions'] = vers
+								schema[hash] = dp
 
-							dp['paragraphs'] = el['paragraphs']
-							dp['questions'] = []
-							for p in dp['paragraphs']:
-								dp['questions'] += p['qas']
-							dp['answers'] = [] 
-							for q in dp['questions']:
-								dp['answers'] += q['answers'] 
-
-							dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-							
-							dp['tags'] = []
-							dp['slices'] = []
-							dp['length'] = 0
-							for p in dp['paragraphs']:
-								dp['length'] += len(p['context'])
-							dp['idx'] = idx_key
-							list_ver = schema[el['title']]['versions']
-							list_ver.append({'key': key, 'title': el['title'], 'version': self.init.get_latest_diff_number(key),'type': 'modified', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})
-							dp['versions'] = list_ver
-							dp['idx'] = idx_key
-							schema[el['title']] = dp
-					else:
-						dp = {}
-						dp['filename'] = key
-						dp['key'] = el['title']
-
-						dp['paragraphs'] = el['paragraphs']
-						dp['questions'] = [p['qas'] for p in el['paragraphs']][0]
-						dp['answers'] = [q['answers'] for q in dp['questions']][0]
-
-						dp['lm'] = self.init.storage.load_file_metadata_global(key)['last_modified']
-						dp['tags'] = []
-						dp['slices'] = []
-						dp['length'] = 0
-						for p in dp['paragraphs']:
-							dp['length'] += len(p['context'])
-						dp['idx'] = idx_key
-						dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'title': el['title'],'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
-						schema[el['title']] = dp
-						idx += 1
-					idx_key +=1
-
-				local_keys = set([el['title'] for el in local_array])
+				local_keys = set([hashlib.md5((el['title']+p['context']+q['question']).encode('utf-8')).hexdigest() for el in local_array for p in el['paragraphs'] for q in p['qas']])
 				keys_new = set(schema.keys())
 				for dp in list(keys_new):
 					if type(schema[dp]) is dict:
@@ -369,13 +352,48 @@ class squad_qa_schema(object):
 
 		return self.compute_meta_data()
 	
+	def get_metadata_tags(self, key):
+		keys = self.get_schema().keys()
+		if key in keys:
+			if type(self.schema[key]) is dict:
+				return self.schema[key]['metadata']
+		return []
+
+	def add_metadata_tags(self, key, tag):
+		keys = self.get_schema().keys()
+		if key in keys:
+			if type(self.schema[key]) is dict:
+				self.schema[key]['metadata'][tag['key']] = tag['val']
+		# stores schema file
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+
+		return self.compute_meta_data()
+
+	def remove_metadata_tags(self, key, tag):
+		keys = self.get_schema().keys()
+		if key in keys:
+			if type(self.schema[key]) is dict:
+				if tag['key'] in self.schema[key]['metadata'].keys():
+					if tag['val'] in self.schema[key]['metadata'][tag['key']]:
+						self.schema[key]['metadata'][tag['key']].remove(tag['val'])
+		# stores schema file
+		if self.in_version:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.version_schema).encode('ascii')))
+		else:
+			self.init.storage.add_file_from_binary_global(self.schema_path,io.BytesIO(json.dumps(self.schema).encode('ascii')))
+		self.init.storage.reset_buffer()
+
+		return self.compute_meta_data()
+
 	def get_tags(self, key):
 		keys = self.get_schema().keys()
-		for val in keys:
-			if type(self.schema[val]) is dict:
-				if key == val:
-					if 'tags' in self.schema[val].keys():
-						return self.schema[val]['tags']
+		if key in keys:
+			if type(self.schema[key]) is dict:
+				return self.schema[key]['tags']
 		return []
 
 	def add_tag(self, key, tag):
@@ -400,8 +418,7 @@ class squad_qa_schema(object):
 		return self.compute_meta_data()
 
 	def add_many_tag(self, keys, tag):
-		keys = list(self.get_schema().keys())
-		for val in keys:
+		for val in list(self.get_schema().keys()):
 			if type(self.schema[val]) is dict:
 				if val in keys:
 					if 'tags' in self.schema[val].keys():
@@ -457,8 +474,7 @@ class squad_qa_schema(object):
 		return self.compute_meta_data()
 
 	def many_remove_all_tags(self, keys):
-		keys = list(self.get_schema().keys())
-		for val in keys:
+		for val in list(self.get_schema().keys()):
 			if type(self.schema[val]) is dict:
 				if val in keys:
 					if 'tags' in self.schema[val].keys():
@@ -479,9 +495,22 @@ class squad_qa_schema(object):
 		dp = schema[key]
 		dataset = json.load(self.init.storage.load_file_global(dp['filename']))
 		local_array = dataset['data']
-		for idx in range(len(local_array)):
-			if local_array[idx]['title'] == key:
-				local_array[idx]['paragraphs'] = labels_array
+		idx0 = 0
+		for t in local_array:
+			idx1 = 0
+			for p in t['paragraphs']:
+				idx2 = 0
+				for q in p['qas']:
+
+					hash = hashlib.md5((t['title']+p['context']+q['question']).encode('utf-8')).hexdigest()
+					if hash == key:
+						local_array[idx0]['paragraphs'][idx1]['context'] = labels_array['paragraph']
+						local_array[idx0]['paragraphs'][idx1]['qas'][idx2]['question'] = labels_array['question']
+						local_array[idx0]['paragraphs'][idx1]['qas'][idx2]['answers'] = labels_array['answers']
+					idx2 += 1
+				idx1 += 1
+			idx0 += 1
+
 		dataset['data'] = local_array
 		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(dataset).encode('ascii')))
 		return True
@@ -565,7 +594,7 @@ class squad_qa_schema(object):
 				status['keys'].append(dp)
 				status['filename'].append(schema[dp]['filename'])
 				status['lm'].append(schema[dp]['lm'])
-				status['dp'].append(schema[dp]['paragraphs'])
+				status['dp'].append(schema[dp])
 		self.status = status
 		return status
 
@@ -577,10 +606,45 @@ class squad_qa_schema(object):
 		local_array = []
 		mem_zip = io.BytesIO()
 
-		for key in self.status['keys']:
-			local_array.append({'title': schema[key]['key'], 'paragraphs': schema[key]['paragraphs']})
+		titles = {}
+
+		for key in self.status['dp']:
+			if schema[key]['title'] in titles:
+				titles[schema[key]['title']].append(schema[key])
+			else:
+				titles[schema[key]['title']] = [schema[key]]
+
+		paragraphs = {}
+		for title in titles:
+			paragraphs[title] = {}
+			for dp in titles[title]:
+				if dp['paragraph'] in paragraphs[title]:
+					paragraphs[title][dp['paragraph']].append(dp)
+				else:
+					paragraphs[title][dp['paragraph']] = [dp]
+
+		questions = {}
+		for title in paragraphs:
+			for paragraph in paragraphs[title]:
+				questions[title][paragraph] = {}
+				for dp in paragraphs[title]:
+					if paragraphs[title][dp]['question'] in questions[title][paragraphs]:
+						questions[title][paragraphs].append(paragraphs[title][dp])
+					else:
+						questions[title][paragraphs].append(paragraphs[title][dp])
 		
-		dataset = {'version': "stack", 'data': local_array}
+		local_array = []
+		for t in questions:
+			local_array.append({'title': t, 'paragraphs': []})
+			for p in questions:
+				arr = {'context': p, 'qas': []}
+				for q in questions[p]:
+					que = {'question': questions[p]['question'], 'answers': []}
+					for a in questions[p]['answers']:
+						que['answers'].append(a)
+					arr['qas'].append(que)
+				local_array[-1]['paragraphs'] = arr
+		dataset = {'version': "exported_from_stack", 'data': local_array}
 
 		with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
 			zf.writestr('dataset.json', json.dumps(dataset).encode('ascii'))
@@ -595,13 +659,11 @@ class squad_qa_schema(object):
 		mem_zip = io.BytesIO()
 
 		for key in self.status['keys']:
-			for p in schema[key]['paragraphs']:
-				for q in p['qas']:
-					if len(q['answers']) > 0:
-						for a in q['answers']:
-							local_array.append({'prompt': f"{p['context']}\nQuestion: {q['question']}\nAnswer: ", 'completion': a['text']})
-					else:
-						local_array.append({'prompt': f"{p['context']}\nQuestion: {q['question']}\nAnswer: ", 'completion': 'No appropriate context found'})
+			if len(schema[key]['answers']) > 0:
+				for a in schema[key]['answers']:
+					local_array.append({'prompt': f"{schema[key]['paragraph']}\nQuestion: {schema[key]['question']}\nAnswer: ", 'completion': a['text']})
+			else:
+				local_array.append({'prompt': f"{schema[key]['paragraph']}\nQuestion: {schema[key]['question']}\nAnswer: ", 'completion': 'No appropriate context found'})
 		
 		with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
 			zf.writestr('dataset.json', json.dumps(local_array).encode('ascii'))
@@ -619,9 +681,7 @@ class squad_qa_schema(object):
 			tags = []
 			slices = []
 
-			n_paragraphs = []
 			n_answers = []
-			n_questions = []
 			n_p_len = {}
 			n_ans_len = {}
 			n_q_len = {}
@@ -629,35 +689,29 @@ class squad_qa_schema(object):
 			n_tags = {}
 			n_slices = {}
 
-			for val in schema:
+			for val in self.status['keys']:
 				if type(self.schema[val]) is dict:
 					if not len(schema[val]['answers']) in n_answers:
 						n_answers.append(len(schema[val]['answers']))
-					
-					if not len(schema[val]['answers']) in n_paragraphs:
-						n_paragraphs.append(len(schema[val]['paragraphs']))
 
-					if 'slice' in schema[val].keys():
-						for sl in schema[val]['slices']:
-							if not sl in slices:
-								slices.append(sl)
-								n_slices[sl] = 1
-							else:
-								n_slices[sl] += 1
-
-					for q in schema[val]['questions']:
-						if not len(q['question']) in question_lengths:
-							question_lengths.append(len(q['question']))
-							n_q_len[len(q['question'])] = 1
+					for sl in schema[val]['slices']:
+						if not sl in slices:
+							slices.append(sl)
+							n_slices[sl] = 1
 						else:
-							n_q_len[len(q['question'])] += 1
+							n_slices[sl] += 1
 
-					for p in schema[val]['paragraphs']:
-						if not len(p['context']) in paragraph_lengths:
-							paragraph_lengths.append(len(p['context']))
-							n_p_len[len(p['context'])] = 1
-						else:
-							n_p_len[len(p['context'])] += 1
+					if not len(schema[val]['question']) in question_lengths:
+						question_lengths.append(len(schema[val]['question']))
+						n_q_len[len(schema[val]['question'])] = 1
+					else:
+						n_q_len[len(schema[val]['question'])] += 1
+
+					if not len(schema[val]['paragraph']) in paragraph_lengths:
+						paragraph_lengths.append(len(schema[val]['paragraph']))
+						n_p_len[len(schema[val]['paragraph'])] = 1
+					else:
+						n_p_len[len(schema[val]['paragraph'])] += 1
 
 					for a in schema[val]['answers']:
 						if not len(a['text']) in answer_lengths:
@@ -666,35 +720,30 @@ class squad_qa_schema(object):
 						else:
 							n_ans_len[len(a['text'])] += 1
 					
-					if not len(schema[val]['questions']) in n_questions:
-						n_questions.append(len(schema[val]['questions']))
-					
 					if not schema[val]['lm'] in lm:
 						lm.append(schema[val]['lm'])
 						n_lm[schema[val]['lm']] = 1
 					else:
 						n_lm[schema[val]['lm']] += 1
 
-					if 'tags' in schema[val].keys():
-						for tag in schema[val]['tags']:
-							if not tag in tags:
-								tags.append(tag)
-								n_tags[tag] = 1
-							else:
-								n_tags[tag] += 1
+					for tag in schema[val]['tags']:
+						if not tag in tags:
+							tags.append(tag)
+							n_tags[tag] = 1
+						else:
+							n_tags[tag] += 1
 
 			self.metadata = {'answer_lengths': answer_lengths, 'question_lengths' : question_lengths, 'paragraph_lengths' : paragraph_lengths, 
-			'lm': lm, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_lm': n_lm, 
-			'n_tags': n_tags, 'n_paragraphs': n_paragraphs, 'n_answers': n_answers, 'n_questions': n_questions, 
-			'n_ans_len': n_ans_len, 'n_q_len': n_q_len, 'n_p_len': n_p_len}
+			'lm': lm, 'n_answers': n_answers, 'slices': slices, 'n_slices': n_slices, 'tags': tags, 'n_lm': n_lm, 'n_tags': n_tags, 'n_ans_len': n_ans_len, 'n_q_len': n_q_len, 'n_p_len': n_p_len}
 		else:
 			if self.metadata is None:
 				self.metadata = json.load(self.init.storage.load_file_global(self.meta_path))
 		return self.metadata
 
 	def reset_filters(self):
+		print('reset filters')
 		self.filtered = False
-		self.metadata = None
+		self.metadata = json.load(self.init.storage.load_file_global(self.meta_path))
 		return True
 	
 	def apply_filters(self, filters={}):
@@ -704,6 +753,7 @@ class squad_qa_schema(object):
 		if len(filters) == 0:
 			self.filtered = False
 			return self.status
+
 		self.metadata = None
 
 		for dp in schema:
@@ -717,7 +767,6 @@ class squad_qa_schema(object):
 					pre_add = True
 
 				if pre_add:
-					
 					add_name =  []
 					add_par =  []
 					add_q =  []
@@ -734,29 +783,19 @@ class squad_qa_schema(object):
 						for filt in filters[f]:
 							
 							if filt == 'name':
-								if filters[f]['name'] in schema[dp]['tittle']:
+								if filters[f]['name'] in schema[dp]['title']:
 									add_name.append(True)
 								else:
 									add_name.append(False)
 							
 							if filt == 'p_search':
-								size = False
-								for p in schema[dp]['paragraphs']:
-									if  filters[f][filt] in p['context']:
-										size = True
-
-								if size:
+								if  filters[f][filt] in schema[dp]['paragraph']:
 									add_par.append(True)
 								else:
 									add_par.append(False)
 
 							if filt == 'q_search':
-								size = False
-								for q in schema[dp]['questions']:
-									if  filters[f][filt] in q['question']:
-										size = True
-
-								if size:
+								if  filters[f][filt] in schema[dp]['question']:
 									add_q.append(True)
 								else:
 									add_q.append(False)
@@ -767,6 +806,14 @@ class squad_qa_schema(object):
 									if  filters[f][filt] in a['text']:
 										size = True
 								if size:
+									add_ans.append(True)
+								else:
+									add_ans.append(False)
+
+							if filt == 'n_ans':
+								min_cl = int(filters[f]['n_ans'][0])
+								max_cl = int(filters[f]['n_ans'][1])
+								if len(schema[dp]['answers']) <= max_cl and len(schema[dp]['answers']) >= min_cl:
 									add_ans.append(True)
 								else:
 									add_ans.append(False)
@@ -788,11 +835,7 @@ class squad_qa_schema(object):
 								min_cl = int(filters[f]['q_len'][0])
 								max_cl = int(filters[f]['q_len'][1])
 								size = False
-								for q in schema[dp]['questions']:
-									if (len(q['question']) <= max_cl) and (len(q['question']) >= min_cl):
-										size = True
-
-								if size:
+								if (len(schema[dp]['question']) <= max_cl) and (len(schema[dp]['question']) >= min_cl):
 									add_l_q.append(True)
 								else:
 									add_l_q.append(False)
@@ -801,15 +844,20 @@ class squad_qa_schema(object):
 								min_cl = int(filters[f]['par_len'][0])
 								max_cl = int(filters[f]['par_len'][1])
 								size = False
-								for p in schema[dp]['paragraphs']:
-									if (len(p['context']) <= max_cl) and (len(p['context']) >= min_cl):
-										size = True
-
-								if size:
+								if (len(schema[dp]['paragraph']) <= max_cl) and (len(schema[dp]['paragraph']) >= min_cl):
 									add_l_par.append(True)
 								else:
 									add_l_par.append(False)
 
+							if filt == 'tag':
+								if 'tags' in schema[dp]:
+									if filters[f]['tag'] in schema[dp]['tags']:
+										add_tag.append(True)
+									else:
+										add_tag.append(False)
+								else:
+									add_tag.append(False)
+							
 							if filt == 'date':
 								d_min = datetime.strptime(filters[f]['date'][0], '%Y/%m-%d').date()
 								d_max = datetime.strptime(filters[f]['date'][1], '%Y/%m-%d').date()
@@ -848,7 +896,7 @@ class squad_qa_schema(object):
 						status['keys'].append(dp)
 						status['filename'].append(schema[dp]['filename'])
 						status['lm'].append(schema[dp]['lm'])
-						status['dp'].append(schema[dp]['paragraphs'])
+						status['dp'].append(schema[dp])
 
 		self.filtered = True
 		self.status = status
@@ -859,8 +907,10 @@ class squad_qa_schema(object):
 		dp = schema[list(schema.keys())[0]]
 		dataset = json.load(self.init.storage.load_file_global(dp['filename']))
 		local_array = dataset['data']
+
 		new_dp = {'title': key, 'paragraphs': [{'context': '', 'qas': [{'question': '', 'answers': []}]}]}
 		local_array.append(new_dp)
+
 		dataset['data'] = local_array
 		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(json.dumps(dataset).encode('ascii')))
 		return True

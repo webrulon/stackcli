@@ -466,10 +466,10 @@ def commits_version_api(version=1,l=5, page=0):
 
 @app.get("/key_versions")
 def key_versions_api(key='',l=5, page=0):
-    try:
-        return api.key_versions(key, l, page)
-    except:
-        return {}
+    # try:
+    return api.key_versions(key, l, page)
+    # except:
+    #     return {}
 
 @app.get("/label_versions")
 def label_versions_api(key='',l=5, page=0):
