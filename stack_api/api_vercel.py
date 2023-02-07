@@ -37,9 +37,10 @@ class Rate(BaseModel):
         return value
 
 url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
+key: str = os.environ.get("SUPABASE_ANON_KEY")
+pwd: str = os.environ.get("MONGODB_PWD")
 
-client = pymongo.MongoClient("mongodb://localhost:27017/")	
+client = pymongo.MongoClient(f"mongodb+srv://baceituno:{pwd}@cluster0.fesgwqt.mongodb.net/?retryWrites=true&w=majority")
 
 session_array = {}
 
@@ -49,8 +50,8 @@ async def create_organization(username: str, organization: str, Authorization: s
 	try:
 		token = Authorization.split(" ")[1]
 		supabase: Client = create_client(url, key)
-		supabase.auth.set_auth(token)
-	
+		session = supabase.auth.set_session(token, '')
+
 		db = client["stack"]['organizations']
 		org = {'name': organization, 'members': [username] , 'admins': [username], 'members': [username]}
 		not_found = True
@@ -66,9 +67,9 @@ async def create_organization(username: str, organization: str, Authorization: s
 @app.post("/add_to_organization")
 async def add_to_organization(username: str, organization: str, admin: bool = False, Authorization: str = Header(None)):
 	try:
-		# token = Authorization.split(" ")[1]
-		# supabase: Client = create_client(url, key)
-		# supabase.auth.set_auth(token)
+		token = Authorization.split(" ")[1]
+		supabase: Client = create_client(url, key)
+		supabase.auth.set_session(token, '')
 		
 		db = client["stack"]['organizations']
 		for dp in db.find({'name': organization }):
@@ -85,7 +86,7 @@ async def login(username: str, Authorization: str = Header(None)):
 	try:
 		token = Authorization.split(" ")[1]
 		supabase: Client = create_client(url, key)
-		user = supabase.auth.set_auth(token)
+		user = supabase.auth.set_session(token, '')
 		db = client["stack"]['organizations']
 		for dp in db.find({'members': { '$in': [username] } }):
 			org_name = dp['name']
@@ -169,7 +170,7 @@ async def add_file_to_dataset(file: UploadFile = File(...), Authorization: str =
 @app.get("/get_datapoints")
 async def get_datapoints(page, length, Authorization: str = Header(None)):
 	try:
-		token = 'bac'
+		token = Authorization.split(" ")[1]
 		if not session_array[token]['dset'].filtered:
 			current = session_array[token]['dset'].read_all_files()
 		else:

@@ -453,6 +453,8 @@ class API(object):
     
     def branch(self, branch_name='new_branch123/', branch_type='copy', branch_title=''):
 
+        if branch_name == '' or branch_name == path_home:
+            return False
 
         if not self.in_version:
             if branch_name[-1] != '/':
