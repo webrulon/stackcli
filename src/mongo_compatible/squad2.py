@@ -64,6 +64,7 @@ class squad2(object):
 					now = datetime.now()
 					dp['lm'] = now.strftime("%d/%m/%Y %H:%M:%S")
 					dp['versions'] = [{'key': hash, 'version': 0, 'type': 'added', 'diff': dp.copy(), 'date': dp['lm']}]
+					print(dp)
 					self.client.find_one_and_replace({'key': dp['key']}, dp, upsert=True)
 					
 		# stores dp
@@ -243,6 +244,7 @@ class squad2(object):
 		# queries the json
 		status = {'keys': [], 'lm': [], 'filename': [], 'dp': []}
 		for dp in self.client.find({}):
+			dp.pop('_id')
 			status['keys'].append(dp['key'])
 			status['filename'].append(dp['title'])
 			status['lm'].append(dp['lm'])
@@ -544,6 +546,7 @@ class squad2(object):
 					
 				add = all([any(add_name), any(add_par),any(add_q),any(add_ans),any(add_l_par),any(add_l_q),any(add_l_ans),any(add_tag),any(add_date)])
 				if add:
+					dp.pop('_id')
 					status['keys'].append(dp['key'])
 					status['filename'].append(dp['title'])
 					status['lm'].append(dp['lm'])
@@ -574,7 +577,7 @@ class squad2(object):
 		return True
 
 	def remove_datapoint(self, key):
-		self.client.find_one_and_delete({'key': key},upsert=True)
+		self.client.find_one_and_delete({'key': key})
 		return True
 	
 	def add_slice(self, slice_name=''):
