@@ -66,8 +66,6 @@ class squad2_qa_schema(object):
 							dp['tags'] = []
 							dp['slices'] = []
 							dp['metadata'] = {}
-							dp['length'] = 0
-							dp['length'] = len(p['context'])
 							dp['idx'] = idx_key
 							dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': current['lm'][idx]}]
 							schema[hash] = dp
@@ -109,10 +107,8 @@ class squad2_qa_schema(object):
 									dp['answers'] = q['answers']
 									dp['tags'] = []
 									dp['slices'] = []
-									dp['length'] = 0
 									dp['key'] = hashlib.md5((dp['title']+dp['paragraph']+dp['question']).encode('utf-8')).hexdigest()
-									dp['length'] = len(p['context'])
-
+									
 									return dp
 			return []
 
@@ -278,8 +274,6 @@ class squad2_qa_schema(object):
 							dp['tags'] = []
 							dp['slices'] = []
 							dp['metadata'] = {}
-							dp['length'] = 0
-							dp['length'] = len(p['context'])
 							dp['idx'] = idx_key
 							dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
 							if not hash in schema.keys():
@@ -308,8 +302,6 @@ class squad2_qa_schema(object):
 								dp['tags'] = []
 								dp['slices'] = []
 								dp['metadata'] = {}
-								dp['length'] = 0
-								dp['length'] = len(p['context'])
 								dp['idx'] = idx_key
 								dp['versions'] = [{'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
 								schema[hash] = dp
@@ -327,7 +319,6 @@ class squad2_qa_schema(object):
 								dp['tags'] = schema[hash]['tags']
 								dp['slices'] = schema[hash]['slices']
 								dp['metadata'] = schema[hash]['metadata']
-								dp['length'] = len(p['context'])
 								dp['idx'] = idx_key
 								vers = schema[hash]['versions']
 								vers.append({'key': key, 'version': self.init.get_latest_diff_number(key), 'key': hash,'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']})

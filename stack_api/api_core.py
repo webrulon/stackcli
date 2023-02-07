@@ -239,7 +239,7 @@ class API(object):
 
     def add_datapoint(self, key):
         
-        if('ner' in self.config['schema'] or 'qa' in self.config['schema']):
+        if('ner' in self.config['schema'] or 'qa' in self.config['schema']  or 'seq' in self.config['schema']):
             return self.schema_class.add_datapoint(key)
 
         return ''
@@ -1134,11 +1134,14 @@ class API(object):
             return status['keys'][idx - 1]
 
     def remove(self, key, subpath=''):
-        if len(subpath)>1:
-            if subpath[-1] != '/':
-                subpath = subpath + '/'
-        key = key.replace(self.Initializer.storage.dataset,'')
-        remove(self.Initializer,[key],subpath)
+        if self.config['schema'] == 'files' or self.config['schema'] == 'yolo':
+            if len(subpath)>1:
+                if subpath[-1] != '/':
+                    subpath = subpath + '/'
+            key = key.replace(self.Initializer.storage.dataset,'')
+            remove(self.Initializer,[key],subpath)
+        else:
+            self.schema_class.remove_key(key)
         return True
 
     def remove_commit(self, version = '-1'):

@@ -42,3 +42,4 @@ numpy
 Cython
 tzlocal
 sklearn
+supabase

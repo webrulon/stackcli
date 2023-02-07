@@ -69,7 +69,7 @@ class multi_seq2seq_csv_schema(object):
 					dp['tags'] = []
 					dp['slices'] = []
 					dp['idx'] = idx_key
-					hash = hashlib.md5(reduce(lambda a, b: a+b, dp['keys']).encode('utf-8')).hexdigest()
+					hash = hashlib.md5(reduce(lambda a, b: str(a)+str(b), dp['keys']).encode('utf-8')).hexdigest()
 					dp['versions'] = [{'key': hash, 'version': self.init.get_latest_diff_number(key), 'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': current['lm'][idx]}]
 					
 					schema[hash] = dp
@@ -192,11 +192,11 @@ class multi_seq2seq_csv_schema(object):
 				k = schema[val]['keys']
 				r = schema[val]['res']
 
-				if not len(reduce(lambda a, b: a+b, k)) in in_len:
-					in_len.append(len(reduce(lambda a, b: a+b, k)))
-					n_in_len[len(reduce(lambda a, b: a+b, k))] = 1
+				if not len(reduce(lambda a, b: str(a)+str(b), k)) in in_len:
+					in_len.append(len(reduce(lambda a, b: str(a)+str(b), k)))
+					n_in_len[len(reduce(lambda a, b: str(a)+str(b), k))] = 1
 				else:
-					n_in_len[len(reduce(lambda a, b: a+b, k))] += 1
+					n_in_len[len(reduce(lambda a, b: str(a)+str(b), k))] += 1
 
 				if not len(r) in out_len:
 					out_len.append(len(r))
@@ -260,7 +260,7 @@ class multi_seq2seq_csv_schema(object):
 					dp['tags'] = []
 					dp['slices'] = []
 					dp['idx'] = idx_key
-					hash = hashlib.md5(reduce(lambda a, b: a+b, dp['keys']).encode('utf-8')).hexdigest()
+					hash = hashlib.md5(reduce(lambda a, b: str(a)+str(b), dp['keys']).encode('utf-8')).hexdigest()
 					dp['versions'] = [{'key': hash, 'version': self.init.get_latest_diff_number(key), 'type': 'added', 'source': 'N/A', 'comment': '', 'file': 'raw', 'diff': self.init.prefix_diffs + key + '/' + str(self.init.get_latest_diff_number(key)).zfill(10), 'date': self.init.storage.load_file_metadata_global(key)['last_modified']}]
 					schema[hash] = dp
 					idx_key +=1
@@ -276,11 +276,10 @@ class multi_seq2seq_csv_schema(object):
 				local_array = pd.read_csv(dataset, encoding='unicode_escape', encoding_errors='backslashreplace', lineterminator='\n').to_dict('records')
 				for elem in local_array:
 					el = list(elem.values())
-					hash = hashlib.md5(reduce(lambda a, b: a+b, el[:-1]).encode('utf-8')).hexdigest()
+					hash = hashlib.md5(reduce(lambda a, b: str(a)+str(b), el[:-1]).encode('utf-8')).hexdigest()
 					if hash in list(keys):
 						if not el[-1] == schema[hash]['res']:
 							dp = {}
-							hash = hashlib.md5(reduce(lambda a, b: a+b, dp['keys']).encode('utf-8')).hexdigest()
 							dp['filename'] = key
 							dp['keys'] = el[:-1]
 							dp['res'] = el[-1]
@@ -312,7 +311,7 @@ class multi_seq2seq_csv_schema(object):
 				local_keys = []
 				for elem in local_array:
 					el = list(elem.values())
-					local_keys.append(hashlib.md5(reduce(lambda a, b: a+b, el[:-1]).encode('utf-8')).hexdigest())
+					local_keys.append(hashlib.md5(reduce(lambda a, b: str(a)+str(b), el[:-1]).encode('utf-8')).hexdigest())
 				local_keys = set(local_keys)
 				keys_new = set(schema.keys())
 				for dp in list(keys_new):
@@ -469,16 +468,40 @@ class multi_seq2seq_csv_schema(object):
 		local_array = pd.read_csv(dataset, encoding='unicode_escape', encoding_errors='backslashreplace', lineterminator='\n').to_dict('records')
 		found = False
 		for idx in range(len(local_array)):
-			hash = hashlib.md5(reduce(lambda a, b: a+b, list(local_array[idx].values())[:-1]).encode('utf-8')).hexdigest()
+			hash = hashlib.md5(reduce(lambda a, b: str(a)+str(b), list(local_array[idx].values())[:-1]).encode('utf-8')).hexdigest()
 			if hash == key:
 				for k in range(len(local_array[idx].keys())-1):
-					local_array[idx][list(local_array[idx].keys())[k]] = labels_array['keys'][k]
-				local_array[idx][list(local_array[idx].keys())[-1]] = labels_array['res']
+					if labels_array['keys'][k] == '':
+						local_array[idx][list(local_array[idx].keys())[k]] = '?'
+					else:
+						local_array[idx][list(local_array[idx].keys())[k]] = labels_array['keys'][k]
+				if labels_array['res'] == '':
+					local_array[idx][list(local_array[idx].keys())[-1]] = '?'
+				else:
+					local_array[idx][list(local_array[idx].keys())[-1]] = labels_array['res']
 				found = True
 		if found == False:
 			local_array.append(
 				labels_array['keys'].append(labels_array['res'])
 			)
+		
+		df = pd.DataFrame(local_array)
+		from io import StringIO
+		csv_buffer = StringIO()
+		df.to_csv(csv_buffer, index=False)
+		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(bytes(csv_buffer.getvalue(), 'utf-8')))
+		return True
+	
+	def remove_key(self, key):
+		schema = self.get_schema()
+		dp = schema[key]
+		dataset = self.init.storage.load_file_global(dp['filename'])
+		local_array = pd.read_csv(dataset, encoding='unicode_escape', encoding_errors='backslashreplace', lineterminator='\n').to_dict('records')
+		
+		for idx in range(len(local_array)):
+			hash = hashlib.md5(reduce(lambda a, b: str(a)+str(b), list(local_array[idx].values())[:-1]).encode('utf-8')).hexdigest()
+			if hash == key:
+				del local_array[idx]
 		
 		df = pd.DataFrame(local_array)
 		from io import StringIO
@@ -725,7 +748,7 @@ class multi_seq2seq_csv_schema(object):
 							if filt == 'in_len':
 								min_cl = int(filters[f]['in_len'][0])
 								max_cl = int(filters[f]['in_len'][1])
-								len_x = len(reduce(lambda a, b: a+b, schema[dp]['keys']))
+								len_x = len(reduce(lambda a, b: str(a)+str(b), schema[dp]['keys']))
 								if (len_x <= max_cl) and (len_x >= min_cl):
 									add_l_in.append(True)
 								else:
@@ -787,18 +810,30 @@ class multi_seq2seq_csv_schema(object):
 		self.status = status
 		return status
 
-	def add_datapoint(self, keys):
+	def add_datapoint(self, key):
 		schema = self.get_schema()
-		dp = schema[list(schema.keys())[-1]]
+		dp = schema[list(schema.keys())[0]]
 		dataset = self.init.storage.load_file_global(dp['filename'])
 		local_array = pd.read_csv(dataset, encoding='unicode_escape', encoding_errors='backslashreplace', lineterminator='\n').to_dict('records')
-		local_array.append(keys.append(''))
+		print(local_array)
+		copy_dict = local_array[0].copy()
+		key_list = list(copy_dict.keys())
+		arr = {}
+		for k in range(len(key_list)):
+			if k == 0:
+				if key == '':
+					arr[key_list[0]] = 'Fill in'
+				else:
+					arr[key_list[0]] = key
+			else:
+				arr[key_list[k]] = '?'
+		local_array.append(arr)
 		
-		myFile = io.BytesIO()
-		writer = csv.writer(myFile)
-		for data_list in local_array:
-			writer.writerow(data_list)
-		self.init.storage.add_file_from_binary_global(dp['filename'],myFile)
+		df = pd.DataFrame(local_array)
+		from io import StringIO
+		csv_buffer = StringIO()
+		df.to_csv(csv_buffer, index=False)
+		self.init.storage.add_file_from_binary_global(dp['filename'],io.BytesIO(bytes(csv_buffer.getvalue(), 'utf-8')))
 		return True
 	
 	def add_slice(self, slice_name=''):

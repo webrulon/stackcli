@@ -466,10 +466,10 @@ def commits_version_api(version=1,l=5, page=0):
 
 @app.get("/key_versions")
 def key_versions_api(key='',l=5, page=0):
-    # try:
-    return api.key_versions(key, l, page)
-    # except:
-    #     return {}
+    try:
+        return api.key_versions(key, l, page)
+    except:
+        return {}
 
 @app.get("/label_versions")
 def label_versions_api(key='',l=5, page=0):
@@ -667,10 +667,12 @@ def get_next_key_api(key):
 
 @app.get("/get_labels")
 def get_labels_api(filename, version='current'):
-    # try:
-    return api.get_labels(filename, version)
-    # except:
-    #     return {}
+    try:
+        labels = api.get_labels(filename, version)
+        print(labels)
+        return labels
+    except:
+        return {}
 
 @app.get("/diagnose")
 def diagnose_api():
@@ -707,7 +709,7 @@ def set_colors_api(data: dict):
     #     return {}
 
 @app.post("/set_labels")
-def set_labels_api(data: dict):
+async def set_labels_api(data: dict):
     # try:
     return api.set_labels(data)
     # except:
