@@ -243,13 +243,19 @@ class squad2(object):
 	def read_all_files(self):
 		# queries the json
 		status = {'keys': [], 'lm': [], 'filename': [], 'dp': []}
-		for dp in self.client.find({}):
+		import time
+		t0 = time.time()
+		list_ = list(self.client.find({}))
+		print(f"time variable {time.time() - t0}")
+		t0 = time.time()
+		for dp in list_:
 			dp.pop('_id')
 			status['keys'].append(dp['key'])
 			status['filename'].append(dp['title'])
 			status['lm'].append(dp['lm'])
 			status['dp'].append(dp)
 		self.status = status
+		print(f"time loop {time.time() - t0}")
 		return status
 
 	def download_files(self):
