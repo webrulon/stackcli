@@ -61,9 +61,9 @@ url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_ANON_KEY")
 pwd: str = os.environ.get("MONGODB_PWD")
 
-# client = pymongo.MongoClient(f"mongodb+srv://baceituno:{pwd}@cluster0.fesgwqt.mongodb.net/?retryWrites=true&w=majority")
+client = pymongo.MongoClient(f"mongodb+srv://baceituno:{pwd}@cluster0.fesgwqt.mongodb.net/?retryWrites=true&w=majority")
+# client = pymongo.MongoClient('mongodb://localhost:27017/')
 
-client = pymongo.MongoClient('mongodb://localhost:27017/')
 db = client['stack']
 col_dsets = db['list_of_datasets']
 dataset = squad2(db['coco'])
@@ -189,10 +189,17 @@ async def get_datapoints(location: dict, Authorization: str = Header(None)):
 		# else:
 		# 	current = session_array[token]['dset'].get_status()
 
+	import time
+
+	t0 = time.time()
+
 	if dataset.filtered:
 		current = dataset.get_status()
 	else:
 		current = dataset.read_all_files()
+	print(f"time loading current {time.time()-t0}s")
+
+	t0 = time.time()
 	page = location['page']
 	length = location['length']
 	idx_i = int(page)*int(length)
@@ -203,7 +210,9 @@ async def get_datapoints(location: dict, Authorization: str = Header(None)):
 	res['keys'] = current['keys'][idx_i:idx_f]
 	res['dp'] = current['dp'][idx_i:idx_f]
 	res['lm'] = current['lm'][idx_i:idx_f]
-	return dict(res)
+
+	print(f"time filtering current {time.time()-t0}s")
+	return res
 	# except:
 	# 	raise HTTPException(status_code=400, detail="Invalid token or Permissions")
 
@@ -216,8 +225,7 @@ async def get_labeler_datapoints(data: dict, Authorization: str = Header(None)):
 		# else:
 		# 	current = session_array[token]['dset'].get_status()
 
-	dataset.apply_filters({'labeler': data['user_id']})
-	current = dataset.get_status()
+	current = dataset.apply_filters({'labeler': data['user_id']})
 	page = data['page']
 	length = data['length']
 	idx_i = int(page)*int(length)
@@ -228,7 +236,7 @@ async def get_labeler_datapoints(data: dict, Authorization: str = Header(None)):
 	res['keys'] = current['keys'][idx_i:idx_f]
 	res['dp'] = current['dp'][idx_i:idx_f]
 	res['lm'] = current['lm'][idx_i:idx_f]
-	return dict(res)
+	return res
 	# except:
 	# 	raise HTTPException(status_code=400, detail="Invalid token or Permissions")
 
