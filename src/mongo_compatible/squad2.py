@@ -634,7 +634,7 @@ class squad2(object):
 	def get_status(self):
 		return self.status
 
-	def assing_labelers(self, labelers = []):
+	def assign_labelers(self, labelers = []):
 		unlabeled_list = []
 		for dp in self.client.find({'labeled': False}):
 			unlabeled_list.append(dp)
@@ -642,12 +642,13 @@ class squad2(object):
 
 		idx = 1
 		n_l = 0
+
 		for dp in unlabeled_list:
-			dp['labeled'] = True
+			dp['labeled'] = False
 			dp['metadata']['labeler'] = labelers[n_l]
 			self.client.find_one_and_replace({'key': dp['key']}, dp, upsert=True)
-			if idx == n_per_labeler:
-				idx == 1
+			if idx == n_per_labeler + 1:
+				idx = 1
 				n_l += 1
 			else:
 				idx+=1

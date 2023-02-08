@@ -207,8 +207,8 @@ async def get_datapoints(location: dict, Authorization: str = Header(None)):
 	# except:
 	# 	raise HTTPException(status_code=400, detail="Invalid token or Permissions")
 
-app.post("/get_labeler_datapoints")
-async def get_labeler_datapoints(data: dict):
+@app.post("/get_labeler_datapoints")
+async def get_labeler_datapoints(data: dict, Authorization: str = Header(None)):
 	# try:
 		# token = hashlib.sha256((Authorization.split(" ")[1]).encode('utf-8')).hexdigest()
 		# if not session_array[token]['dset'].filtered:
@@ -264,7 +264,7 @@ async def assign_labelers(labelers: dict):
 		# token = hashlib.sha256((Authorization.split(" ")[1]).encode('utf-8')).hexdigest()
 		# if session_array[token]['admin']:
 		# 	session_array[token]['dset'].assign_labelers(labelers)
-	dataset.assing_labelers(labelers)
+	dataset.assign_labelers(labelers['val'])
 
 	# except:
 		# raise HTTPException(status_code=400, detail="Invalid token or Permissions")
