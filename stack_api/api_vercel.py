@@ -259,15 +259,15 @@ async def set_labels(labels: dict):
 	# 	raise HTTPException(status_code=400, detail="Invalid token or Permissions")
 
 @app.post("/assign_labelers")
-async def assign_labelers(labelers: dict, Authorization: str = Header(None)):
-	try:
+async def assign_labelers(labelers: dict):
+	# try:
 		# token = hashlib.sha256((Authorization.split(" ")[1]).encode('utf-8')).hexdigest()
 		# if session_array[token]['admin']:
 		# 	session_array[token]['dset'].assign_labelers(labelers)
-		dataset.assing_labelers(labelers)
+	dataset.assing_labelers(labelers)
 
-	except:
-		raise HTTPException(status_code=400, detail="Invalid token or Permissions")
+	# except:
+		# raise HTTPException(status_code=400, detail="Invalid token or Permissions")
 
 @app.post("/add_datapoint")
 async def add_datapoint(data: dict, Authorization: str = Header(None)):
